@@ -1,4 +1,4 @@
-# FYP Online Grading Platform
+﻿# FYP Online Grading Platform
 
 A bilingual web platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It supports the complete academic workflow for FYP I and FYP II, from student-record imports and evaluator onboarding to project allocation, deadline-controlled evaluations, grade consolidation, publication, reporting, notifications, and audit tracking.
 
@@ -175,6 +175,16 @@ The complete UML documentation is available in [`docs/uml`](docs/uml/README_FR.m
 - [global class diagram (SVG)](docs/uml/class-diagram-global.svg);
 - [two-page UML document (PDF)](docs/uml/fyp-uml-diagrams.pdf);
 - editable Graphviz and PlantUML source files.
+
+### Diagram Previews
+
+#### Global Use Case Diagram
+
+![Global Use Case Diagram](docs/uml/readme-use-case-diagram.png)
+
+#### Global Class Diagram
+
+![Global Class Diagram](docs/uml/readme-class-diagram.png)
 
 The UML model follows the project domain rule that a student is an academic record, not a platform actor or authenticated user.
 

@@ -1,4 +1,4 @@
-@startuml
+﻿@startuml
 left to right direction
 skinparam backgroundColor #F7F9FC
 skinparam shadowing false
@@ -43,7 +43,7 @@ rectangle "FYP ONLINE GRADING PLATFORM" {
 
   package "2. Administration et configuration" {
     usecase "Gerer les comptes des acteurs" as UC_Users
-    usecase "Gerer les fiches etudiantes\n(sans compte)" as UC_Students
+    usecase "Gerer les fiches etudiantes" as UC_Students
     usecase "Importer et valider les fichiers Excel" as UC_Import
     usecase "Gerer les filieres" as UC_Tracks
     usecase "Gerer les projets" as UC_Projects
@@ -97,11 +97,6 @@ rectangle "FYP ONLINE GRADING PLATFORM" {
   }
 }
 
-note right of UC_Students
-  Etudiant = donnee academique.
-  Aucun compte, aucune session,
-  aucun dashboard et aucun acteur UML.
-end note
 
 Authenticated -- UC_Login
 Authenticated -- UC_Dashboard

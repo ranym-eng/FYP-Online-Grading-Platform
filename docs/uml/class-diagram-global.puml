@@ -1,27 +1,40 @@
-@startuml
-skinparam backgroundColor #F7F9FC
+﻿@startuml
+left to right direction
+skinparam backgroundColor #F8FAFC
 skinparam shadowing false
 skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
 skinparam class {
   BackgroundColor White
-  BorderColor #334155
-  ArrowColor #64748B
+  BorderColor #1F2937
+  ArrowColor #475569
+  FontName Segoe UI
+  FontSize 12
+}
+skinparam package {
+  FontName Segoe UI
+  FontStyle bold
+  BorderColor #64748B
+}
+skinparam note {
+  BackgroundColor #FFF7ED
+  BorderColor #F97316
+  FontName Segoe UI
 }
 hide circle
 hide empty methods
 
-title FYP Online Grading Platform - Diagramme global de classes
+title FYP Online Grading Platform - Diagramme global de classes metier
 
-package "Identity and academic data" #EFF6FF {
-  abstract class BaseEntity <<mapped superclass>> {
-    - id: UUID
-    - createdAt: LocalDateTime
-    - updatedAt: LocalDateTime
-    + prePersist(): void
-    + preUpdate(): void
-  }
+abstract class BaseEntity <<MappedSuperclass>> {
+  - id: UUID
+  - createdAt: LocalDateTime
+  - updatedAt: LocalDateTime
+}
 
-  class User <<entity>> {
+package "Identity and Access" #EFF6FF {
+  class User <<Entity>> {
     - universityId: String
     - fullName: String
     - email: String
@@ -31,7 +44,14 @@ package "Identity and academic data" #EFF6FF {
     - status: UserStatus
   }
 
-  class StudentProfile <<entity / academic record>> {
+  class EvaluatorProfile <<Entity>> {
+    - department: String
+    - specialization: String
+    - externalOrganization: String
+    - external: boolean
+  }
+
+  class StudentProfile <<Academic Record>> {
     - firstName: String
     - lastName: String
     - studentNumber: String
@@ -39,48 +59,41 @@ package "Identity and academic data" #EFF6FF {
     - trackCode: String
     - level: String
   }
-
-  class EvaluatorProfile <<entity>> {
-    - department: String
-    - specialization: String
-    - externalOrganization: String
-    - external: boolean
-  }
 }
 
-package "Projects, teams and assignments" #F0F9FF {
-  class Track <<entity>> {
-    - code: String
+package "Projects, Teams and Assignments" #F0F9FF {
+  class Track <<Entity>> {
+    - code: String {unique}
     - name: String
     - description: String
     - active: boolean
   }
 
-  class Project <<entity>> {
+  class Project <<Entity>> {
     - title: String
     - abstractText: String
     - academicYear: String
     - status: String
   }
 
-  class Team <<entity>> {
+  class Team <<Entity>> {
     - name: String
     - section: String
     - academicYear: String
   }
 
-  class ProjectSupervisorAssignment <<association entity>> {
+  class ProjectSupervisorAssignment <<Association Entity>> {
     - active: boolean
   }
 
-  class ProjectEvaluatorAssignment <<association entity>> {
+  class ProjectEvaluatorAssignment <<Association Entity>> {
     - evaluationType: EvaluationType
     - active: boolean
   }
 }
 
-package "Phases and extensions" #FFFBEB {
-  class Phase <<entity>> {
+package "Phase Calendar" #FFFBEB {
+  class Phase <<Entity>> {
     - type: PhaseType
     - name: String
     - academicYear: String
@@ -89,7 +102,7 @@ package "Phases and extensions" #FFFBEB {
     - status: PhaseStatus
   }
 
-  class PhaseExtensionRequest <<entity>> {
+  class PhaseExtensionRequest <<Entity>> {
     - reason: String
     - requestedDeadline: LocalDateTime
     - status: ExtensionRequestStatus
@@ -100,8 +113,8 @@ package "Phases and extensions" #FFFBEB {
   }
 }
 
-package "Forms and evaluations" #F0FDF4 {
-  class EvaluationFormTemplate <<entity>> {
+package "Evaluation Model" #F0FDF4 {
+  class EvaluationFormTemplate <<Entity>> {
     - name: String
     - evaluationType: EvaluationType
     - phaseType: PhaseType
@@ -110,7 +123,7 @@ package "Forms and evaluations" #F0FDF4 {
     - active: boolean
   }
 
-  class RubricCriterion <<entity>> {
+  class RubricCriterion <<Entity>> {
     - title: String
     - description: String
     - maxScore: double
@@ -119,7 +132,7 @@ package "Forms and evaluations" #F0FDF4 {
     - required: boolean
   }
 
-  class EvaluationSubmission <<entity>> {
+  class EvaluationSubmission <<Entity>> {
     - evaluationType: EvaluationType
     - status: SubmissionStatus
     - locked: boolean
@@ -127,27 +140,26 @@ package "Forms and evaluations" #F0FDF4 {
     - submittedAt: LocalDateTime
     - lockedAt: LocalDateTime
     - totalScore: double
-    - scorePayload: String
     - requiredScoreCount: Integer
     - completedScoreCount: Integer
     - generalComment: String
   }
 
-  class CriterionScore <<entity>> {
+  class CriterionScore <<Entity>> {
     - score: double
     - comment: String
   }
 }
 
-package "Grades, reports, notifications and audit" #F5F3FF {
-  class GradeRule <<entity>> {
+package "Grades, Reports and Traceability" #F5F3FF {
+  class GradeRule <<Entity>> {
     - phaseType: PhaseType
     - evaluationType: EvaluationType
     - weight: double
     - active: boolean
   }
 
-  class Grade <<entity>> {
+  class Grade <<Entity>> {
     - phaseType: PhaseType
     - rawScore: double
     - weightedScore: double
@@ -155,7 +167,7 @@ package "Grades, reports, notifications and audit" #F5F3FF {
     - published: boolean
   }
 
-  class Report <<entity>> {
+  class Report <<Entity>> {
     - filePath: String
     - status: ReportStatus
     - generatedAt: LocalDateTime
@@ -164,15 +176,11 @@ package "Grades, reports, notifications and audit" #F5F3FF {
     - contentSnapshot: String
   }
 
-  class EmailNotification <<entity>> {
+  class EmailNotification <<Entity>> {
     - recipient: String
     - recipientUserId: UUID
     - subject: String
-    - body: String
-    - attachmentPath: String
-    - sentAt: LocalDateTime
     - status: String
-    - failureReason: String
     - category: String
     - severity: String
     - deduplicationKey: String
@@ -180,7 +188,7 @@ package "Grades, reports, notifications and audit" #F5F3FF {
     - readAt: LocalDateTime
   }
 
-  class AuditLog <<entity>> {
+  class AuditLog <<Entity>> {
     - userId: UUID
     - action: String
     - entityType: String
@@ -192,7 +200,7 @@ package "Grades, reports, notifications and audit" #F5F3FF {
   }
 }
 
-package "Business enumerations" #F8FAFC {
+package "Business Enumerations" #F8FAFC {
   enum UserRole {
     ADMIN
     SUPERVISOR
@@ -242,156 +250,56 @@ package "Business enumerations" #F8FAFC {
   }
 }
 
-package "Core business services" #F1F5F9 {
-  class AuthController <<REST controller>> {
-    + login()
-    + logout()
-    + refreshToken()
-    + changePassword()
-  }
-  class CurrentUserService <<service>> {
-    + requireUser(token): User
-    + requireAdmin(token): User
-  }
-  class UserService <<service>> {
-    + create(request): User
-    + update(id, request): User
-    + changeStatus(id, status): User
-  }
-  class PhaseWindowService <<service>> {
-    + access(phase, user): PhaseAccessResponse
-    + effectiveDeadline(phase, user): LocalDateTime
-  }
-  class PhaseExtensionService <<service>> {
-    + create(actor, request)
-    + approve(admin, id, decision)
-    + reject(admin, id, decision)
-  }
-  class EvaluationService <<service>> {
-    + saveDraft(request, actor)
-    + submit(id, actor)
-    + validateAssignment()
-    + validateCompleteness()
-  }
-  class EvaluationSheetCalculator <<domain service>> {
-    + calculate(type, scores): double
-    + validate(scores): void
-  }
-  class GradingService <<service>> {
-    + calculate(project, phase): Grade
-    + publish(id): Grade
-  }
-  class ReportingService <<service>> {
-    + generatePhaseReport()
-    + generateFinalReport()
-    + send(reportId)
-  }
-  class DeadlineReminderService <<scheduled service>> {
-    + generateDueReminders(): int
-  }
-  class InAppNotificationService <<service>> {
-    + create(user, subject, body, ...)
-    + markRead(id)
-  }
-  class EmailDeliveryService <<service>> {
-    + send(to, subject, body, attachment)
-    + retry(id)
-  }
-  class AuditService <<service>> {
-    + record(userId, action, entity, ...)
-  }
-}
 
-BaseEntity <|-- User
-BaseEntity <|-- StudentProfile
-BaseEntity <|-- EvaluatorProfile
-BaseEntity <|-- Track
-BaseEntity <|-- Project
-BaseEntity <|-- Team
-BaseEntity <|-- ProjectSupervisorAssignment
-BaseEntity <|-- ProjectEvaluatorAssignment
-BaseEntity <|-- Phase
-BaseEntity <|-- PhaseExtensionRequest
-BaseEntity <|-- EvaluationFormTemplate
-BaseEntity <|-- RubricCriterion
-BaseEntity <|-- EvaluationSubmission
-BaseEntity <|-- CriterionScore
-BaseEntity <|-- GradeRule
-BaseEntity <|-- Grade
-BaseEntity <|-- Report
-BaseEntity <|-- EmailNotification
-BaseEntity <|-- AuditLog
+note bottom of BaseEntity
+  Every persistent entity extends BaseEntity.
+  The inheritance is documented once to keep
+  the global diagram readable.
+end note
 
-User "1" -- "0..1" EvaluatorProfile : profile
+User "1" -- "0..1" EvaluatorProfile : account profile
+User ..> UserRole
+User ..> UserStatus
+
 Track "1" -- "0..*" Project : classifies
 Project "1" -- "0..1" Team : assigned team
-Team "0..*" o-- "0..*" StudentProfile : members
+Team "0..*" o-- "0..*" StudentProfile : academic members
 Project "1" *-- "0..*" ProjectSupervisorAssignment
-EvaluatorProfile "1" -- "0..*" ProjectSupervisorAssignment : supervisor
 Project "1" *-- "0..*" ProjectEvaluatorAssignment
+EvaluatorProfile "1" -- "0..*" ProjectSupervisorAssignment : supervisor
 EvaluatorProfile "1" -- "0..*" ProjectEvaluatorAssignment : evaluator
+ProjectEvaluatorAssignment ..> EvaluationType
 
 Phase "1" *-- "0..*" PhaseExtensionRequest
 User "1" -- "0..*" PhaseExtensionRequest : requester
 User "0..1" -- "0..*" PhaseExtensionRequest : reviewer
+Phase ..> PhaseType
+Phase ..> PhaseStatus
+PhaseExtensionRequest ..> ExtensionRequestStatus
 
-EvaluationFormTemplate "1" *-- "1..*" RubricCriterion
+EvaluationFormTemplate "1" *-- "1..*" RubricCriterion : criteria
 Project "1" -- "0..*" EvaluationSubmission
 Phase "1" -- "0..*" EvaluationSubmission
 EvaluationFormTemplate "1" -- "0..*" EvaluationSubmission
-EvaluatorProfile "1" -- "0..*" EvaluationSubmission
-EvaluationSubmission "1" *-- "0..*" CriterionScore
-RubricCriterion "1" -- "0..*" CriterionScore
+EvaluatorProfile "1" -- "0..*" EvaluationSubmission : submitted by
+EvaluationSubmission "1" *-- "0..*" CriterionScore : scores
+RubricCriterion "1" -- "0..*" CriterionScore : scored criterion
+ProjectEvaluatorAssignment ..> EvaluationSubmission : authorizes
+EvaluationFormTemplate ..> EvaluationType
+EvaluationFormTemplate ..> PhaseType
+EvaluationSubmission ..> EvaluationType
+EvaluationSubmission ..> SubmissionStatus
 
 Project "1" -- "0..*" Grade
 Phase "1" -- "0..*" Grade
 Project "1" -- "0..*" Report
 Phase "0..1" -- "0..*" Report
+GradeRule ..> Grade : calculation rule
+GradeRule ..> EvaluationType
+GradeRule ..> PhaseType
+Grade ..> PhaseType
+Report ..> ReportStatus
+
 User .. EmailNotification : recipientUserId
 User .. AuditLog : userId
-
-User --> UserRole
-User --> UserStatus
-Phase --> PhaseType
-Phase --> PhaseStatus
-ProjectEvaluatorAssignment --> EvaluationType
-EvaluationFormTemplate --> EvaluationType
-EvaluationFormTemplate --> PhaseType
-EvaluationSubmission --> EvaluationType
-EvaluationSubmission --> SubmissionStatus
-PhaseExtensionRequest --> ExtensionRequestStatus
-GradeRule --> EvaluationType
-GradeRule --> PhaseType
-Grade --> PhaseType
-Report --> ReportStatus
-
-AuthController ..> User
-AuthController ..> CurrentUserService
-CurrentUserService ..> User
-UserService ..> User
-PhaseWindowService ..> Phase
-PhaseWindowService ..> PhaseExtensionRequest
-PhaseExtensionService ..> PhaseExtensionRequest
-PhaseExtensionService ..> EmailDeliveryService
-EvaluationService ..> EvaluationSubmission
-EvaluationService ..> EvaluationSheetCalculator
-EvaluationService ..> PhaseWindowService
-EvaluationService ..> ProjectEvaluatorAssignment
-GradingService ..> EvaluationSubmission
-GradingService ..> GradeRule
-GradingService ..> Grade
-ReportingService ..> Grade
-ReportingService ..> Report
-ReportingService ..> EmailDeliveryService
-DeadlineReminderService ..> PhaseWindowService
-DeadlineReminderService ..> InAppNotificationService
-InAppNotificationService ..> EmailNotification
-EmailDeliveryService ..> EmailNotification
-AuditService ..> AuditLog
-
-note right of StudentProfile
-  StudentProfile is academic data only.
-  It has no User association, role,
-  account, token, session or dashboard.
-end note
 @enduml

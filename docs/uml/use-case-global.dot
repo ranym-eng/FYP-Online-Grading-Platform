@@ -1,4 +1,4 @@
-digraph FYP_Use_Cases {
+﻿digraph FYP_Use_Cases {
   graph [
     rankdir=LR,
     compound=true,
@@ -61,7 +61,7 @@ digraph FYP_Use_Cases {
       style="rounded,filled";
       fillcolor="#F8FAFC";
       uc_users [shape=ellipse, label="Gerer les comptes\ndes acteurs"];
-      uc_students [shape=ellipse, label="Gerer les fiches etudiantes\n(sans compte)"];
+      uc_students [shape=ellipse, label="Gerer les fiches etudiantes"];
       uc_import [shape=ellipse, label="Importer et valider\nles fichiers Excel"];
       uc_tracks [shape=ellipse, label="Gerer les filieres\nEIC / CSN / CSP / PSE"];
       uc_projects [shape=ellipse, label="Gerer les projets"];

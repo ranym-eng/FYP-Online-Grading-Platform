@@ -165,7 +165,7 @@
 <!-- actor_admin&#45;&gt;actor_base -->
 <g id="edge5" class="edge">
 <title>actor_admin&#45;&gt;actor_base</title>
-<path fill="none" stroke="#64748b" d="M63.94,-472.4C75.08,-557.52 121.07,-909 121.07,-909 121.07,-909 152.07,-2062 152.07,-2062 152.07,-2062 219.99,-2170 219.99,-2170 219.99,-2170 462.21,-2176.3 580.09,-2179.36"/>
+<path fill="none" stroke="#64748b" d="M63.94,-472.4C75.08,-557.52 121.07,-909 121.07,-909 121.07,-909 152.07,-2072 152.07,-2072 152.07,-2072 219.99,-2170 219.99,-2170 219.99,-2170 462.21,-2176.3 580.09,-2179.36"/>
 <polygon fill="none" stroke="#64748b" points="579.96,-2181.99 587.53,-2179.56 580.1,-2176.74 579.96,-2181.99"/>
 </g>
 <!-- uc_users -->
@@ -183,26 +183,25 @@
 <!-- uc_students -->
 <g id="node15" class="node">
 <title>uc_students</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="644.05" cy="-358" rx="95.42" ry="22.63"/>
-<text xml:space="preserve" text-anchor="middle" x="644.05" y="-361" font-family="Arial" font-size="10.00">Gerer les fiches etudiantes</text>
-<text xml:space="preserve" text-anchor="middle" x="644.05" y="-349" font-family="Arial" font-size="10.00">(sans compte)</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="644.05" cy="-376" rx="81.15" ry="18"/>
+<text xml:space="preserve" text-anchor="middle" x="644.05" y="-373" font-family="Arial" font-size="10.00">Gerer les fiches etudiantes</text>
 </g>
 <!-- actor_admin&#45;&gt;uc_students -->
 <g id="edge12" class="edge">
 <title>actor_admin&#45;&gt;uc_students</title>
-<path fill="none" stroke="#64748b" d="M65.31,-435.49C82.44,-351.46 152.07,-10 152.07,-10 152.07,-10 514.07,-10 514.07,-10 514.07,-10 545.07,-284 545.07,-284 545.07,-284 585.04,-314.18 613.92,-336"/>
+<path fill="none" stroke="#64748b" d="M65.31,-435.49C82.44,-351.46 152.07,-10 152.07,-10 152.07,-10 514.07,-10 514.07,-10 514.07,-10 545.07,-296 545.07,-296 545.07,-296 592.44,-334.68 621.31,-358.25"/>
 </g>
 <!-- uc_import -->
 <g id="node16" class="node">
 <title>uc_import</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="999.73" cy="-537" rx="68.3" ry="22.63"/>
-<text xml:space="preserve" text-anchor="middle" x="999.73" y="-540" font-family="Arial" font-size="10.00">Importer et valider</text>
-<text xml:space="preserve" text-anchor="middle" x="999.73" y="-528" font-family="Arial" font-size="10.00">les fichiers Excel</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="999.73" cy="-565" rx="68.3" ry="22.63"/>
+<text xml:space="preserve" text-anchor="middle" x="999.73" y="-568" font-family="Arial" font-size="10.00">Importer et valider</text>
+<text xml:space="preserve" text-anchor="middle" x="999.73" y="-556" font-family="Arial" font-size="10.00">les fichiers Excel</text>
 </g>
 <!-- actor_admin&#45;&gt;uc_import -->
 <g id="edge13" class="edge">
 <title>actor_admin&#45;&gt;uc_import</title>
-<path fill="none" stroke="#64748b" d="M63.94,-472.4C75.08,-557.52 121.07,-909 121.07,-909 121.07,-909 152.07,-1392 152.07,-1392 152.07,-1392 219.99,-2133 219.99,-2133 219.99,-2133 436.28,-2133 436.28,-2133 436.28,-2133 820.82,-2085 820.82,-2085 820.82,-2085 859.82,-714 859.82,-714 859.82,-714 944.18,-606.51 981.42,-559.06"/>
+<path fill="none" stroke="#64748b" d="M63.94,-472.4C75.08,-557.52 121.07,-909 121.07,-909 121.07,-909 152.07,-1392 152.07,-1392 152.07,-1392 219.99,-2133 219.99,-2133 219.99,-2133 436.28,-2133 436.28,-2133 436.28,-2133 820.82,-2085 820.82,-2085 820.82,-2085 859.82,-714 859.82,-714 859.82,-714 939.59,-628.43 978.23,-586.99"/>
 </g>
 <!-- uc_tracks -->
 <g id="node17" class="node">
@@ -242,25 +241,25 @@
 <!-- uc_assign_sup -->
 <g id="node20" class="node">
 <title>uc_assign_sup</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="644.05" cy="-256" rx="75.46" ry="18"/>
-<text xml:space="preserve" text-anchor="middle" x="644.05" y="-253" font-family="Arial" font-size="10.00">Affecter les superviseurs</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="644.05" cy="-268" rx="75.46" ry="18"/>
+<text xml:space="preserve" text-anchor="middle" x="644.05" y="-265" font-family="Arial" font-size="10.00">Affecter les superviseurs</text>
 </g>
 <!-- actor_admin&#45;&gt;uc_assign_sup -->
 <g id="edge17" class="edge">
 <title>actor_admin&#45;&gt;uc_assign_sup</title>
-<path fill="none" stroke="#64748b" d="M65.25,-435.56C82.29,-351.07 152.07,-5 152.07,-5 152.07,-5 514.07,-5 514.07,-5 514.07,-5 545.07,-144 545.07,-144 545.07,-144 599.61,-206.35 627.31,-238.01"/>
+<path fill="none" stroke="#64748b" d="M65.25,-435.56C82.29,-351.07 152.07,-5 152.07,-5 152.07,-5 514.07,-5 514.07,-5 514.07,-5 545.07,-144 545.07,-144 545.07,-144 601.63,-215.58 628.8,-249.97"/>
 </g>
 <!-- uc_assign_eval -->
 <g id="node21" class="node">
 <title>uc_assign_eval</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="644.05" cy="-510" rx="85.2" ry="22.63"/>
-<text xml:space="preserve" text-anchor="middle" x="644.05" y="-513" font-family="Arial" font-size="10.00">Affecter les evaluateurs</text>
-<text xml:space="preserve" text-anchor="middle" x="644.05" y="-501" font-family="Arial" font-size="10.00">par type d&#39;evaluation</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="644.05" cy="-536" rx="85.2" ry="22.63"/>
+<text xml:space="preserve" text-anchor="middle" x="644.05" y="-539" font-family="Arial" font-size="10.00">Affecter les evaluateurs</text>
+<text xml:space="preserve" text-anchor="middle" x="644.05" y="-527" font-family="Arial" font-size="10.00">par type d&#39;evaluation</text>
 </g>
 <!-- actor_admin&#45;&gt;uc_assign_eval -->
 <g id="edge18" class="edge">
 <title>actor_admin&#45;&gt;uc_assign_eval</title>
-<path fill="none" stroke="#64748b" d="M63.94,-472.4C75.08,-557.52 121.07,-909 121.07,-909 121.07,-909 219.99,-1716 219.99,-1716 219.99,-1716 514.07,-1716 514.07,-1716 514.07,-1716 545.07,-714 545.07,-714 545.07,-714 606.68,-585.72 632.19,-532.61"/>
+<path fill="none" stroke="#64748b" d="M63.94,-472.4C75.08,-557.52 121.07,-909 121.07,-909 121.07,-909 219.99,-1716 219.99,-1716 219.99,-1716 514.07,-1716 514.07,-1716 514.07,-1716 545.07,-714 545.07,-714 545.07,-714 603.98,-606.98 630.44,-558.91"/>
 </g>
 <!-- uc_phases -->
 <g id="node22" class="node">
@@ -284,7 +283,7 @@
 <!-- actor_admin&#45;&gt;uc_forms -->
 <g id="edge20" class="edge">
 <title>actor_admin&#45;&gt;uc_forms</title>
-<path fill="none" stroke="#64748b" d="M73.37,-435.44C97.91,-396.95 152.07,-312 152.07,-312 152.07,-312 219.99,-234 219.99,-234 219.99,-234 246.14,-226.73 273.52,-219.12"/>
+<path fill="none" stroke="#64748b" d="M73.18,-435.47C97.64,-396.58 152.07,-310 152.07,-310 152.07,-310 219.99,-234 219.99,-234 219.99,-234 246.14,-226.73 273.52,-219.12"/>
 </g>
 <!-- uc_rules -->
 <g id="node24" class="node">
@@ -319,7 +318,7 @@
 <!-- actor_admin&#45;&gt;uc_audit -->
 <g id="edge23" class="edge">
 <title>actor_admin&#45;&gt;uc_audit</title>
-<path fill="none" stroke="#64748b" d="M69.57,-435.72C91.73,-385.3 152.07,-248 152.07,-248 152.07,-248 219.99,-169 219.99,-169 219.99,-169 250.38,-161.61 279.93,-154.43"/>
+<path fill="none" stroke="#64748b" d="M69.57,-435.63C91.73,-384.97 152.07,-247 152.07,-247 152.07,-247 219.99,-169 219.99,-169 219.99,-169 250.38,-161.61 279.93,-154.43"/>
 </g>
 <!-- uc_api -->
 <g id="node27" class="node">
@@ -348,14 +347,14 @@
 <!-- uc_consolidate -->
 <g id="node44" class="node">
 <title>uc_consolidate</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="644.05" cy="-834" rx="79.31" ry="22.63"/>
-<text xml:space="preserve" text-anchor="middle" x="644.05" y="-837" font-family="Arial" font-size="10.00">Calculer et consolider</text>
-<text xml:space="preserve" text-anchor="middle" x="644.05" y="-825" font-family="Arial" font-size="10.00">les notes par phase</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="644.05" cy="-847" rx="79.31" ry="22.63"/>
+<text xml:space="preserve" text-anchor="middle" x="644.05" y="-850" font-family="Arial" font-size="10.00">Calculer et consolider</text>
+<text xml:space="preserve" text-anchor="middle" x="644.05" y="-838" font-family="Arial" font-size="10.00">les notes par phase</text>
 </g>
 <!-- actor_admin&#45;&gt;uc_consolidate -->
 <g id="edge26" class="edge">
 <title>actor_admin&#45;&gt;uc_consolidate</title>
-<path fill="none" stroke="#64748b" d="M66.53,-435.84C85.51,-366.87 152.07,-125 152.07,-125 152.07,-125 219.99,-44 219.99,-44 219.99,-44 514.07,-44 514.07,-44 514.07,-44 545.07,-648 545.07,-648 545.07,-648 604.87,-761.53 631.04,-811.19"/>
+<path fill="none" stroke="#64748b" d="M66.53,-435.84C85.51,-366.87 152.07,-125 152.07,-125 152.07,-125 219.99,-44 219.99,-44 219.99,-44 514.07,-44 514.07,-44 514.07,-44 545.07,-648 545.07,-648 545.07,-648 606.08,-771.9 631.81,-824.17"/>
 </g>
 <!-- uc_finalize -->
 <g id="node47" class="node">
@@ -407,16 +406,16 @@
 <!-- actor_supervisor -->
 <g id="node4" class="node">
 <title>actor_supervisor</title>
-<path fill="#dcfce7" stroke="#334155" stroke-width="1.2" d="M83.21,-1807C83.21,-1807 37.85,-1807 37.85,-1807 31.85,-1807 25.85,-1801 25.85,-1795 25.85,-1795 25.85,-1783 25.85,-1783 25.85,-1777 31.85,-1771 37.85,-1771 37.85,-1771 83.21,-1771 83.21,-1771 89.21,-1771 95.21,-1777 95.21,-1783 95.21,-1783 95.21,-1795 95.21,-1795 95.21,-1801 89.21,-1807 83.21,-1807"/>
-<text xml:space="preserve" text-anchor="middle" x="60.53" y="-1792" font-family="Arial" font-size="10.00">&lt;&lt;acteur&gt;&gt;</text>
-<text xml:space="preserve" text-anchor="middle" x="60.53" y="-1780" font-family="Arial" font-size="10.00">Superviseur</text>
+<path fill="#dcfce7" stroke="#334155" stroke-width="1.2" d="M83.21,-1897C83.21,-1897 37.85,-1897 37.85,-1897 31.85,-1897 25.85,-1891 25.85,-1885 25.85,-1885 25.85,-1873 25.85,-1873 25.85,-1867 31.85,-1861 37.85,-1861 37.85,-1861 83.21,-1861 83.21,-1861 89.21,-1861 95.21,-1867 95.21,-1873 95.21,-1873 95.21,-1885 95.21,-1885 95.21,-1891 89.21,-1897 83.21,-1897"/>
+<text xml:space="preserve" text-anchor="middle" x="60.53" y="-1882" font-family="Arial" font-size="10.00">&lt;&lt;acteur&gt;&gt;</text>
+<text xml:space="preserve" text-anchor="middle" x="60.53" y="-1870" font-family="Arial" font-size="10.00">Superviseur</text>
 </g>
 <!-- actor_supervisor&#45;&gt;actor_eval -->
 <g id="edge1" class="edge">
 <title>actor_supervisor&#45;&gt;actor_eval</title>
-<path fill="none" stroke="#64748b" d="M71.69,-1807.45C106.66,-1871.02 219.99,-2077 219.99,-2077 219.99,-2077 247.47,-2083.68 275.58,-2090.52"/>
+<path fill="none" stroke="#64748b" d="M76.16,-1897.27C115.39,-1946.29 219.99,-2077 219.99,-2077 219.99,-2077 247.47,-2083.68 275.58,-2090.52"/>
 <polygon fill="none" stroke="#64748b" points="274.92,-2093.06 282.83,-2092.28 276.16,-2087.96 274.92,-2093.06"/>
-<text xml:space="preserve" text-anchor="middle" x="178.53" y="-2049.6" font-family="Arial" font-size="8.50">generalisation</text>
+<text xml:space="preserve" text-anchor="middle" x="178.53" y="-2058.96" font-family="Arial" font-size="8.50">generalisation</text>
 </g>
 <!-- uc_supervisor_forms -->
 <g id="node30" class="node">
@@ -428,7 +427,7 @@
 <!-- actor_supervisor&#45;&gt;uc_supervisor_forms -->
 <g id="edge35" class="edge">
 <title>actor_supervisor&#45;&gt;uc_supervisor_forms</title>
-<path fill="none" stroke="#64748b" d="M69.25,-1770.41C91.15,-1717.69 152.07,-1571 152.07,-1571 152.07,-1571 219.99,-1438 219.99,-1438 219.99,-1438 250.61,-1427.37 280.26,-1417.06"/>
+<path fill="none" stroke="#64748b" d="M67.47,-1860.56C87.62,-1798.05 152.07,-1598 152.07,-1598 152.07,-1598 219.99,-1446 219.99,-1446 219.99,-1446 255.42,-1431.23 286.97,-1418.08"/>
 </g>
 <!-- actor_faculty -->
 <g id="node5" class="node">
@@ -446,26 +445,26 @@
 <!-- uc_report_forms -->
 <g id="node31" class="node">
 <title>uc_report_forms</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="336.14" cy="-1552" rx="74.2" ry="22.63"/>
-<text xml:space="preserve" text-anchor="middle" x="336.14" y="-1555" font-family="Arial" font-size="10.00">Evaluer les rapports</text>
-<text xml:space="preserve" text-anchor="middle" x="336.14" y="-1543" font-family="Arial" font-size="10.00">FYP I et FYP II</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="336.14" cy="-1548" rx="74.2" ry="22.63"/>
+<text xml:space="preserve" text-anchor="middle" x="336.14" y="-1551" font-family="Arial" font-size="10.00">Evaluer les rapports</text>
+<text xml:space="preserve" text-anchor="middle" x="336.14" y="-1539" font-family="Arial" font-size="10.00">FYP I et FYP II</text>
 </g>
 <!-- actor_faculty&#45;&gt;uc_report_forms -->
 <g id="edge36" class="edge">
 <title>actor_faculty&#45;&gt;uc_report_forms</title>
-<path fill="none" stroke="#64748b" d="M98.48,-2115.46C140.98,-2094.13 204.99,-2062 204.99,-2062 204.99,-2062 219.99,-1588 219.99,-1588 219.99,-1588 252.49,-1577.84 282.96,-1568.31"/>
+<path fill="none" stroke="#64748b" d="M104.19,-2115.57C146.48,-2097.29 204.99,-2072 204.99,-2072 204.99,-2072 219.99,-1588 219.99,-1588 219.99,-1588 254.68,-1575.95 285.97,-1565.08"/>
 </g>
 <!-- uc_oral_forms -->
 <g id="node32" class="node">
 <title>uc_oral_forms</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="336.14" cy="-1471" rx="88.36" ry="22.63"/>
-<text xml:space="preserve" text-anchor="middle" x="336.14" y="-1474" font-family="Arial" font-size="10.00">Evaluer les soutenances</text>
-<text xml:space="preserve" text-anchor="middle" x="336.14" y="-1462" font-family="Arial" font-size="10.00">FYP I et FYP II</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="336.14" cy="-1479" rx="88.36" ry="22.63"/>
+<text xml:space="preserve" text-anchor="middle" x="336.14" y="-1482" font-family="Arial" font-size="10.00">Evaluer les soutenances</text>
+<text xml:space="preserve" text-anchor="middle" x="336.14" y="-1470" font-family="Arial" font-size="10.00">FYP I et FYP II</text>
 </g>
 <!-- actor_faculty&#45;&gt;uc_oral_forms -->
 <g id="edge37" class="edge">
 <title>actor_faculty&#45;&gt;uc_oral_forms</title>
-<path fill="none" stroke="#64748b" d="M66.28,-2115.59C92.64,-2013.27 219.99,-1519 219.99,-1519 219.99,-1519 256.43,-1503.81 288.3,-1490.52"/>
+<path fill="none" stroke="#64748b" d="M66.41,-2115.42C80.62,-2061.21 121.07,-1907 121.07,-1907 121.07,-1907 219.99,-1515 219.99,-1515 219.99,-1515 249.46,-1505.79 278.58,-1496.68"/>
 </g>
 <!-- actor_industry -->
 <g id="node6" class="node">
@@ -490,7 +489,7 @@
 <!-- actor_industry&#45;&gt;uc_demo_form -->
 <g id="edge38" class="edge">
 <title>actor_industry&#45;&gt;uc_demo_form</title>
-<path fill="none" stroke="#64748b" d="M80,-2216.47C118.74,-2177.58 204.99,-2091 204.99,-2091 204.99,-2091 219.99,-2021 219.99,-2021 219.99,-2021 304.07,-1728.94 328.53,-1643.94"/>
+<path fill="none" stroke="#64748b" d="M80.88,-2216.66C120.04,-2179.54 204.99,-2099 204.99,-2099 204.99,-2099 219.99,-2021 219.99,-2021 219.99,-2021 304.07,-1728.94 328.53,-1643.94"/>
 </g>
 <!-- actor_coordinator -->
 <g id="node7" class="node">
@@ -590,30 +589,30 @@
 <!-- uc_students&#45;&gt;uc_import -->
 <g id="edge45" class="edge">
 <title>uc_students&#45;&gt;uc_import</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M685.97,-378.71C752.5,-412.38 883.67,-478.77 953.11,-513.91"/>
-<polygon fill="#64748b" stroke="#64748b" points="959.77,-517.28 951.56,-516.91 957.52,-516.14 953.08,-513.9 953.08,-513.9 953.08,-513.9 957.52,-516.14 954.61,-510.89 959.77,-517.28"/>
-<text xml:space="preserve" text-anchor="middle" x="797.42" y="-444.68" font-family="Arial" font-size="8.50">&lt;&lt;extend&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M676.75,-392.94C740.06,-426.77 882.27,-502.77 954.63,-541.44"/>
+<polygon fill="#64748b" stroke="#64748b" points="961.18,-544.94 952.98,-544.38 958.95,-543.74 954.57,-541.4 954.57,-541.4 954.57,-541.4 958.95,-543.74 956.16,-538.42 961.18,-544.94"/>
+<text xml:space="preserve" text-anchor="middle" x="797.42" y="-467.38" font-family="Arial" font-size="8.50">&lt;&lt;extend&gt;&gt;</text>
 </g>
 <!-- uc_projects&#45;&gt;uc_assign_sup -->
 <g id="edge47" class="edge">
 <title>uc_projects&#45;&gt;uc_assign_sup</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M378.32,-381.37C405.56,-373.68 436.28,-365 436.28,-365 436.28,-365 467.28,-327.8 467.28,-327.8 467.28,-327.8 544.6,-296.22 596.67,-274.95"/>
-<polygon fill="#64748b" stroke="#64748b" points="603.35,-272.22 597.68,-278.18 601.01,-273.17 596.41,-275.05 596.41,-275.05 596.41,-275.05 601.01,-273.17 595.13,-271.93 603.35,-272.22"/>
-<text xml:space="preserve" text-anchor="middle" x="490.68" y="-330.35" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M378.32,-381.37C405.56,-373.68 436.28,-365 436.28,-365 436.28,-365 467.28,-335.8 467.28,-335.8 467.28,-335.8 542.87,-306.64 594.91,-286.57"/>
+<polygon fill="#64748b" stroke="#64748b" points="601.59,-283.99 595.81,-289.84 599.23,-284.9 594.59,-286.69 594.59,-286.69 594.59,-286.69 599.23,-284.9 593.38,-283.54 601.59,-283.99"/>
+<text xml:space="preserve" text-anchor="middle" x="490.68" y="-338.35" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_projects&#45;&gt;uc_assign_eval -->
 <g id="edge48" class="edge">
 <title>uc_projects&#45;&gt;uc_assign_eval</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M378.32,-404.63C405.56,-412.32 436.28,-421 436.28,-421 436.28,-421 528.73,-460.79 589.99,-487.16"/>
-<polygon fill="#64748b" stroke="#64748b" points="596.56,-489.99 588.33,-490.12 594.23,-488.99 589.67,-487.02 589.67,-487.02 589.67,-487.02 594.23,-488.99 591,-483.92 596.56,-489.99"/>
-<text xml:space="preserve" text-anchor="middle" x="490.68" y="-454.88" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M378.32,-404.63C405.56,-412.32 436.28,-421 436.28,-421 436.28,-421 537.75,-477.43 598.52,-511.23"/>
+<polygon fill="#64748b" stroke="#64748b" points="605.02,-514.85 596.82,-514.15 602.81,-513.62 598.47,-511.2 598.47,-511.2 598.47,-511.2 602.81,-513.62 600.11,-508.25 605.02,-514.85"/>
+<text xml:space="preserve" text-anchor="middle" x="490.68" y="-464.03" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_teams&#45;&gt;uc_students -->
 <g id="edge46" class="edge">
 <title>uc_teams&#45;&gt;uc_students</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M421.13,-339.14C459.37,-342.39 504.87,-346.26 544.68,-349.64"/>
-<polygon fill="#64748b" stroke="#64748b" points="552.14,-350.27 544.38,-353 549.62,-350.06 544.67,-349.64 544.67,-349.64 544.67,-349.64 549.62,-350.06 544.95,-346.28 552.14,-350.27"/>
-<text xml:space="preserve" text-anchor="middle" x="490.68" y="-349.11" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M414.33,-343.1C460.82,-349.79 519.8,-358.27 566.23,-364.95"/>
+<polygon fill="#64748b" stroke="#64748b" points="573.54,-366 565.63,-368.27 571.03,-365.64 566.11,-364.93 566.11,-364.93 566.11,-364.93 571.03,-365.64 566.59,-361.59 573.54,-366"/>
+<text xml:space="preserve" text-anchor="middle" x="490.68" y="-359.18" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_forms&#45;&gt;uc_rules -->
 <g id="edge49" class="edge">
@@ -639,23 +638,23 @@
 <!-- uc_report_forms&#45;&gt;uc_scores -->
 <g id="edge51" class="edge">
 <title>uc_report_forms&#45;&gt;uc_scores</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M377.18,-1532.61C404.69,-1519.29 436.28,-1504 436.28,-1504 436.28,-1504 514.07,-1426 514.07,-1426 514.07,-1426 545.07,-1360 545.07,-1360 545.07,-1360 561.29,-1354.7 580.53,-1348.42"/>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M385.26,-1530.53C410.52,-1521.35 436.28,-1512 436.28,-1512 436.28,-1512 514.07,-1426 514.07,-1426 514.07,-1426 545.07,-1360 545.07,-1360 545.07,-1360 561.29,-1354.7 580.53,-1348.42"/>
 <polygon fill="#64748b" stroke="#64748b" points="587.46,-1346.16 581.38,-1351.69 585.05,-1346.94 580.33,-1348.48 580.33,-1348.48 580.33,-1348.48 585.05,-1346.94 579.28,-1345.28 587.46,-1346.16"/>
-<text xml:space="preserve" text-anchor="middle" x="490.68" y="-1474.54" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<text xml:space="preserve" text-anchor="middle" x="490.68" y="-1479.25" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_oral_forms&#45;&gt;uc_scores -->
 <g id="edge52" class="edge">
 <title>uc_oral_forms&#45;&gt;uc_scores</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M384.97,-1451.7C410.32,-1441.47 436.28,-1431 436.28,-1431 436.28,-1431 514.07,-1382 514.07,-1382 514.07,-1382 545.07,-1360 545.07,-1360 545.07,-1360 561.29,-1354.7 580.53,-1348.42"/>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M378.9,-1458.78C405.99,-1445.66 436.28,-1431 436.28,-1431 436.28,-1431 514.07,-1382 514.07,-1382 514.07,-1382 545.07,-1360 545.07,-1360 545.07,-1360 561.29,-1354.7 580.53,-1348.42"/>
 <polygon fill="#64748b" stroke="#64748b" points="587.46,-1346.16 581.38,-1351.69 585.05,-1346.94 580.33,-1348.48 580.33,-1348.48 580.33,-1348.48 585.05,-1346.94 579.28,-1345.28 587.46,-1346.16"/>
 <text xml:space="preserve" text-anchor="middle" x="490.68" y="-1413.44" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_demo_form&#45;&gt;uc_scores -->
 <g id="edge53" class="edge">
 <title>uc_demo_form&#45;&gt;uc_scores</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M386.13,-1603.21C411.11,-1594.14 436.28,-1585 436.28,-1585 436.28,-1585 514.07,-1487 514.07,-1487 514.07,-1487 545.07,-1360 545.07,-1360 545.07,-1360 561.29,-1354.7 580.53,-1348.42"/>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M383.23,-1602.41C409.12,-1591.96 436.28,-1581 436.28,-1581 436.28,-1581 514.07,-1492 514.07,-1492 514.07,-1492 545.07,-1360 545.07,-1360 545.07,-1360 561.29,-1354.7 580.53,-1348.42"/>
 <polygon fill="#64748b" stroke="#64748b" points="587.46,-1346.16 581.38,-1351.69 585.05,-1346.94 580.33,-1348.48 580.33,-1348.48 580.33,-1348.48 585.05,-1346.94 579.28,-1345.28 587.46,-1346.16"/>
-<text xml:space="preserve" text-anchor="middle" x="490.68" y="-1547.33" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<text xml:space="preserve" text-anchor="middle" x="490.68" y="-1547.02" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_draft -->
 <g id="node35" class="node">
@@ -765,30 +764,30 @@
 <!-- uc_locked_only -->
 <g id="node45" class="node">
 <title>uc_locked_only</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="999.73" cy="-986" rx="82.46" ry="22.63"/>
-<text xml:space="preserve" text-anchor="middle" x="999.73" y="-989" font-family="Arial" font-size="10.00">Inclure uniquement les</text>
-<text xml:space="preserve" text-anchor="middle" x="999.73" y="-977" font-family="Arial" font-size="10.00">fiches verrouillees</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="999.73" cy="-992" rx="82.46" ry="22.63"/>
+<text xml:space="preserve" text-anchor="middle" x="999.73" y="-995" font-family="Arial" font-size="10.00">Inclure uniquement les</text>
+<text xml:space="preserve" text-anchor="middle" x="999.73" y="-983" font-family="Arial" font-size="10.00">fiches verrouillees</text>
 </g>
 <!-- uc_consolidate&#45;&gt;uc_locked_only -->
 <g id="edge62" class="edge">
 <title>uc_consolidate&#45;&gt;uc_locked_only</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M689.49,-853.1C754.78,-881.16 876.42,-933.44 946.1,-963.38"/>
-<polygon fill="#64748b" stroke="#64748b" points="952.8,-966.26 944.58,-966.4 950.47,-965.26 945.91,-963.3 945.91,-963.3 945.91,-963.3 950.47,-965.26 947.24,-960.2 952.8,-966.26"/>
-<text xml:space="preserve" text-anchor="middle" x="797.42" y="-907.99" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M690.93,-865.81C756.08,-892.52 875.18,-941.35 944.58,-969.8"/>
+<polygon fill="#64748b" stroke="#64748b" points="951.25,-972.53 943.03,-972.81 948.9,-971.57 944.31,-969.69 944.31,-969.69 944.31,-969.69 948.9,-971.57 945.59,-966.57 951.25,-972.53"/>
+<text xml:space="preserve" text-anchor="middle" x="797.42" y="-917.7" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_apply_rules -->
 <g id="node46" class="node">
 <title>uc_apply_rules</title>
-<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="999.73" cy="-834" rx="95.04" ry="22.63"/>
-<text xml:space="preserve" text-anchor="middle" x="999.73" y="-837" font-family="Arial" font-size="10.00">Appliquer les ponderations</text>
-<text xml:space="preserve" text-anchor="middle" x="999.73" y="-825" font-family="Arial" font-size="10.00">par type d&#39;evaluation</text>
+<ellipse fill="none" stroke="#334155" stroke-width="1.2" cx="999.73" cy="-847" rx="95.04" ry="22.63"/>
+<text xml:space="preserve" text-anchor="middle" x="999.73" y="-850" font-family="Arial" font-size="10.00">Appliquer les ponderations</text>
+<text xml:space="preserve" text-anchor="middle" x="999.73" y="-838" font-family="Arial" font-size="10.00">par type d&#39;evaluation</text>
 </g>
 <!-- uc_consolidate&#45;&gt;uc_apply_rules -->
 <g id="edge63" class="edge">
 <title>uc_consolidate&#45;&gt;uc_apply_rules</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M723.54,-834C774.16,-834 840.53,-834 895.4,-834"/>
-<polygon fill="#64748b" stroke="#64748b" points="902.89,-834 895.39,-837.38 900.36,-834 895.39,-834 895.39,-834 895.39,-834 900.36,-834 895.39,-830.63 902.89,-834"/>
-<text xml:space="preserve" text-anchor="middle" x="797.42" y="-836.55" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M723.54,-847C774.16,-847 840.53,-847 895.4,-847"/>
+<polygon fill="#64748b" stroke="#64748b" points="902.89,-847 895.39,-850.38 900.36,-847 895.39,-847 895.39,-847 895.39,-847 900.36,-847 895.39,-843.63 902.89,-847"/>
+<text xml:space="preserve" text-anchor="middle" x="797.42" y="-849.55" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_expired_draft -->
 <g id="node56" class="node">
@@ -800,23 +799,23 @@
 <!-- uc_locked_only&#45;&gt;uc_expired_draft -->
 <g id="edge64" class="edge">
 <title>uc_locked_only&#45;&gt;uc_expired_draft</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M1038.11,-1006.53C1098.5,-1039.71 1217.3,-1104.98 1282,-1140.52"/>
-<polygon fill="#64748b" stroke="#64748b" points="1288.55,-1144.12 1280.35,-1143.47 1286.33,-1142.9 1281.97,-1140.51 1281.97,-1140.51 1281.97,-1140.51 1286.33,-1142.9 1283.6,-1137.55 1288.55,-1144.12"/>
-<text xml:space="preserve" text-anchor="middle" x="1195.03" y="-1104.54" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M1039.06,-1012.35C1099.44,-1044.41 1216.44,-1106.53 1281.01,-1140.82"/>
+<polygon fill="#64748b" stroke="#64748b" points="1287.54,-1144.29 1279.34,-1143.75 1285.31,-1143.1 1280.92,-1140.77 1280.92,-1140.77 1280.92,-1140.77 1285.31,-1143.1 1282.5,-1137.79 1287.54,-1144.29"/>
+<text xml:space="preserve" text-anchor="middle" x="1195.03" y="-1106.65" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_phase_report&#45;&gt;uc_consolidate -->
 <g id="edge65" class="edge">
 <title>uc_phase_report&#45;&gt;uc_consolidate</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M403.14,-863.8C449.71,-858.02 512.39,-850.23 562.01,-844.07"/>
-<polygon fill="#64748b" stroke="#64748b" points="569.27,-843.16 562.24,-847.44 566.76,-843.48 561.83,-844.09 561.83,-844.09 561.83,-844.09 566.76,-843.48 561.41,-840.74 569.27,-843.16"/>
-<text xml:space="preserve" text-anchor="middle" x="490.68" y="-857.83" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M405.79,-866.39C450.99,-862.7 510.48,-857.83 558.58,-853.9"/>
+<polygon fill="#64748b" stroke="#64748b" points="565.9,-853.31 558.7,-857.28 563.37,-853.51 558.42,-853.92 558.42,-853.92 558.42,-853.92 563.37,-853.51 558.15,-850.55 565.9,-853.31"/>
+<text xml:space="preserve" text-anchor="middle" x="490.68" y="-863.55" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_final_report&#45;&gt;uc_consolidate -->
 <g id="edge66" class="edge">
 <title>uc_final_report&#45;&gt;uc_consolidate</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M405.03,-816.1C450.2,-819.5 509.87,-823.99 558.17,-827.62"/>
-<polygon fill="#64748b" stroke="#64748b" points="565.53,-828.17 557.8,-830.97 563,-827.98 558.05,-827.61 558.05,-827.61 558.05,-827.61 563,-827.98 558.3,-824.24 565.53,-828.17"/>
-<text xml:space="preserve" text-anchor="middle" x="490.68" y="-826.43" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
+<path fill="none" stroke="#64748b" stroke-dasharray="5,2" d="M401.64,-818.59C448.2,-824.07 511.43,-831.51 561.5,-837.4"/>
+<polygon fill="#64748b" stroke="#64748b" points="568.84,-838.27 561,-840.74 566.33,-837.97 561.39,-837.39 561.39,-837.39 561.39,-837.39 566.33,-837.97 561.79,-834.04 568.84,-838.27"/>
+<text xml:space="preserve" text-anchor="middle" x="490.68" y="-833.71" font-family="Arial" font-size="8.50">&lt;&lt;include&gt;&gt;</text>
 </g>
 <!-- uc_send_report&#45;&gt;uc_email -->
 <g id="edge67" class="edge">
@@ -846,7 +845,7 @@
 <!-- note_student&#45;&gt;uc_students -->
 <g id="edge71" class="edge">
 <title>note_student&#45;&gt;uc_students</title>
-<path fill="none" stroke="#64748b" stroke-dasharray="1,5" d="M425.67,-650.42C432.19,-648.32 436.28,-647 436.28,-647 436.28,-647 545.07,-477 545.07,-477 545.07,-477 595.96,-415.19 624.39,-380.66"/>
+<path fill="none" stroke="#64748b" stroke-dasharray="1,5" d="M425.67,-650.42C432.19,-648.32 436.28,-647 436.28,-647 436.28,-647 545.07,-503 545.07,-503 545.07,-503 601.92,-429.31 629.01,-394.2"/>
 </g>
 </g>
 </svg>
