@@ -39,10 +39,22 @@ assert.equal(presentationResult.individualScore, 6)
 assert.equal(presentationResult.groupScore, 8)
 assert.equal(presentationResult.finalScore, 7.25)
 
+const industryDemo = SCORING_TEMPLATES.DEMO_DAY_INDUSTRY
+assert.deepEqual(industryDemo.sections[0].criteria.map((criterion) => criterion.weight), [2, 1, 4, 2, 1])
+const industryScores = {
+  [scoreKey('group', 'prototype', 'group')]: 8,
+  [scoreKey('group', 'present-prototype', 'group')]: 7,
+  [scoreKey('group', 'answer-questions', 'group')]: 9,
+  [scoreKey('group', 'complete-work', 'group')]: 6,
+  [scoreKey('group', 'poster', 'group')]: 10,
+}
+const industryResult = calculateTemplate(industryDemo, industryScores, []).group
+assert.equal(industryResult.finalScore, 8.1)
+
 const report = SCORING_TEMPLATES.REPORT_PHASE_I
 const reportScores = filledScores(report, ['s1'], 5)
 reportScores[scoreKey('individual', 'analyze-solutions', 's1')] = 10
 const reportResult = calculateTemplate(report, reportScores, ['s1']).s1
 assert.equal(reportResult.finalScore, 65 / 11)
 
-console.log('7 modÃ¨les vÃ©rifiÃ©s; formules de prÃ©sentation et rapport vÃ©rifiÃ©es sur des cas mixtes.')
+console.log('7 modèles vérifiés; formules de présentation, rapport et Industry Guest vérifiées.')

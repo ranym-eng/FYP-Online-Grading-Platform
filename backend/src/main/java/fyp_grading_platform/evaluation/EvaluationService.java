@@ -11,6 +11,7 @@ import fyp_grading_platform.project.PhaseRepository;
 import fyp_grading_platform.project.PhaseWindowService;
 import fyp_grading_platform.project.ProjectEvaluatorAssignmentRepository;
 import fyp_grading_platform.project.ProjectRepository;
+import fyp_grading_platform.project.TeamRepository;
 import fyp_grading_platform.user.EvaluatorProfile;
 import fyp_grading_platform.user.EvaluatorProfileRepository;
 import fyp_grading_platform.user.User;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -28,6 +30,7 @@ public class EvaluationService {
     private final CriterionScoreRepository scores;
     private final RubricCriterionRepository criteria;
     private final ProjectRepository projects;
+    private final TeamRepository teams;
     private final PhaseRepository phases;
     private final EvaluationFormTemplateRepository forms;
     private final EvaluatorProfileRepository evaluators;
@@ -41,6 +44,7 @@ public class EvaluationService {
             CriterionScoreRepository scores,
             RubricCriterionRepository criteria,
             ProjectRepository projects,
+            TeamRepository teams,
             PhaseRepository phases,
             EvaluationFormTemplateRepository forms,
             EvaluatorProfileRepository evaluators,
@@ -53,6 +57,7 @@ public class EvaluationService {
         this.scores = scores;
         this.criteria = criteria;
         this.projects = projects;
+        this.teams = teams;
         this.phases = phases;
         this.forms = forms;
         this.evaluators = evaluators;
@@ -109,6 +114,13 @@ public class EvaluationService {
         assertEvaluatorIdentity(evaluator, actor);
         phaseWindows.assertEvaluationAllowed(phase, actor);
         assertAssignment(request.projectId(), request.evaluatorId(), request.evaluationType());
+        var project = projects.findById(request.projectId())
+                .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found"));
+        Set<String> expectedScoreKeys = sheetCalculator.expectedScoreKeys(
+                request.evaluationType(),
+                studentIds(request.projectId())
+        );
+        sheetCalculator.validateScoreKeys(request.evaluationType(), request.scores(), studentIds(request.projectId()));
 
         EvaluationSubmission submission;
         if (existingId != null) {
@@ -130,8 +142,7 @@ public class EvaluationService {
         }
         if (submission.getEvaluator() != null) assertEvaluatorIdentity(submission.getEvaluator(), actor);
 
-        submission.setProject(projects.findById(request.projectId())
-                .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found")));
+        submission.setProject(project);
         submission.setPhase(phase);
         submission.setFormTemplate(forms.findFirstByEvaluationTypeAndActiveTrue(request.evaluationType())
                 .orElseThrow(() -> new BusinessException("FORM_NOT_FOUND", "No active evaluation form was found")));
@@ -139,7 +150,7 @@ public class EvaluationService {
         submission.setEvaluationType(request.evaluationType());
         submission.setGeneralComment(request.generalComment());
         submission.setScorePayload(writeScores(request.scores()));
-        submission.setRequiredScoreCount(request.requiredScoreCount());
+        submission.setRequiredScoreCount(expectedScoreKeys.size());
         submission.setCompletedScoreCount(request.scores().size());
         submission.setTotalScore(sheetCalculator.calculate(request.evaluationType(), request.scores()));
         submission.setStatus(SubmissionStatus.DRAFT);
@@ -179,15 +190,25 @@ public class EvaluationService {
         }
 
         if (submission.getScorePayload() != null) {
-            if (submission.getRequiredScoreCount() == null
-                    || submission.getCompletedScoreCount() == null
-                    || submission.getRequiredScoreCount() <= 0
-                    || submission.getCompletedScoreCount() < submission.getRequiredScoreCount()) {
+            Map<String, Double> currentScores = readScores(submission.getScorePayload());
+            Set<String> expected = sheetCalculator.expectedScoreKeys(
+                    submission.getEvaluationType(),
+                    studentIds(submission.getProject().getId())
+            );
+            sheetCalculator.validateScoreKeys(
+                    submission.getEvaluationType(),
+                    currentScores,
+                    studentIds(submission.getProject().getId())
+            );
+            if (!currentScores.keySet().containsAll(expected)) {
                 throw new BusinessException(
                         "MISSING_REQUIRED_CRITERION",
                         "All required scores must be entered before the form is submitted"
                 );
             }
+            submission.setRequiredScoreCount(expected.size());
+            submission.setCompletedScoreCount(expected.size());
+            submission.setTotalScore(sheetCalculator.calculate(submission.getEvaluationType(), currentScores));
         } else {
             assertLegacyCriteriaComplete(submission);
         }
@@ -241,6 +262,24 @@ public class EvaluationService {
                     "EVALUATOR_NOT_ASSIGNED",
                     "Evaluator is not assigned to this project and evaluation type"
             );
+        }
+    }
+
+    private Set<String> studentIds(UUID projectId) {
+        return teams.findByProjectId(projectId)
+                .map(team -> team.getStudents().stream()
+                        .map(student -> student.getId().toString())
+                        .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new)))
+                .orElseGet(java.util.LinkedHashSet::new);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Double> readScores(String payload) {
+        try {
+            return objectMapper.readValue(payload, objectMapper.getTypeFactory()
+                    .constructMapType(java.util.LinkedHashMap.class, String.class, Double.class));
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException("INVALID_SCORE_PAYLOAD", "The stored score sheet could not be read");
         }
     }
 

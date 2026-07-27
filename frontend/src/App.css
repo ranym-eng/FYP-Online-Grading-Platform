@@ -186,6 +186,14 @@ td { border-top: 1px solid var(--line); padding: 12px; vertical-align: top; }
 .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); }
 .status-dot.submitted { background: var(--green); }
 .evaluation-context { display: grid; grid-template-columns: 100px minmax(190px, 1.4fr) minmax(220px, 1.5fr) minmax(160px, 1fr) minmax(180px, 1fr); gap: 12px; align-items: end; padding: 16px 0 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.industry-form-meta { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(420px, 1.4fr); gap: 20px; align-items: center; padding: 17px 18px; border: 1px solid #d8e3dc; border-left: 5px solid var(--green); border-radius: 8px; background: #f5faf7; }
+.industry-form-title { display: grid; gap: 4px; }
+.industry-form-title strong { font-size: 18px; }
+.industry-form-title p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.industry-form-meta dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.industry-form-meta dl div { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.industry-form-meta dt { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.industry-form-meta dd { margin: 4px 0 0; overflow-wrap: anywhere; color: var(--ink); font-size: 13px; font-weight: 800; }
 .sheet-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(190px, 280px) auto; gap: 18px; align-items: center; }
 .sheet-title { display: grid; gap: 4px; }
 .sheet-title strong { font-size: 20px; }
@@ -253,7 +261,8 @@ td { border-top: 1px solid var(--line); padding: 12px; vertical-align: top; }
 @media (max-width: 900px) {
   .auth-copy h1 { font-size: 44px; }
   .topbar h1 { font-size: 32px; }
-  .evaluation-context, .sheet-toolbar, .formula-panel, .sheet-footer { grid-template-columns: 1fr; }
+  .evaluation-context, .industry-form-meta, .sheet-toolbar, .formula-panel, .sheet-footer { grid-template-columns: 1fr; }
+  .industry-form-meta dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .formula-breakdown { grid-template-columns: 1fr; }
   .completion-meter > span { text-align: left; }
   .sheet-actions { justify-content: flex-start; }
@@ -261,6 +270,7 @@ td { border-top: 1px solid var(--line); padding: 12px; vertical-align: top; }
 @media (max-width: 720px) {
   .auth-copy h1 { font-size: 36px; }
   .evaluation-context { grid-template-columns: 1fr; }
+  .industry-form-meta dl { grid-template-columns: 1fr; }
   .sheet-section-title, .result-heading { align-items: flex-start; flex-direction: column; }
   .formula-chip { text-align: left; }
   .sheet-actions > button { flex: 1 1 180px; }

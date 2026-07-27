@@ -11,20 +11,26 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "student_profiles", uniqueConstraints = @UniqueConstraint(name = "uk_student_number", columnNames = "student_number"))
+@Table(name = "student_profiles", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_student_number", columnNames = "student_number"),
+        @UniqueConstraint(name = "uk_student_email", columnNames = "email")
+})
 public class StudentProfile extends BaseEntity {
-    @Column(name = "first_name")
-    private String firstName;
-
-    @Column(name = "last_name")
-    private String lastName;
-
     @Column(name = "student_number", nullable = false)
     private String studentNumber;
 
-    @Column(nullable = false)
+    @Column(name = "full_name")
+    private String fullName;
+
+    private String email;
+
+    private String cohort;
+
+    @Column(name = "academic_year")
     private String academicYear;
 
+    @Column(name = "track_code")
     private String trackCode;
+
     private String level;
 }

@@ -4,6 +4,7 @@ import fyp_grading_platform.common.EvaluationType;
 import fyp_grading_platform.common.exception.BusinessException;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -57,13 +58,45 @@ public class EvaluationSheetCalculator {
     );
 
     public double calculate(EvaluationType type, Map<String, Double> scores) {
-        validate(scores);
+        validateValues(scores);
         return switch (type) {
             case ORAL_PHASE_I, ORAL_PHASE_II -> presentation(scores);
             case REPORT_PHASE_I, REPORT_PHASE_II -> individualAverage(scores, REPORT);
             case SUPERVISOR_PHASE_I, SUPERVISOR_PHASE_II -> individualAverage(scores, SUPERVISOR);
             case DEMO_DAY_INDUSTRY -> weightedAverage(scores, "group", "group", DEMO);
         };
+    }
+
+    public Set<String> expectedScoreKeys(EvaluationType type, Collection<String> studentIds) {
+        Set<String> expected = new LinkedHashSet<>();
+        switch (type) {
+            case ORAL_PHASE_I, ORAL_PHASE_II -> {
+                requireStudents(studentIds);
+                addIndividualKeys(expected, studentIds, PRESENTATION_INDIVIDUAL);
+                addGroupKeys(expected, PRESENTATION_GROUP);
+            }
+            case REPORT_PHASE_I, REPORT_PHASE_II -> {
+                requireStudents(studentIds);
+                addIndividualKeys(expected, studentIds, REPORT);
+            }
+            case SUPERVISOR_PHASE_I, SUPERVISOR_PHASE_II -> {
+                requireStudents(studentIds);
+                addIndividualKeys(expected, studentIds, SUPERVISOR);
+            }
+            case DEMO_DAY_INDUSTRY -> addGroupKeys(expected, DEMO);
+        }
+        return expected;
+    }
+
+    public void validateScoreKeys(EvaluationType type, Map<String, Double> scores, Collection<String> studentIds) {
+        validateValues(scores);
+        Set<String> expected = expectedScoreKeys(type, studentIds);
+        scores.keySet().stream()
+                .filter(key -> !expected.contains(key))
+                .findFirst()
+                .ifPresent(key -> {
+                    throw new BusinessException("UNEXPECTED_SCORE_KEY", "Unexpected score criterion: " + key);
+                });
     }
 
     private double presentation(Map<String, Double> scores) {
@@ -111,12 +144,28 @@ public class EvaluationSheetCalculator {
         return targets;
     }
 
-    private void validate(Map<String, Double> scores) {
+    private void validateValues(Map<String, Double> scores) {
         scores.forEach((key, value) -> {
             if (key == null || key.isBlank() || value == null || !Double.isFinite(value)
                     || value < 0 || value > 10) {
                 throw new BusinessException("INVALID_SCORE", "Each score must be between 0 and 10");
             }
         });
+    }
+
+    private void requireStudents(Collection<String> studentIds) {
+        if (studentIds == null || studentIds.isEmpty()) {
+            throw new BusinessException("TEAM_HAS_NO_STUDENTS", "The project team must contain students before evaluation");
+        }
+    }
+
+    private void addIndividualKeys(Set<String> target, Collection<String> studentIds, Map<String, Double> criteria) {
+        for (String studentId : studentIds) {
+            criteria.keySet().forEach(criterion -> target.add("individual:" + criterion + ":" + studentId));
+        }
+    }
+
+    private void addGroupKeys(Set<String> target, Map<String, Double> criteria) {
+        criteria.keySet().forEach(criterion -> target.add("group:" + criterion + ":group"));
     }
 }

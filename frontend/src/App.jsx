@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, CheckCheck, MailOpen } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronRight, CircleAlert, Eye, EyeOff, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react'
 import squLogo from './assets/Sultan_Qaboos_University_Logo.png'
 import squMark from './assets/sultan-qaboos-university-logo-png_seeklogo-271991.png'
 import { apiRequest, itemName, pretty, unwrapList } from './api.js'
@@ -7,7 +7,9 @@ import { EVALUATION_TYPES, ROLES, actorTemplates, resourceConfigs, views } from 
 import { SCORING_TEMPLATES, calculateTemplate, normalizeScore, performanceBand, scoreKey, sectionAverage } from './gradingTemplates.js'
 import { readImportFile } from './importWorkbook.js'
 import { currentLocale, getInitialLanguage, setLanguagePreference, translateText, useAutoTranslate } from './i18n.js'
+import { AppSkeleton, CalendarView, ErrorState, GlobalSearch, MetricIcon, ProfileDrawer, ThemeToggle, ViewIcon } from './workspaceUi.jsx'
 import './App.css'
+import './design-system.css'
 
 const seedProjectId = '50000000-0000-0000-0000-000000000001'
 const homeViewByRole = {
@@ -17,6 +19,7 @@ const homeViewByRole = {
   INDUSTRY_REPRESENTATIVE: 'dashboard',
   COORDINATOR: 'dashboard',
 }
+const primarySidebarViews = new Set(['dashboard', 'calendar', 'notifications'])
 
 function normalizeRole(role) {
   return ROLES.includes(role) ? role : null
@@ -24,6 +27,16 @@ function normalizeRole(role) {
 
 function homeViewForRole(role) {
   return homeViewByRole[normalizeRole(role)] || 'dashboard'
+}
+
+function initialTheme() {
+  const saved = localStorage.getItem('fyp-theme')
+  if (saved === 'light' || saved === 'dark') return saved
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function initialSidebarCollapsed() {
+  return localStorage.getItem('fyp-sidebar-collapsed') === 'true'
 }
 
 function normalizeSession(raw, fallbackRole = null) {
@@ -63,6 +76,7 @@ function App() {
   const [session, setSession] = useState(readStoredSession)
   const [activeView, setActiveView] = useState(() => homeViewForRole(session?.role))
   const [language, setLanguage] = useState(getInitialLanguage)
+  const [theme, setTheme] = useState(initialTheme)
   const [toast, setToast] = useState(null)
   useAutoTranslate(language)
 
@@ -70,6 +84,11 @@ function App() {
     if (session) localStorage.setItem('fyp-session', JSON.stringify(session))
     else localStorage.removeItem('fyp-session')
   }, [session])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('fyp-theme', theme)
+  }, [theme])
 
   const notify = useCallback((message, type = 'success') => {
     setToast({ message, type })
@@ -84,8 +103,8 @@ function App() {
     notify('Bienvenue dans votre espace ' + pretty(next.role))
   }
 
-  if (!session) return <AuthScreen onSession={openWorkspace} notify={notify} toast={toast} language={language} setLanguage={setLanguage} />
-  return <Shell session={session} activeView={activeView} setActiveView={setActiveView} onLogout={() => setSession(null)} notify={notify} toast={toast} language={language} setLanguage={setLanguage} />
+  if (!session) return <AuthScreen onSession={openWorkspace} notify={notify} toast={toast} language={language} setLanguage={setLanguage} theme={theme} setTheme={setTheme} />
+  return <Shell session={session} activeView={activeView} setActiveView={setActiveView} onLogout={() => setSession(null)} notify={notify} toast={toast} language={language} setLanguage={setLanguage} theme={theme} setTheme={setTheme} />
 }
 
 function LanguageSwitcher({ language, setLanguage }) {
@@ -94,51 +113,72 @@ function LanguageSwitcher({ language, setLanguage }) {
   </div>
 }
 
-function AuthScreen({ onSession, notify, toast, language, setLanguage }) {
+function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, setTheme }) {
   const [busy, setBusy] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [loginForm, setLoginForm] = useState({ email: 'admin@squ.edu.om', password: 'Admin@123' })
 
   async function login(event) {
-    event.preventDefault(); setBusy(true)
+    event.preventDefault()
+    setBusy(true)
     try {
       const result = await apiRequest('/api/auth/login', { method: 'POST', body: JSON.stringify(loginForm) })
       onSession(result.data)
-    } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return <main className="auth-screen">
     <section className="auth-visual">
       <LogoLockup />
-      <div className="auth-copy">
-        <span className="eyebrow">Département de génie électrique</span>
-        <h1>Évaluation numérique des projets de fin d’études</h1>
-        <p>Un espace commun pour l’administration, les superviseurs, les évaluateurs académiques, les représentants industriels et la coordination.</p>
+      <div className="auth-copy page-enter">
+        <div className="auth-kicker"><ShieldCheck size={17} /><span>Département de génie électrique et informatique</span></div>
+        <h1>Final Year<br />Grading</h1>
+        <p>Une plateforme institutionnelle pour orchestrer les projets, les jurys et les évaluations FYP I et FYP II avec précision.</p>
+        <div className="auth-proof"><span><strong>2</strong> phases académiques</span><span><strong>7</strong> grilles officielles</span><span><strong>5</strong> espaces sécurisés</span></div>
       </div>
-      <div className="auth-metrics"><div><strong>2</strong><span>phases FYP</span></div><div><strong>7</strong><span>fiches d’évaluation</span></div><div><strong>5</strong><span>espaces RBAC</span></div></div>
+      <div className="auth-photo-credit"><span>Exposition annuelle des projets FYP</span><strong>Sultan Qaboos University</strong></div>
     </section>
-    <section className="auth-panel">
-      <div className="auth-panel-tools"><LanguageSwitcher language={language} setLanguage={setLanguage} /></div>
-      <div className="brand-badge"><img src={squMark} alt="SQU" /><span>Processus académique sécurisé</span></div>
-      <form className="stack-form" onSubmit={login}>
-        <h2>Connexion</h2><p className="muted">Accédez à votre espace selon le rôle attribué par l’administration.</p>
-        <Field label="Adresse e-mail" type="email" value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} />
-        <Field label="Mot de passe" type="password" value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} />
-        <button className="primary-action" disabled={busy}>{busy ? 'Connexion…' : 'Se connecter'}</button>
-        <div className="hint-strip">Compte de démonstration: admin@squ.edu.om / Admin@123</div>
-      </form>
-    </section>
+    <div className="auth-panel-shell">
+      <section className="auth-panel page-enter">
+        <div className="auth-panel-tools"><ThemeToggle theme={theme} setTheme={setTheme} compact /><LanguageSwitcher language={language} setLanguage={setLanguage} /></div>
+        <div className="brand-badge"><img src={squMark} alt="SQU" /><div><span>Portail académique sécurisé</span><small>College of Engineering</small></div></div>
+        <form className="stack-form auth-form" onSubmit={login}>
+          <div className="auth-form-heading"><span className="eyebrow">Accès institutionnel</span><h2>Bienvenue</h2><p>Connectez-vous avec le compte attribué par l’administration FYP.</p></div>
+          <AuthField icon={Mail} label="Adresse e-mail" type="email" value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" />
+          <AuthField icon={ShieldCheck} label="Mot de passe" type={showPassword ? 'text' : 'password'} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} />
+          <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Connexion…</> : <>Se connecter<ArrowRight size={18} /></>}</button>
+          <div className="auth-security-note"><ShieldCheck size={16} /><span>Session personnelle, accès contrôlé par rôle et traçabilité des actions.</span></div>
+          <div className="demo-account"><span>Compte de démonstration</span><strong>admin@squ.edu.om</strong><code>Admin@123</code></div>
+        </form>
+      </section>
+    </div>
     {toast && <Toast {...toast} />}
   </main>
 }
 
-function Shell({ session, activeView, setActiveView, onLogout, notify, toast, language, setLanguage }) {
+function AuthField({ icon: Icon, label, value, onChange, action, ...inputProps }) {
+  return <label className="field auth-field"><span>{label}</span><div className="input-with-icon"><Icon size={18} aria-hidden="true" /><input {...inputProps} value={value} onChange={(event) => onChange(event.target.value)} />{action}</div></label>
+}
+
+function Shell({ session, activeView, setActiveView, onLogout, notify, toast, language, setLanguage, theme, setTheme }) {
   const [datasets, setDatasets] = useState({})
   const [personalNotifications, setPersonalNotifications] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed)
+  const [sidebarClock, setSidebarClock] = useState(() => Date.now())
+  const [profileOpen, setProfileOpen] = useState(false)
   const activeRole = normalizeRole(session.role)
   const allowedViews = views.filter((view) => view.roles.includes(activeRole))
+  const activeViewLabel = allowedViews.find((view) => view.id === activeView)?.label || 'Espace FYP'
+  const unreadCount = personalNotifications.filter((item) => !item.readAt).length
   const request = useCallback((path, options = {}) => apiRequest(path, options, session.token), [session.token])
+
   const loadPersonalNotifications = useCallback(async () => {
     try {
       setPersonalNotifications(unwrapList(await request('/api/notifications/me')))
@@ -148,14 +188,19 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
   }, [request])
 
   const loadCore = useCallback(async () => {
-    setLoading(true); setError('')
+    setLoading(true)
+    setError('')
     const endpoints = [['users','/api/users'],['students','/api/students'],['evaluators','/api/evaluators'],['tracks','/api/tracks'],['projects','/api/projects'],['teams','/api/teams'],['phases','/api/phases'],['forms','/api/evaluation-forms'],['reports','/api/reports'],['notifications','/api/notifications'],['audit','/api/audit'],['grades','/api/grades/project/' + seedProjectId]]
     try {
       const pairs = await Promise.all(endpoints.map(async ([key, path]) => {
         try { return [key, unwrapList(await request(path))] } catch { return [key, []] }
       }))
       setDatasets(Object.fromEntries(pairs))
-    } catch (err) { setError(err.message) } finally { setLoading(false) }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }, [request])
 
   useEffect(() => {
@@ -174,26 +219,107 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
     const stillAllowed = allowedViews.some((view) => view.id === activeView)
     if (!stillAllowed) setActiveView(homeViewForRole(activeRole))
   }, [activeRole, activeView, allowedViews, setActiveView])
+  useEffect(() => {
+    localStorage.setItem('fyp-sidebar-collapsed', String(sidebarCollapsed))
+  }, [sidebarCollapsed])
+  useEffect(() => {
+    const interval = window.setInterval(() => setSidebarClock(Date.now()), 3600000)
+    return () => window.clearInterval(interval)
+  }, [])
+  useEffect(() => {
+    if (!sidebarOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setSidebarOpen(false)
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [sidebarOpen])
 
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <LogoLockup compact />
-      <nav className="nav-list">{allowedViews.map((view) => <button key={view.id} className={activeView === view.id ? 'active' : ''} onClick={() => setActiveView(view.id)}>{view.label}</button>)}</nav>
-      <div className="sidebar-footer"><button className="ghost-button" onClick={onLogout}>Deconnexion</button></div>
+  function navigate(view) {
+    setActiveView(view)
+    setSidebarOpen(false)
+  }
+
+  let activeContent = <ErrorState notFound message="Le module demandé n’est pas disponible pour cette session." onRetry={() => navigate('dashboard')} />
+  if (activeView === 'dashboard') activeContent = <Dashboard datasets={datasets} request={request} activeRole={activeRole} notify={notify} setActiveView={navigate} allowedViews={allowedViews} />
+  if (activeView === 'calendar') activeContent = <CalendarView phases={datasets.phases || []} />
+  if (activeView === 'notifications') activeContent = <NotificationCenter notifications={personalNotifications} request={request} reload={loadPersonalNotifications} notify={notify} setActiveView={navigate} allowedViews={allowedViews} />
+  if (activeView === 'imports') activeContent = <ImportCenter request={request} notify={notify} />
+  if (activeView === 'crud') activeContent = <CrudStudio datasets={datasets} request={request} reload={loadCore} notify={notify} />
+  if (activeView === 'evaluations') activeContent = <EvaluationStudio datasets={datasets} request={request} notify={notify} activeRole={activeRole} session={session} />
+  if (activeView === 'extensions') activeContent = <ExtensionRequestCenter datasets={datasets} request={request} notify={notify} activeRole={activeRole} />
+  if (activeView === 'grading') activeContent = <GradingCenter datasets={datasets} request={request} reload={loadCore} notify={notify} activeRole={activeRole} />
+  if (activeView === 'reports') activeContent = <ReportCenter datasets={datasets} request={request} reload={loadCore} notify={notify} />
+  if (activeView === 'api') activeContent = <ApiConsole request={request} notify={notify} />
+
+  const initialLoading = loading && Object.keys(datasets).length === 0
+  const sidebarSections = [
+    { label: 'Vue générale', items: allowedViews.filter((view) => primarySidebarViews.has(view.id)) },
+    { label: 'Modules métier', items: allowedViews.filter((view) => !primarySidebarViews.has(view.id)) },
+  ].filter((section) => section.items.length > 0)
+  const openPhase = (datasets.phases || []).find((phase) => phase.status === 'OPEN')
+  const phaseRemainingDays = openPhase?.deadline
+    ? Math.max(0, Math.ceil((new Date(openPhase.deadline).getTime() - sidebarClock) / 86400000))
+    : null
+  const roleInitial = String(actorTemplates[activeRole]?.title || activeRole || 'F').replace(/^Espace\s+/i, '').slice(0, 1).toUpperCase()
+
+  return <div className={'app-shell premium-shell ' + (sidebarCollapsed ? 'sidebar-collapsed' : '')}>
+    {sidebarOpen && <button type="button" className="mobile-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Fermer la navigation" />}
+    <aside className={'sidebar ' + (sidebarOpen ? 'open' : '')} aria-label="Navigation">
+      <div className="sidebar-head">
+        <LogoLockup compact />
+        <div className="sidebar-head-actions">
+          <button type="button" className="sidebar-collapse" onClick={() => setSidebarCollapsed((current) => !current)} aria-label={sidebarCollapsed ? 'Développer la navigation' : 'Réduire la navigation'} title={sidebarCollapsed ? 'Développer la navigation' : 'Réduire la navigation'}>{sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button>
+          <button type="button" className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Fermer"><X size={19} /></button>
+        </div>
+      </div>
+      <div className="sidebar-context">
+        <span className="sidebar-role-avatar" aria-hidden="true">{roleInitial}</span>
+        <div><span className="sidebar-kicker"><i />Espace actif</span><strong>{actorTemplates[activeRole]?.title}</strong><small>{actorTemplates[activeRole]?.summary}</small></div>
+      </div>
+      <div className={'sidebar-phase ' + (openPhase ? 'is-open' : 'is-idle')} title={openPhase?.name || 'Aucune phase ouverte'}>
+        <span className="sidebar-phase-dot" aria-hidden="true" />
+        <div><small>{openPhase ? 'Phase active' : 'Calendrier FYP'}</small><strong>{openPhase?.name || 'Aucune phase ouverte'}</strong></div>
+        {phaseRemainingDays !== null && <b>{phaseRemainingDays}<small>j</small></b>}
+      </div>
+      <nav className="nav-list" aria-label="Navigation principale">{sidebarSections.map((section) => <section className="nav-section" key={section.label}>
+        <div className="nav-section-title"><span>{section.label}</span><i /></div>
+        <div className="nav-items">{section.items.map((view) => <button type="button" key={view.id} className={activeView === view.id ? 'active' : ''} onClick={() => navigate(view.id)} aria-current={activeView === view.id ? 'page' : undefined} title={sidebarCollapsed ? view.label : undefined}>
+          <span className="nav-icon"><ViewIcon view={view.id} /></span>
+          <span className="nav-label">{view.label}</span>
+          {view.id === 'notifications' && unreadCount > 0 && <b>{Math.min(99, unreadCount)}</b>}
+          <ChevronRight className="nav-chevron" size={15} aria-hidden="true" />
+        </button>)}</div>
+      </section>)}</nav>
+      <div className="sidebar-footer">
+        <button type="button" className="sidebar-user" onClick={() => setProfileOpen(true)} title="Profil et préférences"><span>{String(session.fullName || session.email || 'S').slice(0, 1).toUpperCase()}</span><div><strong>{session.fullName || 'Utilisateur SQU'}</strong><small>{session.email}</small></div></button>
+        <button type="button" className="sidebar-logout" onClick={onLogout} title="Se déconnecter" aria-label="Se déconnecter"><LogOut size={18} /></button>
+      </div>
     </aside>
     <main className="workspace">
-      <header className="topbar"><div><span className="eyebrow">Session active</span><h1>{actorTemplates[activeRole]?.title || 'Espace utilisateur'}</h1></div><div className="topbar-actions"><button type="button" className={'notification-button ' + (activeView === 'notifications' ? 'active' : '')} onClick={() => setActiveView('notifications')} title="Notifications" aria-label="Notifications"><Bell size={20} />{personalNotifications.some((item) => !item.readAt) && <span className="notification-badge">{Math.min(99, personalNotifications.filter((item) => !item.readAt).length)}</span>}</button><LanguageSwitcher language={language} setLanguage={setLanguage} /><button className="soft-button" onClick={() => { loadCore(); loadPersonalNotifications() }}>Actualiser les donnees</button><div className="user-chip"><strong>{session.fullName}</strong><span>{session.email}</span></div></div></header>
-      {loading && <div className="loading-bar"><span /></div>}{error && <div className="alert danger">{error}</div>}
-      {activeView === 'dashboard' && <Dashboard datasets={datasets} request={request} activeRole={activeRole} notify={notify} setActiveView={setActiveView} allowedViews={allowedViews} />}
-      {activeView === 'notifications' && <NotificationCenter notifications={personalNotifications} request={request} reload={loadPersonalNotifications} notify={notify} setActiveView={setActiveView} allowedViews={allowedViews} />}
-      {activeView === 'imports' && <ImportCenter request={request} notify={notify} />}
-      {activeView === 'crud' && <CrudStudio datasets={datasets} request={request} reload={loadCore} notify={notify} />}
-      {activeView === 'evaluations' && <EvaluationStudio datasets={datasets} request={request} notify={notify} activeRole={activeRole} session={session} />}
-      {activeView === 'extensions' && <ExtensionRequestCenter datasets={datasets} request={request} notify={notify} activeRole={activeRole} />}
-      {activeView === 'grading' && <GradingCenter datasets={datasets} request={request} reload={loadCore} notify={notify} activeRole={activeRole} />}
-      {activeView === 'reports' && <ReportCenter datasets={datasets} request={request} reload={loadCore} notify={notify} />}
-      {activeView === 'api' && <ApiConsole request={request} notify={notify} />}
-    </main>{toast && <Toast {...toast} />}
+      <header className="topbar">
+        <div className="topbar-title"><button type="button" className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Ouvrir la navigation" aria-expanded={sidebarOpen}><Menu size={21} />{unreadCount > 0 && <i />}</button><div><span>{actorTemplates[activeRole]?.title}</span><h1>{activeViewLabel}</h1></div></div>
+        <GlobalSearch allowedViews={allowedViews} datasets={datasets} onNavigate={navigate} />
+        <div className="topbar-actions">
+          <button type="button" className={'icon-button ' + (loading ? 'is-loading' : '')} onClick={() => { loadCore(); loadPersonalNotifications() }} title="Actualiser" aria-label="Actualiser"><RefreshCw size={18} /></button>
+          <button type="button" className={'notification-button ' + (activeView === 'notifications' ? 'active' : '')} onClick={() => navigate('notifications')} title="Notifications" aria-label="Notifications"><Bell size={19} />{unreadCount > 0 && <span className="notification-badge">{Math.min(99, unreadCount)}</span>}</button>
+          <ThemeToggle theme={theme} setTheme={setTheme} compact />
+          <LanguageSwitcher language={language} setLanguage={setLanguage} />
+          <button type="button" className="user-chip" onClick={() => setProfileOpen(true)}><span>{String(session.fullName || session.email || 'S').slice(0, 1).toUpperCase()}</span><div><strong>{session.fullName || 'Utilisateur SQU'}</strong><small>{pretty(activeRole)}</small></div></button>
+        </div>
+      </header>
+      {loading && !initialLoading && <div className="loading-bar"><span /></div>}
+      <section className="workspace-content" key={activeView}>
+        {initialLoading ? <AppSkeleton /> : error ? <ErrorState message={error} onRetry={loadCore} /> : activeContent}
+      </section>
+    </main>
+    <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} session={session} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} onLogout={onLogout} roleLabel={actorTemplates[activeRole]?.title || pretty(activeRole)} />
+    {toast && <Toast {...toast} />}
   </div>
 }
 function NotificationCenter({ notifications, request, reload, notify, setActiveView, allowedViews }) {
@@ -301,14 +427,29 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
   const actions = (dashboard.actions || []).filter(([, view]) => allowedViewIds.has(view))
   const roleActions = actorTemplates[activeRole]?.actions || []
   const rolePanels = actorTemplates[activeRole]?.panels || []
+  const phases = [...(datasets.phases || [])].sort((left, right) => new Date(left.deadline || 0) - new Date(right.deadline || 0))
+  const currentPhase = phases.find((phase) => phase.status === 'OPEN') || phases.find((phase) => new Date(phase.deadline || 0) >= new Date())
+  const maximumMetric = Math.max(1, ...(dashboard.metrics || []).map(([, value]) => Number(value) || 0))
+  const todayLabel = new Intl.DateTimeFormat(currentLocale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
-  return <section className="page-grid">
-    <div className="section-head full-span"><div><h2>{dashboard.title}</h2><p>{dashboard.description}</p></div></div>
-    <div className="metric-grid full-span">{(dashboard.metrics || []).map(([label, value]) => <div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
-    <Panel title="Actions de votre espace" accent="green"><div className="action-row">{actions.map(([label, view]) => <button className="soft-button" key={label} onClick={() => setActiveView(view)}>{label}</button>)}</div><div className="tag-list">{roleActions.map((action) => <span key={action}>{action}</span>)}</div></Panel>
-    <Panel title="Modules autorises" accent="gold"><div className="tag-list">{allowedViews.map((view) => <span key={view.id}>{view.label}</span>)}</div><Checklist items={rolePanels} done={rolePanels} /></Panel>
-    <Panel title={dashboard.primaryTitle} wide><DataTable rows={dashboard.primaryRows || []} columns={dashboard.primaryColumns || []} compact /></Panel>
-    <Panel title={dashboard.secondaryTitle} wide><DataTable rows={dashboard.secondaryRows || []} columns={dashboard.secondaryColumns || []} compact /></Panel>
+  return <section className="dashboard-page page-enter">
+    <header className="dashboard-hero">
+      <div className="dashboard-hero-copy"><span className="eyebrow">{todayLabel}</span><h2>{dashboard.title}</h2><p>{dashboard.description}</p><div className="dashboard-role-tags">{roleActions.slice(0, 3).map((action) => <span key={action}><CheckCircle2 size={14} />{action}</span>)}</div></div>
+      <div className="dashboard-focus"><span>Phase active</span><strong>{currentPhase?.name || 'Aucune phase ouverte'}</strong><small>{currentPhase?.deadline ? 'Échéance · ' + formatDateTime(currentPhase.deadline) : 'Le calendrier sera affiché après configuration.'}</small>{actions[0] && <button type="button" className="primary-action" onClick={() => setActiveView(actions[0][1])}>{actions[0][0]}<ArrowRight size={17} /></button>}</div>
+    </header>
+
+    <div className="metric-grid">{(dashboard.metrics || []).map(([label, value], index) => <article className={'metric tone-' + (index + 1)} key={label}><div className="metric-top"><span>{label}</span><i><MetricIcon label={label} /></i></div><strong>{value}</strong><div className="metric-track"><span style={{ width: Math.max(4, ((Number(value) || 0) / maximumMetric) * 100) + '%' }} /></div></article>)}</div>
+
+    <div className="dashboard-columns">
+      <Panel title="Accès rapide" subtitle="Les actions les plus utiles pour votre rôle." accent="green" className="quick-panel"><div className="quick-actions">{actions.map(([label, view]) => <button type="button" key={label} onClick={() => setActiveView(view)}><ViewIcon view={view} /><span>{label}</span><ArrowRight size={16} /></button>)}</div></Panel>
+      <Panel title="Aperçu opérationnel" subtitle="Volumes réels actuellement chargés." accent="blue" className="analytics-panel"><div className="operation-chart">{(dashboard.metrics || []).map(([label, value]) => <div key={label}><span>{label}</span><div><i style={{ width: ((Number(value) || 0) / maximumMetric) * 100 + '%' }} /></div><strong>{value}</strong></div>)}</div></Panel>
+      <Panel title="Prochaines échéances" subtitle="Phases configurées par l’administration." accent="gold" className="deadline-panel"><div className="deadline-list">{phases.slice(0, 4).map((phase) => <button type="button" key={phase.id} onClick={() => setActiveView('calendar')}><span className={'phase-dot ' + String(phase.status || '').toLowerCase()} /><div><strong>{phase.name}</strong><small>{formatDateTime(phase.deadline)}</small></div><StatusPill value={phase.status} /></button>)}{!phases.length && <EmptyState title="Aucune échéance" detail="Les phases planifiées apparaîtront ici." />}</div></Panel>
+    </div>
+
+    <section className="dashboard-capabilities"><div><span className="eyebrow">Périmètre autorisé</span><h3>Votre espace de travail</h3><p>{actorTemplates[activeRole]?.summary}</p></div><div className="capability-list">{rolePanels.map((panel) => <span key={panel}><ShieldCheck size={15} />{panel}</span>)}</div></section>
+
+    <Panel title={dashboard.primaryTitle} wide className="dashboard-table"><DataTable rows={dashboard.primaryRows || []} columns={dashboard.primaryColumns || []} compact /></Panel>
+    <Panel title={dashboard.secondaryTitle} wide className="dashboard-table"><DataTable rows={dashboard.secondaryRows || []} columns={dashboard.secondaryColumns || []} compact /></Panel>
   </section>
 }
 
@@ -381,49 +522,113 @@ function ImportCenter({ request, notify }) {
   const [busy, setBusy] = useState(false)
 
   async function analyze() {
+    if (!file) return
     setBusy(true)
     try {
-      const parsed = await readImportFile(file, kind)
-      const normalized = parsed.rows.map((row, index) => normalizeImportRow(row, kind, index))
-      const errors = normalized.flatMap((row) => row.errors)
-      setPreview({ ...parsed, normalized, errors })
-      notify(errors.length ? 'Fichier analysé avec des lignes à corriger' : 'Fichier prêt pour l’import', errors.length ? 'danger' : 'success')
+      if (kind === 'students') {
+        const body = new FormData()
+        body.append('file', file)
+        const response = await request('/api/import/students/preview', { method: 'POST', body })
+        const report = response.data
+        const errors = (report.errors || []).map(formatStudentImportError)
+        setPreview({
+          sheetName: report.sheetName,
+          normalized: report.rows || [],
+          totalRows: report.totalRows || 0,
+          validRows: report.validRows || 0,
+          invalidRows: (report.totalRows || 0) - (report.validRows || 0),
+          sourceColumns: 4,
+          errors,
+        })
+        notify(errors.length ? 'Fichier analysé avec des lignes à corriger' : 'Fichier prêt pour l’import', errors.length ? 'danger' : 'success')
+      } else {
+        const parsed = await readImportFile(file, kind)
+        const normalized = parsed.rows.map((row, index) => normalizeImportRow(row, kind, index))
+        const errors = normalized.flatMap((row) => row.errors)
+        setPreview({
+          ...parsed,
+          normalized,
+          totalRows: normalized.length,
+          validRows: normalized.filter((row) => row.errors.length === 0).length,
+          invalidRows: normalized.filter((row) => row.errors.length > 0).length,
+          sourceColumns: parsed.headers.length,
+          errors,
+        })
+        notify(errors.length ? 'Fichier analysé avec des lignes à corriger' : 'Fichier prêt pour l’import', errors.length ? 'danger' : 'success')
+      }
     } catch (error) {
-      setPreview(null); notify(error.message, 'danger')
-    } finally { setBusy(false) }
+      setPreview(null)
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function importToServer() {
     if (!file || !preview || preview.errors.length) return
     const body = new FormData()
     body.append('file', file)
-    body.append('type', kind)
     setBusy(true)
     try {
-      await request('/api/import/' + kind, { method: 'POST', body })
-      notify(preview.normalized.length + ' lignes importées')
-    } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
+      const response = await request('/api/import/' + kind, { method: 'POST', body })
+      if (kind === 'students') {
+        const report = response.data
+        setPreview((current) => ({
+          ...current,
+          normalized: report.rows || current.normalized,
+          totalRows: report.totalRows,
+          validRows: report.validRows,
+          invalidRows: 0,
+          errors: [],
+        }))
+        notify(`${report.created} étudiants ajoutés, ${report.updated} mis à jour, ${report.unchanged} inchangés`)
+      } else {
+        notify(preview.normalized.length + ' lignes importées')
+      }
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
   }
 
-  const columns = kind === 'students'
-    ? ['Identifiant', 'Nom', 'Prénom', 'Filière', 'État']
+  const studentMode = kind === 'students'
+  const columns = studentMode
+    ? ['stdID', 'Cohorte', 'Nom complet', 'E-mail SQU', 'Action', 'État']
     : ['Identifiant', 'Nom complet', 'E-mail', 'Rôle', 'État']
+  const templateHref = studentMode
+    ? '/modele_import_etudiants_squ.xlsx'
+    : '/modele_import_fyp_etudiants_professeurs.xlsx'
 
   return <section className="import-workspace">
-    <div className="section-head"><div><span className="eyebrow">Administration des données</span><h2>Imports Excel</h2><p>Listes académiques sans création de compte étudiant.</p></div><a className="soft-button download-template" href="/modele_import_fyp_etudiants_professeurs.xlsx" download>Télécharger le modèle vierge</a></div>
-    <div className="import-mode" role="tablist"><button className={kind === 'students' ? 'active' : ''} onClick={() => { setKind('students'); setPreview(null) }}>Étudiants</button><button className={kind === 'professors' ? 'active' : ''} onClick={() => { setKind('professors'); setPreview(null) }}>Professeurs</button></div>
+    <div className="section-head"><div><span className="eyebrow">Administration des données</span><h2>Imports Excel</h2><p>{studentMode ? 'Importez le référentiel officiel SQU avec les colonnes stdID, cohort, name et Email.' : 'Importez les profils des évaluateurs et superviseurs.'}</p></div><a className="soft-button download-template" href={templateHref} download>Télécharger le modèle</a></div>
+    <div className="import-mode" role="tablist"><button className={studentMode ? 'active' : ''} onClick={() => { setKind('students'); setPreview(null); setFile(null) }}>Étudiants</button><button className={!studentMode ? 'active' : ''} onClick={() => { setKind('professors'); setPreview(null); setFile(null) }}>Professeurs</button></div>
     <section className="import-dropzone">
-      <div><strong>{file?.name || 'Sélectionner un fichier Excel ou CSV'}</strong><span>{file ? formatFileSize(file.size) : '.xlsx ou .csv'}</span></div>
+      <div><strong>{file?.name || 'Sélectionner un fichier Excel ou CSV'}</strong><span>{file ? formatFileSize(file.size) : '.xlsx ou .csv · 10 Mo maximum'}</span></div>
       <label className="file-picker"><input type="file" accept=".xlsx,.csv" onChange={(event) => { setFile(event.target.files?.[0] || null); setPreview(null) }} /><span>Choisir le fichier</span></label>
       <button className="primary-action" disabled={!file || busy} onClick={analyze}>{busy ? 'Analyse…' : 'Analyser'}</button>
     </section>
     {preview && <>
-      <section className="import-summary"><div><span>Feuille</span><strong>{preview.sheetName}</strong></div><div><span>Lignes détectées</span><strong>{preview.normalized.length}</strong></div><div><span>Valides</span><strong>{preview.normalized.length - preview.errors.length}</strong></div><div><span>À corriger</span><strong className={preview.errors.length ? 'danger-text' : ''}>{preview.errors.length}</strong></div></section>
-      {preview.errors.length > 0 && <div className="import-errors">{preview.errors.slice(0, 8).map((error) => <span key={error}>{error}</span>)}</div>}
-      <section className="import-preview"><div className="section-head"><div><h3>Aperçu avant import</h3><p>{preview.normalized.length} lignes · {preview.headers.length} colonnes source</p></div></div><div className="table-wrap"><table><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{preview.normalized.slice(0, 12).map((row) => <tr key={row.rowNumber}>{kind === 'students' ? <><td>{row.studentNumber}</td><td>{row.lastName}</td><td>{row.firstName}</td><td>{row.trackCode || '-'}</td></> : <><td>{row.universityId}</td><td>{row.fullName}</td><td>{row.email}</td><td>{pretty(row.role)}</td></>}<td><span className={'validation-state ' + (row.errors.length ? 'invalid' : 'valid')}>{row.errors.length ? 'À corriger' : 'Valide'}</span></td></tr>)}</tbody></table></div></section>
-      <div className="import-actions"><button className="primary-action" disabled={busy || preview.errors.length > 0 || preview.normalized.length === 0} onClick={importToServer}>Importer dans la plateforme</button></div>
+      <section className="import-summary"><div><span>Feuille</span><strong>{preview.sheetName}</strong></div><div><span>Lignes détectées</span><strong>{preview.totalRows}</strong></div><div><span>Valides</span><strong>{preview.validRows}</strong></div><div><span>À corriger</span><strong className={preview.invalidRows ? 'danger-text' : ''}>{preview.invalidRows}</strong></div></section>
+      {preview.errors.length > 0 && <div className="import-errors">{preview.errors.slice(0, 12).map((error, index) => <span key={error + index}>{error}</span>)}</div>}
+      <section className="import-preview"><div className="section-head"><div><h3>Aperçu avant import</h3><p>{preview.totalRows} lignes · {preview.sourceColumns} colonnes source</p></div></div><div className="table-wrap"><table><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{preview.normalized.slice(0, 15).map((row) => <tr key={row.rowNumber}>{studentMode ? <><td>{row.studentNumber}</td><td>{row.cohort}</td><td>{row.fullName}</td><td>{row.email}</td><td>{row.existing ? 'Mise à jour' : 'Création'}</td></> : <><td>{row.universityId}</td><td>{row.fullName}</td><td>{row.email}</td><td>{pretty(row.role)}</td></>}<td><span className={'validation-state ' + (row.errors?.length ? 'invalid' : 'valid')}>{row.errors?.length ? 'À corriger' : 'Valide'}</span></td></tr>)}</tbody></table></div></section>
+      <div className="import-actions"><button className="primary-action" disabled={busy || preview.errors.length > 0 || preview.totalRows === 0} onClick={importToServer}>{busy ? 'Import…' : studentMode ? 'Créer ou mettre à jour les étudiants' : 'Importer dans la plateforme'}</button></div>
     </>}
   </section>
+}
+
+function formatStudentImportError(error) {
+  const messages = {
+    'Required value is missing': 'valeur obligatoire manquante',
+    'Student ID must contain 5 to 12 digits': 'le stdID doit contenir 5 à 12 chiffres',
+    'Invalid email address': 'adresse e-mail invalide',
+    'Duplicate student ID in file': 'stdID dupliqué dans le fichier',
+    'Duplicate email in file': 'e-mail dupliqué dans le fichier',
+    'Email already belongs to another student': 'cet e-mail appartient déjà à un autre étudiant',
+    'Cohort must use YY or YYYY format': 'la cohorte doit utiliser le format YY ou YYYY',
+  }
+  const message = messages[error.message] || error.message
+  return `Ligne ${error.rowNumber} · ${error.field}: ${message}`
 }
 
 function normalizeImportLabel(value) {
@@ -439,17 +644,22 @@ function normalizeImportRow(row, kind, index) {
   const rowNumber = index + 1
   const errors = []
   if (kind === 'students') {
+    const studentNumber = importValue(row, ['stdid', 'student id', 'student number', 'identifiant etudiant', 'id etudiant', 'id']).replace(/^s(?=\d+$)/i, '')
+    const rawCohort = importValue(row, ['cohort', 'cohorte', 'promotion']).replace(/\.0$/, '')
+    const cohort = /^\d{2}$/.test(rawCohort) ? '20' + rawCohort : rawCohort
     const normalized = {
       rowNumber,
-      studentNumber: importValue(row, ['student id', 'student number', 'identifiant etudiant', 'id etudiant', 'id']),
-      lastName: importValue(row, ['nom', 'last name']),
-      firstName: importValue(row, ['prenom', 'first name']),
-      trackCode: importValue(row, ['filiere', 'track code', 'track']),
+      studentNumber,
+      cohort,
+      fullName: importValue(row, ['name', 'full name', 'nom complet', 'nom']).replace(/\s+/g, ' ').trim(),
+      email: importValue(row, ['email', 'e mail', 'adresse e mail']).toLowerCase(),
+      existing: false,
       errors,
     }
-    if (!normalized.studentNumber) errors.push('Ligne ' + rowNumber + ': identifiant étudiant manquant')
-    if (!normalized.lastName) errors.push('Ligne ' + rowNumber + ': nom manquant')
-    if (!normalized.firstName) errors.push('Ligne ' + rowNumber + ': prénom manquant')
+    if (!/^\d{5,12}$/.test(normalized.studentNumber)) errors.push('Ligne ' + rowNumber + ': stdID invalide')
+    if (!/^(19|20)\d{2}$/.test(normalized.cohort)) errors.push('Ligne ' + rowNumber + ': cohorte invalide')
+    if (!normalized.fullName) errors.push('Ligne ' + rowNumber + ': nom complet manquant')
+    if (normalized.email !== `s${normalized.studentNumber}@student.squ.edu.om`) errors.push('Ligne ' + rowNumber + ': e-mail SQU incohérent')
     return normalized
   }
   const normalized = {
@@ -500,6 +710,12 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
     const user = evaluator.user || {}
     return user.id === session.userId || user.email === session.email
   })
+  const selectedProject = (datasets.projects || []).find((project) => project.id === draft.projectId)
+  const selectedEvaluator = allEvaluators.find((evaluator) => evaluator.id === draft.evaluatorId)
+  const evaluatorDisplayName = itemName(
+    selectedEvaluator?.user || selectedEvaluator,
+    session.fullName || session.email || 'Évaluateur',
+  )
 
   const selectedTeam = (datasets.teams || []).find((team) => {
     const linkedProjectId = team.project?.id || team.projectId
@@ -697,11 +913,29 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
 
     <section className="evaluation-context" aria-label="Contexte de l’évaluation">
       <label className="field"><span>Filière</span><select value={draft.trackCode} onChange={(event) => setDraft({ ...draft, trackCode: event.target.value })}>{['CSN', 'CSP', 'EIC', 'PSE'].map((track) => <option key={track}>{track}</option>)}</select></label>
-      <SelectData label="Projet" value={draft.projectId} data={datasets.projects || []} onChange={(projectId) => { setDraft({ ...draft, projectId }); loadProjectEvaluations(projectId) }} />
+      <SelectData label="Projet" value={draft.projectId} data={datasets.projects || []} onChange={(projectId) => {
+        const project = (datasets.projects || []).find((item) => item.id === projectId)
+        setDraft({ ...draft, projectId, trackCode: project?.track?.code || project?.trackCode || draft.trackCode })
+        loadProjectEvaluations(projectId)
+      }} />
       <label className="field"><span>Fiche</span><select value={draft.evaluationType} onChange={(event) => setDraft({ ...draft, evaluationType: event.target.value })}>{EVALUATION_TYPES.map((type) => <option key={type} value={type}>{SCORING_TEMPLATES[type]?.label || pretty(type)} · {SCORING_TEMPLATES[type]?.phase || ''}</option>)}</select></label>
       <SelectData label="Phase" value={draft.phaseId} data={datasets.phases || []} onChange={(phaseId) => { setPhaseAccess(null); setDraft({ ...draft, phaseId }) }} />
       <SelectData label="Évaluateur" value={draft.evaluatorId} data={evaluatorOptions} onChange={(evaluatorId) => setDraft({ ...draft, evaluatorId })} />
     </section>
+
+    {draft.evaluationType === 'DEMO_DAY_INDUSTRY' && <section className="industry-form-meta" aria-label="Informations de la fiche Industry Guest">
+      <div className="industry-form-title">
+        <span className="eyebrow">FYP Demo Evaluation Sheet</span>
+        <strong>Industry Guest · SP2026</strong>
+        <p>Évaluation par projet, et non par étudiant. Chaque composante est notée sur 10.</p>
+      </div>
+      <dl>
+        <div><dt>Filière</dt><dd>{selectedProject?.track?.code || selectedProject?.trackCode || draft.trackCode || '—'}</dd></div>
+        <div><dt>Numéro de projet</dt><dd>{selectedProject?.projectNumber || '—'}</dd></div>
+        <div><dt>Membre du jury</dt><dd>{evaluatorDisplayName}</dd></div>
+        <div><dt>Date</dt><dd>{new Intl.DateTimeFormat('fr-FR').format(new Date())}</dd></div>
+      </dl>
+    </section>}
 
     {draft.phaseId && <section className={'deadline-banner ' + (phaseAccess?.allowed ? 'open' : 'closed')}>
       <div><span className="eyebrow">Fenêtre d’évaluation</span><strong>{phaseAccess?.allowed ? 'Évaluation ouverte' : 'Évaluation verrouillée'}</strong><p>{phaseAccess?.message || 'Vérification de l’échéance…'}</p></div>
@@ -749,7 +983,7 @@ function readLocalJson(key, fallback) {
 }
 
 function toStudentTarget(student, index) {
-  const fullName = [student.firstName, student.lastName].filter(Boolean).join(' ')
+  const fullName = student.fullName || [student.firstName, student.lastName].filter(Boolean).join(' ')
   return {
     id: student.id || 'student-' + index,
     label: fullName || 'Étudiant ' + String(index + 1).padStart(2, '0'),
@@ -902,13 +1136,13 @@ function SelectData({ label, value, data, onChange }) {
   return <label className="field"><span>{label}</span><select value={value || ''} onChange={(e) => onChange(e.target.value)}><option value="">Select</option>{data.map((item) => <option key={item.id} value={item.id}>{itemName(item.user || item)}</option>)}</select></label>
 }
 
-function Panel({ title, subtitle, children, accent = 'blue', wide = false }) {
-  return <section className={'panel accent-' + accent + (wide ? ' wide' : '')}><div className="panel-heading"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></div>{children}</section>
+function Panel({ title, subtitle, children, accent = 'blue', wide = false, className = '' }) {
+  return <section className={'panel accent-' + accent + (wide ? ' wide' : '') + (className ? ' ' + className : '')}><div className="panel-heading"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></div>{children}</section>
 }
 
 function DataTable({ rows = [], columns = [], onEdit, onDelete, compact = false, extraAction }) {
   if (!rows.length) return <EmptyState />
-  return <div className={'table-wrap ' + (compact ? 'compact' : '')}><table><thead><tr>{columns.map((column) => <th key={column}>{pretty(column)}</th>)}{(onEdit || onDelete || extraAction) && <th>Actions</th>}</tr></thead><tbody>{rows.map((row, index) => <tr key={row.id || index}>{columns.map((column) => <td key={column}>{renderCell(row[column], column)}</td>)}{(onEdit || onDelete || extraAction) && <td className="row-actions">{extraAction?.(row)}{onEdit && <button className="mini-button" onClick={() => onEdit(row)}>Edit</button>}{onDelete && <button className="mini-button danger" onClick={() => onDelete(row)}>Delete</button>}</td>}</tr>)}</tbody></table></div>
+  return <div className={'table-wrap ' + (compact ? 'compact' : '')}><table><thead><tr>{columns.map((column) => <th key={column}>{pretty(column)}</th>)}{(onEdit || onDelete || extraAction) && <th>Actions</th>}</tr></thead><tbody>{rows.map((row, index) => <tr key={row.id || index}>{columns.map((column) => <td key={column} data-label={pretty(column)}>{renderCell(row[column], column)}</td>)}{(onEdit || onDelete || extraAction) && <td className="row-actions" data-label="Actions">{extraAction?.(row)}{onEdit && <button type="button" className="mini-button icon-text" onClick={() => onEdit(row)} title="Modifier"><Pencil size={14} />Modifier</button>}{onDelete && <button type="button" className="mini-button danger icon-text" onClick={() => onDelete(row)} title="Supprimer"><Trash2 size={14} />Supprimer</button>}</td>}</tr>)}</tbody></table></div>
 }
 
 function renderCell(value, column) {
@@ -929,15 +1163,12 @@ function StatusPill({ value }) {
 }
 
 function EmptyState({ title = 'No data yet', detail = 'Create records or run the SQL seed script to populate this view.' }) {
-  return <div className="empty-state"><div className="empty-icon">i</div><h3>{title}</h3><p>{detail}</p></div>
+  return <div className="empty-state"><div className="empty-icon"><CircleAlert size={20} /></div><h3>{title}</h3><p>{detail}</p></div>
 }
 
-function Checklist({ items, done }) {
-  return <ul className="checklist">{items.map((item) => <li key={item} className={done.includes(item) ? 'done' : ''}><span>{done.includes(item) ? 'OK' : '--'}</span>{item}</li>)}</ul>
-}
 
 function Toast({ message, type }) {
-  return <div className={'toast ' + type}>{message}</div>
+  return <div className={'toast ' + type} role="status" aria-live="polite">{type === 'danger' ? <CircleAlert size={19} /> : <CheckCircle2 size={19} />}<span>{message}</span></div>
 }
 
 export default App

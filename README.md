@@ -1,4 +1,4 @@
-﻿# FYP Online Grading Platform
+# FYP Online Grading Platform
 
 A bilingual web platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It supports the complete academic workflow for FYP I and FYP II, from student-record imports and evaluator onboarding to project allocation, deadline-controlled evaluations, grade consolidation, publication, reporting, notifications, and audit tracking.
 
@@ -8,7 +8,6 @@ The repository is a production-oriented monorepo containing a React frontend, a 
 
 Final Year Project assessment involves several actors, evaluation forms, deadlines, and grading rules. This platform centralizes those processes in one role-based system.
 
-> **Domain rule:** A student is not a platform actor. Students do not have accounts, sessions, dashboards, or login access. They are academic records imported and managed by administrators, attached to teams, and used as scoring targets in evaluation forms.
 
 It is designed to:
 
@@ -25,6 +24,17 @@ It is designed to:
 
 ## Main Features
 
+### Premium Bilingual Frontend
+
+- Distinct role-aware dashboards for administrators, supervisors, faculty evaluators, industry representatives, and FYP coordinators.
+- Responsive workspace for desktop, tablet, and mobile with an off-canvas mobile navigation.
+- SQU-inspired visual identity with a professional academic photograph, carefully balanced institutional colors, and Lucide icons.
+- Consistent light and dark themes saved across sessions.
+- French and English interface switching across authentication, navigation, dashboards, forms, messages, and dynamic content.
+- Global search with contextual navigation suggestions.
+- Animated metrics, deadline progress, loading skeletons, empty states, error recovery, confirmations, notifications, and accessible drawers and modals.
+- Existing routes, REST calls, permissions, and grading workflows preserved.
+- Detailed implementation guide: [Premium frontend redesign](docs/REFONTE_FRONTEND_PREMIUM_FR.md).
 ### Authentication and Role-Based Access
 
 - Login-based access for the five platform actors: administrators, supervisors, faculty evaluators, industry representatives, and FYP coordinators.
@@ -42,11 +52,13 @@ It is designed to:
 
 ### Excel Imports
 
-- Import student lists.
+- Import official SQU student lists using the exact `stdID`, `cohort`, `name`, and `Email` columns.
 - Import academic and industry evaluator lists.
-- Preview and validate rows before submission.
-- Detect missing or invalid values.
-- Reusable Excel template included in the frontend public assets.
+- Preview and validate rows before submission, with atomic persistence after successful validation.
+- Create, update, or leave unchanged each student record by its unique SQU student ID.
+- Detect missing values, duplicates, invalid cohort formats, and inconsistent SQU email addresses.
+- Reusable blank Excel template included in the frontend public assets.
+- Detailed French workflow: [Student import and Industry Guest evaluation guide](docs/IMPORT_ETUDIANTS_ET_EVALUATION_INDUSTRIE_FR.md).
 
 ### Phase and Deadline Management
 
@@ -64,6 +76,7 @@ It is designed to:
 - Report evaluations for FYP I and FYP II.
 - Oral presentation evaluations for FYP I and FYP II.
 - Industry representative evaluation for Demo Day.
+- Official Industry Guest sheet with the five criteria and 2/1/4/2/1 weighting supplied by SQU.
 - Configurable forms and rubric criteria.
 - Individual and team scoring support.
 - Automatic draft saving.
@@ -185,8 +198,6 @@ The complete UML documentation is available in [`docs/uml`](docs/uml/README_FR.m
 #### Global Class Diagram
 
 ![Global Class Diagram](docs/uml/readme-class-diagram.png)
-
-The UML model follows the project domain rule that a student is an academic record, not a platform actor or authenticated user.
 
 ## Quick Start with Docker
 

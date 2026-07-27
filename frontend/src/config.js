@@ -38,6 +38,7 @@ export const actorTemplates = {
 
 export const views = [
   { id: 'dashboard', label: 'Tableau de bord', roles: ROLES },
+  { id: 'calendar', label: 'Calendrier FYP', roles: ROLES },
   { id: 'notifications', label: 'Notifications', roles: ROLES },
   { id: 'imports', label: 'Imports Excel', roles: ['ADMIN'] },
   { id: 'crud', label: 'Gestion des données', roles: ['ADMIN'] },
@@ -62,14 +63,15 @@ export const resourceConfigs = {
     ],
   },
   students: {
-    title: 'Étudiants', endpoint: '/api/students', subtitle: 'Données académiques importées, sans compte ni rôle sur la plateforme.',
-    columns: ['studentNumber', 'lastName', 'firstName', 'academicYear', 'trackCode'],
+    title: 'Étudiants', endpoint: '/api/students', subtitle: 'Référentiel académique officiel importé depuis la base SQU.',
+    columns: ['studentNumber', 'cohort', 'fullName', 'email', 'trackCode'],
     fields: [
-      { name: 'studentNumber', label: 'Identifiant étudiant', required: true },
-      { name: 'lastName', label: 'Nom', required: true },
-      { name: 'firstName', label: 'Prénom', required: true },
-      { name: 'academicYear', label: 'Année universitaire', defaultValue: '2025-2026', required: true },
-      { name: 'trackCode', label: 'Filière', type: 'select', options: ['EIC', 'CSN', 'CSP', 'PSE'] },
+      { name: 'studentNumber', label: 'stdID', required: true, placeholder: '142430' },
+      { name: 'cohort', label: 'Cohorte', required: true, placeholder: '2022' },
+      { name: 'fullName', label: 'Nom complet officiel', required: true },
+      { name: 'email', label: 'E-mail SQU', type: 'email', required: true, placeholder: 's142430@student.squ.edu.om' },
+      { name: 'academicYear', label: 'Année académique FYP', placeholder: '2026-2027' },
+      { name: 'trackCode', label: 'Filière FYP', type: 'select', options: ['EIC', 'CSN', 'CSP', 'PSE'] },
       { name: 'level', label: 'Niveau', defaultValue: 'Final Year' },
     ],
   },
@@ -90,14 +92,15 @@ export const resourceConfigs = {
     fields: [{ name: 'code', label: 'Code', required: true }, { name: 'name', label: 'Name', required: true }, { name: 'description', label: 'Description', type: 'textarea' }],
   },
   projects: {
-    title: 'Projects', endpoint: '/api/projects', subtitle: 'FYP projects connected to tracks and teams.',
-    columns: ['title', 'academicYear', 'status', 'track'],
+    title: 'Projets', endpoint: '/api/projects', subtitle: 'Projets FYP identifiés par le numéro utilisé sur les fiches d’évaluation.',
+    columns: ['projectNumber', 'title', 'academicYear', 'status', 'track'],
     fields: [
-      { name: 'title', label: 'Project title', required: true },
-      { name: 'abstractText', label: 'Abstract', type: 'textarea' },
-      { name: 'academicYear', label: 'Academic year', defaultValue: '2025-2026', required: true },
-      { name: 'trackId', label: 'Track', type: 'selectData', source: 'tracks', required: true },
-      { name: 'status', label: 'Status', defaultValue: 'ACTIVE' },
+      { name: 'projectNumber', label: 'Numéro de projet', required: true, placeholder: 'PSE-01' },
+      { name: 'title', label: 'Titre du projet', required: true },
+      { name: 'abstractText', label: 'Résumé', type: 'textarea' },
+      { name: 'academicYear', label: 'Année académique', defaultValue: '2026-2027', required: true },
+      { name: 'trackId', label: 'Filière', type: 'selectData', source: 'tracks', required: true },
+      { name: 'status', label: 'État', defaultValue: 'ACTIVE' },
     ],
   },
   teams: {

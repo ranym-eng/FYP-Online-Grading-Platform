@@ -154,7 +154,6 @@ Les comptes seed crees cote backend utilisent:
 
 - Mot de passe: `Test@123`
 - Exemples:
-  - `seed.student1@squ.edu.om`
   - `seed.supervisor1@squ.edu.om`
   - `seed.faculty.report@squ.edu.om`
   - `seed.industry@squ.edu.om`

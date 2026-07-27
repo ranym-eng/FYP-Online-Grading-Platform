@@ -23,8 +23,8 @@ public class StudentSchemaCompatibility {
 
             jdbc.update("""
                     update student_profiles sp
-                    set first_name = coalesce(sp.first_name, split_part(u.full_name, ' ', 1)),
-                        last_name = coalesce(sp.last_name, nullif(trim(substring(u.full_name from position(' ' in u.full_name) + 1)), ''))
+                    set full_name = coalesce(nullif(sp.full_name, ''), u.full_name),
+                        email = coalesce(nullif(sp.email, ''), u.email)
                     from app_users u
                     where sp.user_id = u.id
                     """);
