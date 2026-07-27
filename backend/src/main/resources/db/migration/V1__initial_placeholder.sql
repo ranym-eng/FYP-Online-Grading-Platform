@@ -1,0 +1,2 @@
+﻿-- Flyway placeholder. The current development profile uses Hibernate ddl-auto=update.
+-- Production rule: replace ddl-auto with validate and add explicit migrations per service/module.

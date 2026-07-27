@@ -1,0 +1,9 @@
+target
+.git
+.idea
+.vscode
+*.log
+backend-*.log
+README*.md
+docker-compose.yml
+seed_all_tables.sql

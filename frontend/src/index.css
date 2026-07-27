@@ -1,0 +1,6 @@
+:root {
+  color: #14211d;
+  background: #f5f7f4;
+}
+body { margin: 0; }
+#root { min-height: 100vh; }

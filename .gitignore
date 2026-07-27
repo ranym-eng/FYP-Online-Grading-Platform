@@ -1,0 +1,29 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Java / Maven
+**/target/
+*.class
+
+# Node / Vite
+**/node_modules/
+**/dist/
+**/.vite/
+
+# Logs and runtime files
+*.log
+logs/
+tmp/
+output/
+
+# IDE and operating system
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Test captures
+ui-*.png
