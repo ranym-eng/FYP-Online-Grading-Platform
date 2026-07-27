@@ -1,17 +1,179 @@
 # FYP Online Grading Platform
 
-Plateforme bilingue français/anglais de gestion et de notation des Final Year Projects de Sultan Qaboos University.
+A bilingual web platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It supports the complete academic workflow for FYP I and FYP II, from student and evaluator onboarding to project allocation, deadline-controlled evaluations, grade consolidation, publication, reporting, notifications, and audit tracking.
 
-Le dépôt contient le frontend React, le backend Spring Boot et toute l’infrastructure nécessaire pour démarrer l’application avec Docker Compose.
+The repository is a production-oriented monorepo containing a React frontend, a Spring Boot backend, PostgreSQL persistence, an email testing service, and a Docker Compose environment.
 
-## Démarrage rapide avec Docker
+## Project Purpose
 
-### Prérequis
+Final Year Project assessment involves several actors, evaluation forms, deadlines, and grading rules. This platform centralizes those processes in one role-based system.
 
-Installez uniquement :
+It is designed to:
 
-- Git ;
-- Docker Desktop avec Docker Compose.
+- provide a dedicated dashboard for every actor;
+- manage students, evaluators, tracks, projects, teams, and academic phases;
+- import student and evaluator data from Excel files;
+- assign supervisors and evaluators to projects;
+- configure FYP I, FYP II, report, oral, and Demo Day evaluation forms;
+- save evaluation work as a draft until the evaluator formally submits it;
+- prevent late or unsubmitted drafts from affecting final grades;
+- notify users before deadlines and allow extension requests;
+- consolidate, publish, export, and report final grades;
+- keep an audit trail of sensitive operations.
+
+## Main Features
+
+### Authentication and Role-Based Access
+
+- Login-based access for every user.
+- Separate sessions and dashboards for each actor.
+- Role-based navigation and API authorization.
+- Automatic redirection to the correct workspace after login.
+
+### Academic Data Management
+
+- CRUD operations for users, student profiles, evaluator profiles, tracks, projects, teams, phases, evaluation forms, rubric criteria, grades, notifications, and reports.
+- Project-to-team allocation.
+- Student membership management.
+- Supervisor and evaluator assignments.
+- Filtering and search across administrative resources.
+
+### Excel Imports
+
+- Import student lists.
+- Import academic and industry evaluator lists.
+- Preview and validate rows before submission.
+- Detect missing or invalid values.
+- Reusable Excel template included in the frontend public assets.
+
+### Phase and Deadline Management
+
+- Manage FYP I and FYP II phases.
+- Configure academic year, start date, deadline, duration, and status.
+- Open, close, and archive phases.
+- Block evaluation submission when a phase deadline has passed.
+- Send reminders approximately 24 hours and 12 hours before a deadline.
+- Allow evaluators to request an extension.
+- Allow administrators to approve or reject extension requests.
+
+### Evaluation Workflow
+
+- Supervisor evaluations for FYP I and FYP II.
+- Report evaluations for FYP I and FYP II.
+- Oral presentation evaluations for FYP I and FYP II.
+- Industry representative evaluation for Demo Day.
+- Configurable forms and rubric criteria.
+- Individual and team scoring support.
+- Automatic draft saving.
+- Explicit final submission and locking.
+- Drafts that are not submitted before the deadline are excluded from official grading.
+
+### Grading and Reporting
+
+- Consolidate evaluation results using grading rules.
+- Track pending, submitted, and locked evaluation sheets.
+- Publish approved grades to students.
+- Generate phase and final reports.
+- Track report generation and email delivery.
+- Provide coordinator and administrator views of overall progress.
+
+### Notifications and Audit
+
+- In-app notification center available to all actors.
+- Deadline reminders and extension decision notifications.
+- Development email capture through Mailpit.
+- Audit logs for sensitive administrative actions.
+
+### API Documentation
+
+- Interactive OpenAPI documentation through Swagger UI.
+- REST endpoints grouped by functional module.
+- Standard API response structure and centralized error handling.
+
+## User Roles
+
+| Role | Main responsibilities |
+| --- | --- |
+| Administrator | Manages accounts, academic data, projects, teams, phases, assignments, evaluation templates, deadlines, extensions, grades, reports, and audit logs. |
+| Student | Views the assigned project, team members, evaluation progress, notifications, and published grades. |
+| Supervisor | Evaluates supervised projects for FYP I and FYP II, saves drafts, submits final forms, and requests deadline extensions. |
+| Faculty Evaluator | Evaluates reports and oral presentations for FYP I and FYP II and follows pending submissions. |
+| Industry Representative | Evaluates prototypes and industry relevance during Demo Day. |
+| FYP Coordinator | Monitors phase progress, consolidated grades, generated reports, exports, and delivery history. |
+
+## Typical Workflow
+
+1. The administrator creates accounts or imports academic data from Excel.
+2. Tracks, projects, teams, and student memberships are configured.
+3. Supervisors and evaluators are assigned to projects.
+4. Evaluation forms, criteria, grading rules, phases, and deadlines are configured.
+5. Evaluators enter scores and comments, which remain drafts until final submission.
+6. The platform sends approaching-deadline notifications.
+7. Evaluators may request an extension when necessary.
+8. Submitted evaluations are locked and included in grade consolidation.
+9. Administrators review and publish grades.
+10. Students view published results, while coordinators generate reports and exports.
+
+## Technology Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, Vite, JavaScript, CSS, Lucide icons |
+| Frontend production server | Nginx |
+| Backend | Spring Boot 3.5, Java 21 LTS, Maven |
+| Persistence | Spring Data JPA, Hibernate, PostgreSQL 18 |
+| API documentation | Springdoc OpenAPI and Swagger UI |
+| Email testing | Mailpit |
+| Deployment | Docker and Docker Compose |
+| Testing | JUnit, Mockito, Testcontainers, ESLint, Vite build |
+
+## Repository Structure
+
+```text
+.
+|-- backend/                 Spring Boot application
+|   |-- src/main/java/      Backend modules and REST APIs
+|   |-- src/test/java/      Unit and integration tests
+|   |-- Dockerfile          Java 21 multi-stage image
+|   `-- pom.xml             Maven configuration
+|-- frontend/                React application
+|   |-- src/                Dashboards, forms, API client, and translations
+|   |-- public/             Public assets and Excel import template
+|   |-- Dockerfile          Node build and Nginx runtime image
+|   `-- nginx.conf          SPA and /api reverse proxy
+|-- compose.yaml             Complete local environment
+|-- .env.example             Environment variable template
+`-- README.md                Main project documentation
+```
+
+## Architecture
+
+```text
+Browser
+   |
+   v
+Nginx / React frontend
+   |
+   | /api
+   v
+Spring Boot REST API
+   |               |
+   v               v
+PostgreSQL       Mailpit
+```
+
+Nginx forwards `/api` requests to Spring Boot. The browser therefore communicates with a single origin in the Docker environment, avoiding hard-coded backend URLs and CORS issues.
+
+The backend is organized into domain modules for authentication, users, projects, evaluations, grading, notifications, reporting, dashboards, and auditing.
+
+## Quick Start with Docker
+
+### Prerequisites
+
+Install:
+
+- Git;
+- Docker Desktop with Docker Compose.
 
 ### Installation
 
@@ -21,87 +183,97 @@ cd FYP-Online-Grading-Platform
 docker compose up --build -d
 ```
 
-Le premier démarrage peut prendre quelques minutes, car Docker télécharge les images et compile les deux applications.
+The first startup can take several minutes while Docker downloads the base images and builds both applications.
 
-### URLs
-
-| Service | URL |
-| --- | --- |
-| Application React | http://localhost:3000 |
-| Backend Spring Boot | http://localhost:8080 |
-| Swagger UI | http://localhost:8080/swagger-ui.html |
-| État du backend | http://localhost:8080/actuator/health |
-| Mailpit | http://localhost:8025 |
-| PostgreSQL depuis la machine | localhost:5433 |
-
-Compte administrateur créé automatiquement :
-
-```text
-E-mail      : admin@squ.edu.om
-Mot de passe: Admin@123
-```
-
-Ces identifiants sont réservés au développement. Changez-les avant tout déploiement réel.
-
-## Commandes Docker utiles
-
-Afficher l’état des services :
+Check the service status:
 
 ```bash
 docker compose ps
 ```
 
-Suivre les logs :
+All four services should eventually report a running or healthy status.
+
+## Service URLs
+
+| Service | URL |
+| --- | --- |
+| React application | http://localhost:3000 |
+| Spring Boot API | http://localhost:8080 |
+| Swagger UI | http://localhost:8080/swagger-ui.html |
+| Backend health | http://localhost:8080/actuator/health |
+| Mailpit web interface | http://localhost:8025 |
+| PostgreSQL from the host | localhost:5433 |
+
+## Default Development Account
+
+An administrator account is created automatically:
+
+```text
+Email:    admin@squ.edu.om
+Password: Admin@123
+```
+
+These credentials are intended only for local development. Replace them before deploying the platform to a shared or production environment.
+
+## Docker Commands
+
+Show service status:
+
+```bash
+docker compose ps
+```
+
+Follow all logs:
 
 ```bash
 docker compose logs -f
 ```
 
-Suivre uniquement Spring Boot :
+Follow only the backend logs:
 
 ```bash
 docker compose logs -f backend
 ```
 
-Arrêter les services en conservant PostgreSQL :
-
-```bash
-docker compose down
-```
-
-Reconstruire après une modification :
+Rebuild after source changes:
 
 ```bash
 docker compose up --build -d
 ```
 
-Supprimer les conteneurs et toutes les données PostgreSQL :
+Stop the services while keeping PostgreSQL data:
+
+```bash
+docker compose down
+```
+
+Stop the services and permanently remove the Docker database:
 
 ```bash
 docker compose down -v
 ```
 
-Attention : l’option `-v` supprime définitivement la base Docker.
+The `-v` option permanently deletes the Docker PostgreSQL volume.
 
-## Configuration
+## Environment Configuration
 
-Le projet fonctionne sans fichier `.env` grâce à des valeurs de développement par défaut.
+The application can run without a `.env` file because development defaults are defined in `compose.yaml`.
 
-Pour personnaliser les ports ou les identifiants :
+To customize credentials or ports on Windows PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Sous macOS ou Linux :
+On macOS or Linux:
 
 ```bash
 cp .env.example .env
 ```
 
-Variables disponibles :
+Available variables:
 
-| Variable | Valeur par défaut |
+| Variable | Default value |
 | --- | --- |
 | `POSTGRES_DB` | `fyp_grading_platform` |
 | `POSTGRES_USER` | `postgres` |
@@ -111,35 +283,23 @@ Variables disponibles :
 | `FRONTEND_PORT` | `3000` |
 | `MAILPIT_SMTP_PORT` | `1025` |
 | `MAILPIT_UI_PORT` | `8025` |
+| `MAIL_FROM` | `no-reply@squ.edu.om` |
 
-PostgreSQL utilise le port hôte `5433` afin de ne pas entrer en conflit avec une installation locale utilisant déjà `5432`. À l’intérieur de Docker, le backend communique avec PostgreSQL sur le port standard `5432`.
+PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local PostgreSQL installation on `5432`. Inside Docker, Spring Boot connects to the PostgreSQL service on the standard port `5432`.
 
-## Architecture du dépôt
+Never commit a real `.env` file or production credentials. The `.env` file is excluded by `.gitignore`.
 
-```text
-.
-├── backend/                 Spring Boot 3.5, Java 21, Maven
-├── frontend/                React 19, Vite et Nginx
-├── compose.yaml             Orchestration complète
-├── .env.example             Exemple de configuration
-└── README.md                Documentation principale
-```
-
-Services Docker :
-
-```text
-Navigateur -> Nginx/React -> Spring Boot -> PostgreSQL
-                                |
-                                +----------> Mailpit
-```
-
-Nginx transmet automatiquement les requêtes `/api` au backend. Le frontend n’a donc pas besoin d’une adresse API codée en dur.
-
-## Démarrage sans Docker
+## Running without Docker
 
 ### Backend
 
-Prérequis : Java 21 et PostgreSQL.
+Requirements:
+
+- Java 21;
+- PostgreSQL;
+- a database named `fyp_grading_platform`.
+
+Windows PowerShell:
 
 ```powershell
 cd backend
@@ -151,7 +311,7 @@ $env:SPRING_DATASOURCE_PASSWORD="root"
 
 ### Frontend
 
-Prérequis : Node.js 22.
+Requirement: Node.js 22 or later.
 
 ```powershell
 cd frontend
@@ -159,18 +319,18 @@ npm ci
 npm run dev
 ```
 
-Vite transmet automatiquement `/api` vers `http://localhost:8080` en développement.
+During local development, Vite proxies `/api` requests to `http://localhost:8080`.
 
-## Tests
+## Tests and Quality Checks
 
-Backend :
+Backend:
 
 ```powershell
 cd backend
 .\mvnw.cmd test
 ```
 
-Frontend :
+Frontend:
 
 ```powershell
 cd frontend
@@ -179,32 +339,54 @@ npm run lint
 npm run build
 ```
 
-Les tests d’intégration Testcontainers nécessitent Docker actif.
+Testcontainers-based integration tests require Docker to be running.
 
-## Données et e-mails
-
-- Hibernate crée et met à jour le schéma PostgreSQL au démarrage.
-- Les données Docker sont conservées dans le volume `postgres_data`.
-- Les e-mails de développement sont capturés par Mailpit et visibles sur http://localhost:8025.
-- Les secrets réels ne doivent jamais être ajoutés au dépôt. Le fichier `.env` est ignoré par Git.
-
-## Dépannage
-
-Si un port est déjà utilisé, modifiez sa valeur dans `.env`, puis relancez :
-
-```bash
-docker compose up --build -d
-```
-
-Pour vérifier la configuration Compose :
+Validate the Docker Compose configuration:
 
 ```bash
 docker compose config
 ```
 
-Pour repartir avec une base Docker vide :
+## Data and Email Handling
+
+- Hibernate creates and updates the PostgreSQL schema at startup.
+- Docker database data is persisted in the `postgres_data` volume.
+- Development emails are captured by Mailpit and can be inspected at http://localhost:8025.
+- The backend can be configured to use a real SMTP server through environment variables for deployment.
+
+## Troubleshooting
+
+### A port is already in use
+
+Create a `.env` file, change the conflicting port, and restart:
+
+```bash
+docker compose up --build -d
+```
+
+### The backend cannot connect to PostgreSQL
+
+Check container health and backend logs:
+
+```bash
+docker compose ps
+docker compose logs backend
+docker compose logs postgres
+```
+
+### Start with an empty Docker database
 
 ```bash
 docker compose down -v
 docker compose up --build -d
 ```
+
+### Validate the generated Compose configuration
+
+```bash
+docker compose config
+```
+
+## Security Notice
+
+The default database password and administrator account are development defaults. A real deployment must use strong secrets, HTTPS, restricted network access, secure SMTP credentials, regular backups, and a reviewed production authentication strategy.
