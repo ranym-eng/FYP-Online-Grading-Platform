@@ -193,11 +193,19 @@ The complete UML documentation is available in [`docs/uml`](docs/uml/README_FR.m
 
 #### Global Use Case Diagram
 
-![Global Use Case Diagram](docs/uml/readme-use-case-diagram.png)
+<p align="center">
+  <a href="docs/uml/use-case-global.svg">
+    <img src="./docs/uml/readme-use-case-diagram.png" alt="Global Use Case Diagram" width="100%">
+  </a>
+</p>
 
 #### Global Class Diagram
 
-![Global Class Diagram](docs/uml/readme-class-diagram.png)
+<p align="center">
+  <a href="docs/uml/class-diagram-global.svg">
+    <img src="./docs/uml/readme-class-diagram.png" alt="Global Class Diagram" width="100%">
+  </a>
+</p>
 
 ## Quick Start with Docker
 
