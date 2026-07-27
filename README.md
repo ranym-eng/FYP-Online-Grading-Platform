@@ -1,12 +1,14 @@
 # FYP Online Grading Platform
 
-A bilingual web platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It supports the complete academic workflow for FYP I and FYP II, from student and evaluator onboarding to project allocation, deadline-controlled evaluations, grade consolidation, publication, reporting, notifications, and audit tracking.
+A bilingual web platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It supports the complete academic workflow for FYP I and FYP II, from student-record imports and evaluator onboarding to project allocation, deadline-controlled evaluations, grade consolidation, publication, reporting, notifications, and audit tracking.
 
 The repository is a production-oriented monorepo containing a React frontend, a Spring Boot backend, PostgreSQL persistence, an email testing service, and a Docker Compose environment.
 
 ## Project Purpose
 
 Final Year Project assessment involves several actors, evaluation forms, deadlines, and grading rules. This platform centralizes those processes in one role-based system.
+
+> **Domain rule:** A student is not a platform actor. Students do not have accounts, sessions, dashboards, or login access. They are academic records imported and managed by administrators, attached to teams, and used as scoring targets in evaluation forms.
 
 It is designed to:
 
@@ -25,16 +27,16 @@ It is designed to:
 
 ### Authentication and Role-Based Access
 
-- Login-based access for every user.
+- Login-based access for the five platform actors: administrators, supervisors, faculty evaluators, industry representatives, and FYP coordinators.
 - Separate sessions and dashboards for each actor.
 - Role-based navigation and API authorization.
 - Automatic redirection to the correct workspace after login.
 
 ### Academic Data Management
 
-- CRUD operations for users, student profiles, evaluator profiles, tracks, projects, teams, phases, evaluation forms, rubric criteria, grades, notifications, and reports.
+- CRUD operations for user accounts, independent student records, evaluator profiles, tracks, projects, teams, phases, evaluation forms, rubric criteria, grades, notifications, and reports.
 - Project-to-team allocation.
-- Student membership management.
+- Student-record membership management for project teams, without creating student accounts.
 - Supervisor and evaluator assignments.
 - Filtering and search across administrative resources.
 
@@ -72,7 +74,7 @@ It is designed to:
 
 - Consolidate evaluation results using grading rules.
 - Track pending, submitted, and locked evaluation sheets.
-- Publish approved grades to students.
+- Approve and publish grades for coordinator reporting and official academic records.
 - Generate phase and final reports.
 - Track report generation and email delivery.
 - Provide coordinator and administrator views of overall progress.
@@ -95,7 +97,6 @@ It is designed to:
 | Role | Main responsibilities |
 | --- | --- |
 | Administrator | Manages accounts, academic data, projects, teams, phases, assignments, evaluation templates, deadlines, extensions, grades, reports, and audit logs. |
-| Student | Views the assigned project, team members, evaluation progress, notifications, and published grades. |
 | Supervisor | Evaluates supervised projects for FYP I and FYP II, saves drafts, submits final forms, and requests deadline extensions. |
 | Faculty Evaluator | Evaluates reports and oral presentations for FYP I and FYP II and follows pending submissions. |
 | Industry Representative | Evaluates prototypes and industry relevance during Demo Day. |
@@ -111,8 +112,8 @@ It is designed to:
 6. The platform sends approaching-deadline notifications.
 7. Evaluators may request an extension when necessary.
 8. Submitted evaluations are locked and included in grade consolidation.
-9. Administrators review and publish grades.
-10. Students view published results, while coordinators generate reports and exports.
+9. Administrators review, finalize, and publish grades for institutional processing.
+10. Coordinators review consolidated results and generate reports and exports.
 
 ## Technology Stack
 
@@ -165,6 +166,17 @@ PostgreSQL       Mailpit
 Nginx forwards `/api` requests to Spring Boot. The browser therefore communicates with a single origin in the Docker environment, avoiding hard-coded backend URLs and CORS issues.
 
 The backend is organized into domain modules for authentication, users, projects, evaluations, grading, notifications, reporting, dashboards, and auditing.
+
+## UML Documentation
+
+The complete UML documentation is available in [`docs/uml`](docs/uml/README_FR.md):
+
+- [global use-case diagram (SVG)](docs/uml/use-case-global.svg);
+- [global class diagram (SVG)](docs/uml/class-diagram-global.svg);
+- [two-page UML document (PDF)](docs/uml/fyp-uml-diagrams.pdf);
+- editable Graphviz and PlantUML source files.
+
+The UML model follows the project domain rule that a student is an academic record, not a platform actor or authenticated user.
 
 ## Quick Start with Docker
 

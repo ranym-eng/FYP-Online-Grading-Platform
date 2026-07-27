@@ -1,0 +1,204 @@
+digraph FYP_Class_Model {
+  graph [
+    rankdir=TB,
+    compound=true,
+    newrank=true,
+    splines=polyline,
+    overlap=false,
+    bgcolor="#F7F9FC",
+    pad="0.35",
+    nodesep="0.32",
+    ranksep="0.75",
+    fontname="Arial",
+    fontsize=22,
+    labelloc=t,
+    label="Sultan Qaboos University - FYP Online Grading Platform\nDiagramme global de classes et services metier"
+  ];
+  node [shape=record, style="filled", fillcolor="#FFFFFF", color="#334155", penwidth=1.15, fontname="Arial", fontsize=8.8, margin="0.08,0.05"];
+  edge [color="#64748B", penwidth=1.0, arrowsize=0.7, fontname="Arial", fontsize=7.8, labeldistance=1.5];
+
+  subgraph cluster_identity {
+    label="IDENTITE ET DONNEES ACADEMIQUES";
+    color="#60A5FA";
+    style="rounded,filled";
+    fillcolor="#EFF6FF";
+
+    BaseEntity [fillcolor="#DBEAFE", label="{<<mapped superclass>>\nBaseEntity|- id: UUID\l- createdAt: LocalDateTime\l- updatedAt: LocalDateTime\l|+ prePersist(): void\l+ preUpdate(): void\l}"];
+    User [label="{<<entity>>\nUser|- universityId: String\l- fullName: String\l- email: String\l- passwordHash: String\l- phone: String\l- role: UserRole\l- status: UserStatus\l}"];
+    StudentProfile [fillcolor="#FFF7ED", label="{<<entity / academic record>>\nStudentProfile|- firstName: String\l- lastName: String\l- studentNumber: String\l- academicYear: String\l- trackCode: String\l- level: String\l}"];
+    EvaluatorProfile [label="{<<entity>>\nEvaluatorProfile|- department: String\l- specialization: String\l- externalOrganization: String\l- external: boolean\l}"];
+
+    note_no_actor [shape=note, fillcolor="#FFFBEB", color="#F97316", label="StudentProfile n'herite pas de User.\nAucun compte, role, token ou dashboard etudiant."];
+  }
+
+  subgraph cluster_project {
+    label="PROJETS, EQUIPES ET AFFECTATIONS";
+    color="#38BDF8";
+    style="rounded,filled";
+    fillcolor="#F0F9FF";
+
+    Track [label="{<<entity>>\nTrack|- code: String {unique}\l- name: String\l- description: String\l- active: boolean\l}"];
+    Project [label="{<<entity>>\nProject|- title: String\l- abstractText: String\l- academicYear: String\l- status: String\l}"];
+    Team [label="{<<entity>>\nTeam|- name: String\l- section: String\l- academicYear: String\l}"];
+    ProjectSupervisorAssignment [label="{<<association entity>>\nProjectSupervisorAssignment|- active: boolean\l}"];
+    ProjectEvaluatorAssignment [label="{<<association entity>>\nProjectEvaluatorAssignment|- evaluationType: EvaluationType\l- active: boolean\l}"];
+  }
+
+  subgraph cluster_phase {
+    label="PHASES ET PROLONGATIONS";
+    color="#F59E0B";
+    style="rounded,filled";
+    fillcolor="#FFFBEB";
+
+    Phase [label="{<<entity>>\nPhase|- type: PhaseType\l- name: String\l- academicYear: String\l- startDate: LocalDateTime\l- deadline: LocalDateTime\l- status: PhaseStatus\l}"];
+    PhaseExtensionRequest [label="{<<entity>>\nPhaseExtensionRequest|- reason: String\l- requestedDeadline: LocalDateTime\l- status: ExtensionRequestStatus\l- requestedAt: LocalDateTime\l- reviewedAt: LocalDateTime\l- extendedDeadline: LocalDateTime\l- adminComment: String\l}"];
+  }
+
+  subgraph cluster_evaluation {
+    label="FORMULAIRES ET EVALUATIONS";
+    color="#4ADE80";
+    style="rounded,filled";
+    fillcolor="#F0FDF4";
+
+    EvaluationFormTemplate [label="{<<entity>>\nEvaluationFormTemplate|- name: String\l- evaluationType: EvaluationType\l- phaseType: PhaseType\l- description: String\l- totalWeight: double\l- active: boolean\l}"];
+    RubricCriterion [label="{<<entity>>\nRubricCriterion|- title: String\l- description: String\l- maxScore: double\l- weight: double\l- displayOrder: int\l- required: boolean\l}"];
+    EvaluationSubmission [label="{<<entity>>\nEvaluationSubmission|- evaluationType: EvaluationType\l- status: SubmissionStatus\l- locked: boolean\l- draftSavedAt: LocalDateTime\l- submittedAt: LocalDateTime\l- lockedAt: LocalDateTime\l- totalScore: double\l- scorePayload: String\l- requiredScoreCount: Integer\l- completedScoreCount: Integer\l- generalComment: String\l}"];
+    CriterionScore [label="{<<entity>>\nCriterionScore|- score: double\l- comment: String\l}"];
+  }
+
+  subgraph cluster_results {
+    label="NOTES, RAPPORTS, NOTIFICATIONS ET AUDIT";
+    color="#A78BFA";
+    style="rounded,filled";
+    fillcolor="#F5F3FF";
+
+    GradeRule [label="{<<entity>>\nGradeRule|- phaseType: PhaseType\l- evaluationType: EvaluationType\l- weight: double\l- active: boolean\l}"];
+    Grade [label="{<<entity>>\nGrade|- phaseType: PhaseType\l- rawScore: double\l- weightedScore: double\l- finalScore: double\l- published: boolean\l}"];
+    Report [label="{<<entity>>\nReport|- filePath: String\l- status: ReportStatus\l- generatedAt: LocalDateTime\l- sentAt: LocalDateTime\l- recipientEmail: String\l- contentSnapshot: String\l}"];
+    EmailNotification [label="{<<entity>>\nEmailNotification|- recipient: String\l- recipientUserId: UUID\l- subject: String\l- body: String\l- attachmentPath: String\l- sentAt: LocalDateTime\l- status: String\l- failureReason: String\l- category: String\l- severity: String\l- deduplicationKey: String\l- actionView: String\l- readAt: LocalDateTime\l}"];
+    AuditLog [label="{<<entity>>\nAuditLog|- userId: UUID\l- action: String\l- entityType: String\l- entityId: UUID\l- oldValue: String\l- newValue: String\l- ipAddress: String\l- userAgent: String\l}"];
+  }
+
+  subgraph cluster_enums {
+    label="ENUMERATIONS METIER";
+    color="#94A3B8";
+    style="rounded,filled";
+    fillcolor="#F8FAFC";
+
+    UserRole [fillcolor="#E2E8F0", label="{<<enumeration>>\nUserRole|ADMIN\lSUPERVISOR\lFACULTY_EVALUATOR\lINDUSTRY_REPRESENTATIVE\lCOORDINATOR\l}"];
+    UserStatus [fillcolor="#E2E8F0", label="{<<enumeration>>\nUserStatus|ACTIVE\lINACTIVE\lSUSPENDED\l}"];
+    PhaseType [fillcolor="#E2E8F0", label="{<<enumeration>>\nPhaseType|PHASE_I\lPHASE_II\l}"];
+    PhaseStatus [fillcolor="#E2E8F0", label="{<<enumeration>>\nPhaseStatus|NOT_STARTED\lOPEN\lCLOSED\lARCHIVED\l}"];
+    EvaluationType [fillcolor="#E2E8F0", label="{<<enumeration>>\nEvaluationType|SUPERVISOR_PHASE_I\lREPORT_PHASE_I\lORAL_PHASE_I\lSUPERVISOR_PHASE_II\lREPORT_PHASE_II\lORAL_PHASE_II\lDEMO_DAY_INDUSTRY\l}"];
+    SubmissionStatus [fillcolor="#E2E8F0", label="{<<enumeration>>\nSubmissionStatus|DRAFT\lSUBMITTED\lLOCKED\l}"];
+    ExtensionRequestStatus [fillcolor="#E2E8F0", label="{<<enumeration>>\nExtensionRequestStatus|PENDING\lAPPROVED\lREJECTED\l}"];
+    ReportStatus [fillcolor="#E2E8F0", label="{<<enumeration>>\nReportStatus|PENDING\lGENERATED\lSENT\lFAILED\l}"];
+    { rank=same; UserRole; UserStatus; PhaseType; PhaseStatus; }
+    { rank=same; EvaluationType; SubmissionStatus; ExtensionRequestStatus; ReportStatus; }
+    UserRole -> EvaluationType [style=invis, weight=80, constraint=true];
+  }
+
+  subgraph cluster_services {
+    label="SERVICES METIER PRINCIPAUX";
+    color="#334155";
+    style="rounded,filled";
+    fillcolor="#F1F5F9";
+
+    AuthController [fillcolor="#FFFFFF", label="{<<REST controller>>\nAuthController|+ login()\l+ logout()\l+ refreshToken()\l+ changePassword()\l}"];
+    CurrentUserService [fillcolor="#FFFFFF", label="{<<service>>\nCurrentUserService|+ requireUser(token): User\l+ requireAdmin(token): User\l}"];
+    UserService [fillcolor="#FFFFFF", label="{<<service>>\nUserService|+ create(request): User\l+ update(id, request): User\l+ changeStatus(id, status): User\l}"];
+    PhaseWindowService [fillcolor="#FFFFFF", label="{<<service>>\nPhaseWindowService|+ access(phase, user): PhaseAccessResponse\l+ effectiveDeadline(phase, user): LocalDateTime\l}"];
+    PhaseExtensionService [fillcolor="#FFFFFF", label="{<<service>>\nPhaseExtensionService|+ create(actor, request)\l+ approve(admin, id, decision)\l+ reject(admin, id, decision)\l}"];
+    EvaluationService [fillcolor="#FFFFFF", label="{<<service>>\nEvaluationService|+ saveDraft(request, actor)\l+ submit(id, actor)\l+ validateAssignment()\l+ validateCompleteness()\l}"];
+    EvaluationSheetCalculator [fillcolor="#FFFFFF", label="{<<domain service>>\nEvaluationSheetCalculator|+ calculate(type, scores): double\l+ validate(scores): void\l}"];
+    GradingService [fillcolor="#FFFFFF", label="{<<service>>\nGradingService|+ calculate(project, phase): Grade\l+ publish(id): Grade\l}"];
+    ReportingService [fillcolor="#FFFFFF", label="{<<service>>\nReportingService|+ generatePhaseReport()\l+ generateFinalReport()\l+ send(reportId)\l}"];
+    DeadlineReminderService [fillcolor="#FFFFFF", label="{<<scheduled service>>\nDeadlineReminderService|+ generateDueReminders(): int\l}"];
+    InAppNotificationService [fillcolor="#FFFFFF", label="{<<service>>\nInAppNotificationService|+ create(user, subject, body, ...)\l+ markRead(id)\l}"];
+    EmailDeliveryService [fillcolor="#FFFFFF", label="{<<service>>\nEmailDeliveryService|+ send(to, subject, body, attachment)\l+ retry(id)\l}"];
+    AuditService [fillcolor="#FFFFFF", label="{<<service>>\nAuditService|+ record(userId, action, entity, ...)\l}"];
+    { rank=same; AuthController; CurrentUserService; UserService; }
+    { rank=same; PhaseWindowService; PhaseExtensionService; DeadlineReminderService; }
+    { rank=same; EvaluationService; EvaluationSheetCalculator; GradingService; ReportingService; }
+    { rank=same; InAppNotificationService; EmailDeliveryService; AuditService; }
+    AuthController -> PhaseWindowService -> EvaluationService -> InAppNotificationService [style=invis, weight=100, constraint=true];
+  }
+
+  // Persistent relations
+  User -> EvaluatorProfile [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..1", label="profil"];
+  note_no_actor -> StudentProfile [style=dotted, arrowhead=none];
+  Track -> Project [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*", label="classe"];
+  Project -> Team [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..1", label="equipe affectee"];
+  Team -> StudentProfile [dir=both, arrowtail=odiamond, arrowhead=none, taillabel="0..*", headlabel="0..*", label="membres"];
+  Project -> ProjectSupervisorAssignment [dir=both, arrowtail=diamond, arrowhead=none, taillabel="1", headlabel="0..*"];
+  EvaluatorProfile -> ProjectSupervisorAssignment [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*", label="superviseur"];
+  Project -> ProjectEvaluatorAssignment [dir=both, arrowtail=diamond, arrowhead=none, taillabel="1", headlabel="0..*"];
+  EvaluatorProfile -> ProjectEvaluatorAssignment [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*", label="evaluateur"];
+
+  Phase -> PhaseExtensionRequest [dir=both, arrowtail=diamond, arrowhead=none, taillabel="1", headlabel="0..*"];
+  User -> PhaseExtensionRequest [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*", label="demandeur"];
+  User -> PhaseExtensionRequest [dir=both, arrowtail=none, arrowhead=none, taillabel="0..1", headlabel="0..*", label="reviseur", color="#94A3B8"];
+
+  EvaluationFormTemplate -> RubricCriterion [dir=both, arrowtail=diamond, arrowhead=none, taillabel="1", headlabel="1..*", label="criteres"];
+  Project -> EvaluationSubmission [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*"];
+  Phase -> EvaluationSubmission [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*"];
+  EvaluationFormTemplate -> EvaluationSubmission [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*"];
+  EvaluatorProfile -> EvaluationSubmission [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*"];
+  EvaluationSubmission -> CriterionScore [dir=both, arrowtail=diamond, arrowhead=none, taillabel="1", headlabel="0..*"];
+  RubricCriterion -> CriterionScore [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*"];
+
+  Project -> Grade [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*"];
+  Phase -> Grade [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*"];
+  Project -> Report [dir=both, arrowtail=none, arrowhead=none, taillabel="1", headlabel="0..*"];
+  Phase -> Report [dir=both, arrowtail=none, arrowhead=none, taillabel="0..1", headlabel="0..*"];
+  User -> EmailNotification [style=dashed, arrowhead=none, label="recipientUserId (lien logique)"];
+  User -> AuditLog [style=dashed, arrowhead=none, label="userId (trace logique)"];
+
+  // Enumeration usage
+  User -> UserRole [style=dashed, arrowhead=open, constraint=false];
+  User -> UserStatus [style=dashed, arrowhead=open, constraint=false];
+  Phase -> PhaseType [style=dashed, arrowhead=open, constraint=false];
+  Phase -> PhaseStatus [style=dashed, arrowhead=open, constraint=false];
+  ProjectEvaluatorAssignment -> EvaluationType [style=dashed, arrowhead=open, constraint=false];
+  EvaluationFormTemplate -> EvaluationType [style=dashed, arrowhead=open, constraint=false];
+  EvaluationFormTemplate -> PhaseType [style=dashed, arrowhead=open, constraint=false];
+  EvaluationSubmission -> EvaluationType [style=dashed, arrowhead=open, constraint=false];
+  EvaluationSubmission -> SubmissionStatus [style=dashed, arrowhead=open, constraint=false];
+  PhaseExtensionRequest -> ExtensionRequestStatus [style=dashed, arrowhead=open, constraint=false];
+  GradeRule -> EvaluationType [style=dashed, arrowhead=open, constraint=false];
+  GradeRule -> PhaseType [style=dashed, arrowhead=open, constraint=false];
+  Grade -> PhaseType [style=dashed, arrowhead=open, constraint=false];
+  Report -> ReportStatus [style=dashed, arrowhead=open, constraint=false];
+
+  // Service dependencies
+  edge [constraint=false]
+  AuthController -> User [style=dashed, arrowhead=open, color="#475569"];
+  AuthController -> CurrentUserService [style=dashed, arrowhead=open];
+  CurrentUserService -> User [style=dashed, arrowhead=open];
+  UserService -> User [style=dashed, arrowhead=open];
+  PhaseWindowService -> Phase [style=dashed, arrowhead=open];
+  PhaseWindowService -> PhaseExtensionRequest [style=dashed, arrowhead=open];
+  PhaseExtensionService -> PhaseExtensionRequest [style=dashed, arrowhead=open];
+  PhaseExtensionService -> EmailDeliveryService [style=dashed, arrowhead=open];
+  EvaluationService -> EvaluationSubmission [style=dashed, arrowhead=open];
+  EvaluationService -> EvaluationSheetCalculator [style=dashed, arrowhead=open];
+  EvaluationService -> PhaseWindowService [style=dashed, arrowhead=open];
+  EvaluationService -> ProjectEvaluatorAssignment [style=dashed, arrowhead=open];
+  GradingService -> EvaluationSubmission [style=dashed, arrowhead=open];
+  GradingService -> GradeRule [style=dashed, arrowhead=open];
+  GradingService -> Grade [style=dashed, arrowhead=open];
+  ReportingService -> Grade [style=dashed, arrowhead=open];
+  ReportingService -> Report [style=dashed, arrowhead=open];
+  ReportingService -> EmailDeliveryService [style=dashed, arrowhead=open];
+  DeadlineReminderService -> PhaseWindowService [style=dashed, arrowhead=open];
+  DeadlineReminderService -> InAppNotificationService [style=dashed, arrowhead=open];
+  InAppNotificationService -> EmailNotification [style=dashed, arrowhead=open];
+  EmailDeliveryService -> EmailNotification [style=dashed, arrowhead=open];
+  AuditService -> AuditLog [style=dashed, arrowhead=open];
+
+  edge [constraint=true]
+  BaseEntity -> Track -> Phase -> EvaluationFormTemplate -> GradeRule -> UserRole -> AuthController [style=invis, weight=100, minlen=2];
+
+  inheritance_note [shape=note, fillcolor="#FFFFFF", label="Toutes les classes <<entity>>\nheritent de BaseEntity\n(id, createdAt, updatedAt)."];
+  BaseEntity -> inheritance_note [style=dotted, arrowhead=none];
+}

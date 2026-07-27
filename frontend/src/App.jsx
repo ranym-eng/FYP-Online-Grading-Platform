@@ -12,7 +12,6 @@ import './App.css'
 const seedProjectId = '50000000-0000-0000-0000-000000000001'
 const homeViewByRole = {
   ADMIN: 'dashboard',
-  STUDENT: 'dashboard',
   SUPERVISOR: 'dashboard',
   FACULTY_EVALUATOR: 'dashboard',
   INDUSTRY_REPRESENTATIVE: 'dashboard',
@@ -20,17 +19,27 @@ const homeViewByRole = {
 }
 
 function normalizeRole(role) {
-  return ROLES.includes(role) ? role : 'STUDENT'
+  return ROLES.includes(role) ? role : null
 }
 
 function homeViewForRole(role) {
   return homeViewByRole[normalizeRole(role)] || 'dashboard'
 }
 
-function normalizeSession(raw, fallbackRole = 'STUDENT') {
+function normalizeSession(raw, fallbackRole = null) {
   const session = raw?.data || raw || {}
   const role = normalizeRole(session.role || fallbackRole)
+  if (!role) throw new Error('This account role is not allowed to access the platform')
   return { ...session, role }
+}
+
+function readStoredSession() {
+  try {
+    const session = JSON.parse(localStorage.getItem('fyp-session') || 'null')
+    return session && normalizeRole(session.role) ? session : null
+  } catch {
+    return null
+  }
 }
 
 function initialForm(fields = []) {
@@ -51,8 +60,8 @@ function serialize(form, fields = []) {
 }
 
 function App() {
-  const [session, setSession] = useState(() => JSON.parse(localStorage.getItem('fyp-session') || 'null'))
-  const [activeView, setActiveView] = useState(() => homeViewForRole(session?.role || 'STUDENT'))
+  const [session, setSession] = useState(readStoredSession)
+  const [activeView, setActiveView] = useState(() => homeViewForRole(session?.role))
   const [language, setLanguage] = useState(getInitialLanguage)
   const [toast, setToast] = useState(null)
   useAutoTranslate(language)
@@ -245,7 +254,6 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
     }).catch((error) => notify(error.message, 'danger'))
   }, [notify, request])
 
-  const publishedGrades = (datasets.grades || []).filter((grade) => grade.published)
   const demoForms = (datasets.forms || []).filter((form) => form.evaluationType === 'DEMO_DAY_INDUSTRY')
   const dashboard = {
     ADMIN: {
@@ -255,14 +263,6 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
       actions: [['Gestion des donnees', 'crud'], ['Imports Excel', 'imports'], ['evaluations', 'evaluations'], ['Demandes de prolongation', 'extensions'], ['Notes', 'grading'], ['Rapports', 'reports'], ['Console API', 'api']],
       primaryTitle: 'evaluations en attente', primaryRows: pending.slice(0, 8), primaryColumns: ['evaluationType','status','project','evaluator','updatedAt'],
       secondaryTitle: 'Projets actifs', secondaryRows: datasets.projects || [], secondaryColumns: ['title','academicYear','status','track'],
-    },
-    STUDENT: {
-      title: 'Tableau de bord etudiant',
-      description: 'Consultation de votre projet, de votre equipe, de la progression FYP et des notes publiees.',
-      metrics: [['Mes projets', datasets.projects?.length ?? 0], ['Mon equipe', datasets.teams?.length ?? 0], ['Progression', Math.min(100, (publishedGrades.length || 0) * 50) + '%'], ['Notes publiees', publishedGrades.length]],
-      actions: [['Voir mes notes publiees', 'grading'], ['Actualiser mes donnees', 'dashboard']],
-      primaryTitle: 'Projet et equipe', primaryRows: datasets.projects || [], primaryColumns: ['title','academicYear','status','track'],
-      secondaryTitle: 'Notes publiees', secondaryRows: publishedGrades, secondaryColumns: ['phaseType','weightedScore','finalScore','published'],
     },
     SUPERVISOR: {
       title: 'Tableau de bord superviseur',
@@ -749,12 +749,11 @@ function readLocalJson(key, fallback) {
 }
 
 function toStudentTarget(student, index) {
-  const profile = student.user || student
-  const fullName = profile.fullName || [student.firstName, student.lastName].filter(Boolean).join(' ')
+  const fullName = [student.firstName, student.lastName].filter(Boolean).join(' ')
   return {
-    id: student.id || profile.id || 'student-' + index,
+    id: student.id || 'student-' + index,
     label: fullName || 'Étudiant ' + String(index + 1).padStart(2, '0'),
-    secondary: student.studentNumber || profile.universityId || '',
+    secondary: student.studentNumber || '',
   }
 }
 
@@ -864,8 +863,8 @@ function GradingCenter({ datasets, request, reload, notify, activeRole }) {
   async function loadGrades(id = projectId) { if (id) setGrades(unwrapList(await request('/api/grades/project/' + id))) }
   async function calculate() { try { const res = await request('/api/grades/calculate/project/' + projectId + '/phase/' + phaseId, { method: 'POST' }); notify('Grade calculated'); setGrades([res.data, ...grades.filter((g) => g.id !== res.data.id)]); await reload() } catch (error) { notify(error.message, 'danger') } }
   async function publish(id) { try { await request('/api/grades/' + id + '/publish', { method: 'PATCH' }); notify('Grade published'); await loadGrades() } catch (error) { notify(error.message, 'danger') } }
-  const visibleGrades = activeRole === 'STUDENT' ? grades.filter((grade) => grade.published) : grades
-  return <section className="page-grid"><div className="section-head full-span"><div><h2>{canManageGrades ? 'Grade center' : 'Notes consolidees'}</h2><p>{canManageGrades ? 'Calculate and publish grades from locked submissions.' : 'Consultation des notes autorisees pour votre role.'}</p></div></div>{canManageGrades && <Panel title="Calculation controls" accent="green"><div className="form-grid two"><SelectData label="Project" value={projectId} data={datasets.projects || []} onChange={(v) => { setProjectId(v); loadGrades(v) }} /><SelectData label="Phase" value={phaseId} data={datasets.phases || []} onChange={setPhaseId} /></div><button className="primary-action" onClick={calculate}>Calculate grade</button></Panel>}<Panel title="Grade rules" accent="gold"><p className="muted">Chaque fiche produit une note sur 10 selon le bareme Excel correspondant. La consolidation s effectue apr?s validation des fiches.</p><div className="tag-list">{EVALUATION_TYPES.map((type) => <span key={type}>{pretty(type)}</span>)}</div></Panel><Panel title={activeRole === 'STUDENT' ? 'Mes notes publiees' : 'Grades'} wide><DataTable rows={visibleGrades} columns={['phaseType','rawScore','weightedScore','finalScore','published']} compact extraAction={(row) => canManageGrades && !row.published && <button className="mini-button" onClick={() => publish(row.id)}>Publish</button>} /></Panel></section>
+  const visibleGrades = grades
+  return <section className="page-grid"><div className="section-head full-span"><div><h2>{canManageGrades ? 'Grade center' : 'Notes consolidees'}</h2><p>{canManageGrades ? 'Calculate and publish grades from locked submissions.' : 'Consultation des notes autorisees pour votre role.'}</p></div></div>{canManageGrades && <Panel title="Calculation controls" accent="green"><div className="form-grid two"><SelectData label="Project" value={projectId} data={datasets.projects || []} onChange={(v) => { setProjectId(v); loadGrades(v) }} /><SelectData label="Phase" value={phaseId} data={datasets.phases || []} onChange={setPhaseId} /></div><button className="primary-action" onClick={calculate}>Calculate grade</button></Panel>}<Panel title="Grade rules" accent="gold"><p className="muted">Chaque fiche produit une note sur 10 selon le bareme Excel correspondant. La consolidation s effectue apr?s validation des fiches.</p><div className="tag-list">{EVALUATION_TYPES.map((type) => <span key={type}>{pretty(type)}</span>)}</div></Panel><Panel title="Grades" wide><DataTable rows={visibleGrades} columns={['phaseType','rawScore','weightedScore','finalScore','published']} compact extraAction={(row) => canManageGrades && !row.published && <button className="mini-button" onClick={() => publish(row.id)}>Publish</button>} /></Panel></section>
 }
 
 function ReportCenter({ datasets, request, reload, notify }) {

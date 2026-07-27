@@ -1,4 +1,4 @@
-export const ROLES = ['ADMIN', 'STUDENT', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE', 'COORDINATOR']
+export const ROLES = ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE', 'COORDINATOR']
 export const PHASE_TYPES = ['PHASE_I', 'PHASE_II']
 export const PHASE_STATUS = ['NOT_STARTED', 'OPEN', 'CLOSED', 'ARCHIVED']
 export const EVALUATION_TYPES = ['SUPERVISOR_PHASE_I', 'REPORT_PHASE_I', 'ORAL_PHASE_I', 'SUPERVISOR_PHASE_II', 'REPORT_PHASE_II', 'ORAL_PHASE_II', 'DEMO_DAY_INDUSTRY']
@@ -9,12 +9,6 @@ export const actorTemplates = {
     summary: 'Gestion des comptes, filières, projets, équipes, phases, modèles, publications et journaux d’audit.',
     actions: ['Créer les comptes', 'Affecter les équipes', 'Ouvrir les phases', 'Publier les notes', 'Envoyer les rapports'],
     panels: ['Vue d’ensemble', 'Matrice de progression', 'Évaluations en attente', 'Journal d’audit'],
-  },
-  STUDENT: {
-    title: 'Espace etudiant',
-    summary: 'Consultation du projet, de l equipe, de la progression et des notes publiees.',
-    actions: ['Voir le projet', 'Voir l equipe', 'Suivre la progression', 'Consulter les notes publiees'],
-    panels: ['Projet attribue', 'Membres de l equipe', 'Progression des evaluations', 'Notes publiees'],
   },
   SUPERVISOR: {
     title: 'Espace superviseur',
@@ -49,7 +43,7 @@ export const views = [
   { id: 'crud', label: 'Gestion des données', roles: ['ADMIN'] },
   { id: 'evaluations', label: 'Évaluations', roles: ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
   { id: 'extensions', label: 'Prolongations', roles: ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
-  { id: 'grading', label: 'Notes consolidees', roles: ['ADMIN', 'STUDENT', 'COORDINATOR'] },
+  { id: 'grading', label: 'Notes consolidees', roles: ['ADMIN', 'COORDINATOR'] },
   { id: 'reports', label: 'Rapports', roles: ['ADMIN', 'COORDINATOR'] },
   { id: 'api', label: 'Console API', roles: ['ADMIN'] },
 ]

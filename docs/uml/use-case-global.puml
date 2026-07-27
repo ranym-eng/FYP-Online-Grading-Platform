@@ -1,0 +1,177 @@
+@startuml
+left to right direction
+skinparam backgroundColor #F7F9FC
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam actorStyle stickman
+skinparam usecase {
+  BackgroundColor White
+  BorderColor #334155
+  ArrowColor #64748B
+}
+skinparam package {
+  BorderColor #1E3A5F
+  BackgroundColor #F8FAFC
+}
+
+title FYP Online Grading Platform - Diagramme global de cas d'utilisation
+
+actor "Utilisateur authentifie" as Authenticated <<abstract>>
+actor "Evaluateur" as Evaluator <<abstract>>
+actor Administrateur as Admin
+actor Superviseur as Supervisor
+actor "Evaluateur academique" as Faculty
+actor "Representant industriel" as Industry
+actor "Coordinateur FYP" as Coordinator
+actor Planificateur as Scheduler <<systeme externe>>
+actor "Serveur SMTP / Mailpit" as Mail <<systeme externe>>
+
+Supervisor --|> Evaluator
+Faculty --|> Evaluator
+Industry --|> Evaluator
+Evaluator --|> Authenticated
+Admin --|> Authenticated
+Coordinator --|> Authenticated
+
+rectangle "FYP ONLINE GRADING PLATFORM" {
+  package "1. Authentification et espace personnel" {
+    usecase "Se connecter" as UC_Login
+    usecase "Acceder au tableau de bord du role" as UC_Dashboard
+    usecase "Consulter et marquer les notifications" as UC_Notifications
+    usecase "Se deconnecter" as UC_Logout
+  }
+
+  package "2. Administration et configuration" {
+    usecase "Gerer les comptes des acteurs" as UC_Users
+    usecase "Gerer les fiches etudiantes\n(sans compte)" as UC_Students
+    usecase "Importer et valider les fichiers Excel" as UC_Import
+    usecase "Gerer les filieres" as UC_Tracks
+    usecase "Gerer les projets" as UC_Projects
+    usecase "Gerer les equipes et membres etudiants" as UC_Teams
+    usecase "Affecter les superviseurs" as UC_AssignSup
+    usecase "Affecter les evaluateurs par type" as UC_AssignEval
+    usecase "Configurer FYP I / FYP II, statuts et echeances" as UC_Phases
+    usecase "Configurer les formulaires et criteres" as UC_Forms
+    usecase "Configurer les ponderations" as UC_Rules
+    usecase "Suivre l'avancement global" as UC_Progress
+    usecase "Consulter le journal d'audit" as UC_Audit
+    usecase "Tester les API via Swagger" as UC_API
+  }
+
+  package "3. Evaluations, brouillons et validation" {
+    usecase "Consulter les affectations" as UC_Assignments
+    usecase "Consulter les phases et echeances" as UC_Deadlines
+    usecase "Evaluation superviseur FYP I / II" as UC_Supervisor
+    usecase "Evaluation rapport FYP I / II" as UC_Report
+    usecase "Evaluation soutenance FYP I / II" as UC_Oral
+    usecase "Evaluation Demo Day" as UC_Demo
+    usecase "Saisir notes, criteres et commentaires" as UC_Scores
+    usecase "Enregistrer le brouillon" as UC_Draft
+    usecase "Valider et soumettre la fiche" as UC_Submit
+    usecase "Verifier l'affectation" as UC_CheckAssignment
+    usecase "Verifier phase ouverte et delai" as UC_CheckDeadline
+    usecase "Verifier la completude" as UC_CheckComplete
+    usecase "Verrouiller et horodater" as UC_Lock
+    usecase "Consulter ses brouillons et soumissions" as UC_History
+    usecase "Demander une prolongation" as UC_Extension
+    usecase "Approuver / rejeter une prolongation" as UC_ReviewExtension
+  }
+
+  package "4. Consolidation et reporting" {
+    usecase "Calculer et consolider les notes" as UC_Consolidate
+    usecase "Inclure uniquement les fiches verrouillees" as UC_LockedOnly
+    usecase "Appliquer les ponderations" as UC_ApplyRules
+    usecase "Finaliser / publier les notes" as UC_Finalize
+    usecase "Consulter les notes consolidees" as UC_ViewGrades
+    usecase "Generer un rapport de phase" as UC_PhaseReport
+    usecase "Generer le rapport final" as UC_FinalReport
+    usecase "Envoyer le rapport au collecteur" as UC_SendReport
+    usecase "Consulter l'historique et exporter" as UC_Exports
+  }
+
+  package "5. Notifications et automatisations" {
+    usecase "Detecter les echeances a 24 h et 12 h" as UC_Reminders
+    usecase "Creer une notification interne" as UC_InApp
+    usecase "Envoyer et tracer un e-mail" as UC_Email
+    usecase "Exclure les brouillons expires du calcul" as UC_ExpiredDraft
+  }
+}
+
+note right of UC_Students
+  Etudiant = donnee academique.
+  Aucun compte, aucune session,
+  aucun dashboard et aucun acteur UML.
+end note
+
+Authenticated -- UC_Login
+Authenticated -- UC_Dashboard
+Authenticated -- UC_Notifications
+Authenticated -- UC_Logout
+
+Admin -- UC_Users
+Admin -- UC_Students
+Admin -- UC_Import
+Admin -- UC_Tracks
+Admin -- UC_Projects
+Admin -- UC_Teams
+Admin -- UC_AssignSup
+Admin -- UC_AssignEval
+Admin -- UC_Phases
+Admin -- UC_Forms
+Admin -- UC_Rules
+Admin -- UC_Progress
+Admin -- UC_Audit
+Admin -- UC_API
+Admin -- UC_ReviewExtension
+Admin -- UC_Consolidate
+Admin -- UC_Finalize
+Admin -- UC_PhaseReport
+Admin -- UC_FinalReport
+Admin -- UC_SendReport
+
+Evaluator -- UC_Assignments
+Evaluator -- UC_Deadlines
+Evaluator -- UC_History
+Evaluator -- UC_Extension
+Supervisor -- UC_Supervisor
+Faculty -- UC_Report
+Faculty -- UC_Oral
+Industry -- UC_Demo
+
+Coordinator -- UC_Progress
+Coordinator -- UC_ViewGrades
+Coordinator -- UC_PhaseReport
+Coordinator -- UC_FinalReport
+Coordinator -- UC_SendReport
+Coordinator -- UC_Exports
+
+UC_Students ..> UC_Import : <<extend>>
+UC_Teams ..> UC_Students : <<include>>
+UC_Projects ..> UC_AssignSup : <<include>>
+UC_Projects ..> UC_AssignEval : <<include>>
+UC_Forms ..> UC_Rules : <<include>>
+
+UC_Supervisor ..> UC_Scores : <<include>>
+UC_Report ..> UC_Scores : <<include>>
+UC_Oral ..> UC_Scores : <<include>>
+UC_Demo ..> UC_Scores : <<include>>
+UC_Scores ..> UC_Draft : <<include>>
+UC_Submit ..> UC_CheckAssignment : <<include>>
+UC_Submit ..> UC_CheckDeadline : <<include>>
+UC_Submit ..> UC_CheckComplete : <<include>>
+UC_Submit ..> UC_Lock : <<include>>
+UC_Extension ..> UC_CheckDeadline : <<extend>>
+UC_ReviewExtension ..> UC_InApp : <<include>>
+UC_ReviewExtension ..> UC_Email : <<include>>
+
+UC_Consolidate ..> UC_LockedOnly : <<include>>
+UC_Consolidate ..> UC_ApplyRules : <<include>>
+UC_LockedOnly ..> UC_ExpiredDraft : <<include>>
+UC_PhaseReport ..> UC_Consolidate : <<include>>
+UC_FinalReport ..> UC_Consolidate : <<include>>
+UC_SendReport ..> UC_Email : <<include>>
+
+Scheduler -- UC_Reminders
+UC_Reminders ..> UC_InApp : <<include>>
+Mail -- UC_Email
+@enduml

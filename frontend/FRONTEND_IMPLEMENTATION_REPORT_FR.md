@@ -9,7 +9,7 @@
 
 ## Objectif realise
 
-Le frontend basique a ete transforme en interface complete synchronisee avec le backend Spring Boot. L'application couvre les acteurs du cahier de specification: administrateur, etudiant, superviseur, evaluateur faculty, representant industrie et coordinateur.
+Le frontend basique a ete transforme en interface complete synchronisee avec le backend Spring Boot. L'application couvre cinq acteurs connectes: administrateur, superviseur, evaluateur faculty, representant industrie et coordinateur. Les etudiants sont des donnees academiques gerees par l'administration; ils n'ont ni compte, ni session, ni dashboard.
 
 ## Fichiers principaux modifies
 
@@ -25,16 +25,13 @@ Le frontend basique a ete transforme en interface complete synchronisee avec le 
 
 - Ecran login interactif avec logo Sultan Qaboos University.
 - Ecran sign up avec selection du role.
-- Mode demo quand l'API auth n'est pas disponible.
 - Conservation de la session dans `localStorage`.
-- Changement rapide d'acteur pour tester les differents templates.
 
 ### Templates par acteur
 
 Chaque acteur possede son espace fonctionnel:
 
 - Admin: gestion utilisateurs, tracks, projets, equipes, templates, rapports, audit.
-- Student: projet, equipe, phases, evaluations, rapports.
 - Supervisor: evaluations superviseur, phases, submissions, grades.
 - Faculty Evaluator: rapport, oral, criteres, validations.
 - Industry Representative: demo day, notation industrie, feedback.

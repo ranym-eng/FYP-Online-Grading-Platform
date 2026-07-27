@@ -9,16 +9,16 @@ import java.util.UUID;
 
 public interface TeamRepository extends JpaRepository<Team, UUID> {
     @Override
-    @EntityGraph(attributePaths = {"project", "project.track", "students", "students.user"})
+    @EntityGraph(attributePaths = {"project", "project.track", "students"})
     List<Team> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"project", "project.track", "students", "students.user"})
+    @EntityGraph(attributePaths = {"project", "project.track", "students"})
     Optional<Team> findById(UUID id);
 
-    @EntityGraph(attributePaths = {"project", "project.track", "students", "students.user"})
+    @EntityGraph(attributePaths = {"project", "project.track", "students"})
     Optional<Team> findByProjectId(UUID projectId);
 
-    @EntityGraph(attributePaths = {"project", "project.track", "students", "students.user"})
+    @EntityGraph(attributePaths = {"project", "project.track", "students"})
     List<Team> findByAcademicYear(String academicYear);
 }

@@ -1,0 +1,397 @@
+@startuml
+skinparam backgroundColor #F7F9FC
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor White
+  BorderColor #334155
+  ArrowColor #64748B
+}
+hide circle
+hide empty methods
+
+title FYP Online Grading Platform - Diagramme global de classes
+
+package "Identity and academic data" #EFF6FF {
+  abstract class BaseEntity <<mapped superclass>> {
+    - id: UUID
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+    + prePersist(): void
+    + preUpdate(): void
+  }
+
+  class User <<entity>> {
+    - universityId: String
+    - fullName: String
+    - email: String
+    - passwordHash: String
+    - phone: String
+    - role: UserRole
+    - status: UserStatus
+  }
+
+  class StudentProfile <<entity / academic record>> {
+    - firstName: String
+    - lastName: String
+    - studentNumber: String
+    - academicYear: String
+    - trackCode: String
+    - level: String
+  }
+
+  class EvaluatorProfile <<entity>> {
+    - department: String
+    - specialization: String
+    - externalOrganization: String
+    - external: boolean
+  }
+}
+
+package "Projects, teams and assignments" #F0F9FF {
+  class Track <<entity>> {
+    - code: String
+    - name: String
+    - description: String
+    - active: boolean
+  }
+
+  class Project <<entity>> {
+    - title: String
+    - abstractText: String
+    - academicYear: String
+    - status: String
+  }
+
+  class Team <<entity>> {
+    - name: String
+    - section: String
+    - academicYear: String
+  }
+
+  class ProjectSupervisorAssignment <<association entity>> {
+    - active: boolean
+  }
+
+  class ProjectEvaluatorAssignment <<association entity>> {
+    - evaluationType: EvaluationType
+    - active: boolean
+  }
+}
+
+package "Phases and extensions" #FFFBEB {
+  class Phase <<entity>> {
+    - type: PhaseType
+    - name: String
+    - academicYear: String
+    - startDate: LocalDateTime
+    - deadline: LocalDateTime
+    - status: PhaseStatus
+  }
+
+  class PhaseExtensionRequest <<entity>> {
+    - reason: String
+    - requestedDeadline: LocalDateTime
+    - status: ExtensionRequestStatus
+    - requestedAt: LocalDateTime
+    - reviewedAt: LocalDateTime
+    - extendedDeadline: LocalDateTime
+    - adminComment: String
+  }
+}
+
+package "Forms and evaluations" #F0FDF4 {
+  class EvaluationFormTemplate <<entity>> {
+    - name: String
+    - evaluationType: EvaluationType
+    - phaseType: PhaseType
+    - description: String
+    - totalWeight: double
+    - active: boolean
+  }
+
+  class RubricCriterion <<entity>> {
+    - title: String
+    - description: String
+    - maxScore: double
+    - weight: double
+    - displayOrder: int
+    - required: boolean
+  }
+
+  class EvaluationSubmission <<entity>> {
+    - evaluationType: EvaluationType
+    - status: SubmissionStatus
+    - locked: boolean
+    - draftSavedAt: LocalDateTime
+    - submittedAt: LocalDateTime
+    - lockedAt: LocalDateTime
+    - totalScore: double
+    - scorePayload: String
+    - requiredScoreCount: Integer
+    - completedScoreCount: Integer
+    - generalComment: String
+  }
+
+  class CriterionScore <<entity>> {
+    - score: double
+    - comment: String
+  }
+}
+
+package "Grades, reports, notifications and audit" #F5F3FF {
+  class GradeRule <<entity>> {
+    - phaseType: PhaseType
+    - evaluationType: EvaluationType
+    - weight: double
+    - active: boolean
+  }
+
+  class Grade <<entity>> {
+    - phaseType: PhaseType
+    - rawScore: double
+    - weightedScore: double
+    - finalScore: double
+    - published: boolean
+  }
+
+  class Report <<entity>> {
+    - filePath: String
+    - status: ReportStatus
+    - generatedAt: LocalDateTime
+    - sentAt: LocalDateTime
+    - recipientEmail: String
+    - contentSnapshot: String
+  }
+
+  class EmailNotification <<entity>> {
+    - recipient: String
+    - recipientUserId: UUID
+    - subject: String
+    - body: String
+    - attachmentPath: String
+    - sentAt: LocalDateTime
+    - status: String
+    - failureReason: String
+    - category: String
+    - severity: String
+    - deduplicationKey: String
+    - actionView: String
+    - readAt: LocalDateTime
+  }
+
+  class AuditLog <<entity>> {
+    - userId: UUID
+    - action: String
+    - entityType: String
+    - entityId: UUID
+    - oldValue: String
+    - newValue: String
+    - ipAddress: String
+    - userAgent: String
+  }
+}
+
+package "Business enumerations" #F8FAFC {
+  enum UserRole {
+    ADMIN
+    SUPERVISOR
+    FACULTY_EVALUATOR
+    INDUSTRY_REPRESENTATIVE
+    COORDINATOR
+  }
+  enum UserStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+  }
+  enum PhaseType {
+    PHASE_I
+    PHASE_II
+  }
+  enum PhaseStatus {
+    NOT_STARTED
+    OPEN
+    CLOSED
+    ARCHIVED
+  }
+  enum EvaluationType {
+    SUPERVISOR_PHASE_I
+    REPORT_PHASE_I
+    ORAL_PHASE_I
+    SUPERVISOR_PHASE_II
+    REPORT_PHASE_II
+    ORAL_PHASE_II
+    DEMO_DAY_INDUSTRY
+  }
+  enum SubmissionStatus {
+    DRAFT
+    SUBMITTED
+    LOCKED
+  }
+  enum ExtensionRequestStatus {
+    PENDING
+    APPROVED
+    REJECTED
+  }
+  enum ReportStatus {
+    PENDING
+    GENERATED
+    SENT
+    FAILED
+  }
+}
+
+package "Core business services" #F1F5F9 {
+  class AuthController <<REST controller>> {
+    + login()
+    + logout()
+    + refreshToken()
+    + changePassword()
+  }
+  class CurrentUserService <<service>> {
+    + requireUser(token): User
+    + requireAdmin(token): User
+  }
+  class UserService <<service>> {
+    + create(request): User
+    + update(id, request): User
+    + changeStatus(id, status): User
+  }
+  class PhaseWindowService <<service>> {
+    + access(phase, user): PhaseAccessResponse
+    + effectiveDeadline(phase, user): LocalDateTime
+  }
+  class PhaseExtensionService <<service>> {
+    + create(actor, request)
+    + approve(admin, id, decision)
+    + reject(admin, id, decision)
+  }
+  class EvaluationService <<service>> {
+    + saveDraft(request, actor)
+    + submit(id, actor)
+    + validateAssignment()
+    + validateCompleteness()
+  }
+  class EvaluationSheetCalculator <<domain service>> {
+    + calculate(type, scores): double
+    + validate(scores): void
+  }
+  class GradingService <<service>> {
+    + calculate(project, phase): Grade
+    + publish(id): Grade
+  }
+  class ReportingService <<service>> {
+    + generatePhaseReport()
+    + generateFinalReport()
+    + send(reportId)
+  }
+  class DeadlineReminderService <<scheduled service>> {
+    + generateDueReminders(): int
+  }
+  class InAppNotificationService <<service>> {
+    + create(user, subject, body, ...)
+    + markRead(id)
+  }
+  class EmailDeliveryService <<service>> {
+    + send(to, subject, body, attachment)
+    + retry(id)
+  }
+  class AuditService <<service>> {
+    + record(userId, action, entity, ...)
+  }
+}
+
+BaseEntity <|-- User
+BaseEntity <|-- StudentProfile
+BaseEntity <|-- EvaluatorProfile
+BaseEntity <|-- Track
+BaseEntity <|-- Project
+BaseEntity <|-- Team
+BaseEntity <|-- ProjectSupervisorAssignment
+BaseEntity <|-- ProjectEvaluatorAssignment
+BaseEntity <|-- Phase
+BaseEntity <|-- PhaseExtensionRequest
+BaseEntity <|-- EvaluationFormTemplate
+BaseEntity <|-- RubricCriterion
+BaseEntity <|-- EvaluationSubmission
+BaseEntity <|-- CriterionScore
+BaseEntity <|-- GradeRule
+BaseEntity <|-- Grade
+BaseEntity <|-- Report
+BaseEntity <|-- EmailNotification
+BaseEntity <|-- AuditLog
+
+User "1" -- "0..1" EvaluatorProfile : profile
+Track "1" -- "0..*" Project : classifies
+Project "1" -- "0..1" Team : assigned team
+Team "0..*" o-- "0..*" StudentProfile : members
+Project "1" *-- "0..*" ProjectSupervisorAssignment
+EvaluatorProfile "1" -- "0..*" ProjectSupervisorAssignment : supervisor
+Project "1" *-- "0..*" ProjectEvaluatorAssignment
+EvaluatorProfile "1" -- "0..*" ProjectEvaluatorAssignment : evaluator
+
+Phase "1" *-- "0..*" PhaseExtensionRequest
+User "1" -- "0..*" PhaseExtensionRequest : requester
+User "0..1" -- "0..*" PhaseExtensionRequest : reviewer
+
+EvaluationFormTemplate "1" *-- "1..*" RubricCriterion
+Project "1" -- "0..*" EvaluationSubmission
+Phase "1" -- "0..*" EvaluationSubmission
+EvaluationFormTemplate "1" -- "0..*" EvaluationSubmission
+EvaluatorProfile "1" -- "0..*" EvaluationSubmission
+EvaluationSubmission "1" *-- "0..*" CriterionScore
+RubricCriterion "1" -- "0..*" CriterionScore
+
+Project "1" -- "0..*" Grade
+Phase "1" -- "0..*" Grade
+Project "1" -- "0..*" Report
+Phase "0..1" -- "0..*" Report
+User .. EmailNotification : recipientUserId
+User .. AuditLog : userId
+
+User --> UserRole
+User --> UserStatus
+Phase --> PhaseType
+Phase --> PhaseStatus
+ProjectEvaluatorAssignment --> EvaluationType
+EvaluationFormTemplate --> EvaluationType
+EvaluationFormTemplate --> PhaseType
+EvaluationSubmission --> EvaluationType
+EvaluationSubmission --> SubmissionStatus
+PhaseExtensionRequest --> ExtensionRequestStatus
+GradeRule --> EvaluationType
+GradeRule --> PhaseType
+Grade --> PhaseType
+Report --> ReportStatus
+
+AuthController ..> User
+AuthController ..> CurrentUserService
+CurrentUserService ..> User
+UserService ..> User
+PhaseWindowService ..> Phase
+PhaseWindowService ..> PhaseExtensionRequest
+PhaseExtensionService ..> PhaseExtensionRequest
+PhaseExtensionService ..> EmailDeliveryService
+EvaluationService ..> EvaluationSubmission
+EvaluationService ..> EvaluationSheetCalculator
+EvaluationService ..> PhaseWindowService
+EvaluationService ..> ProjectEvaluatorAssignment
+GradingService ..> EvaluationSubmission
+GradingService ..> GradeRule
+GradingService ..> Grade
+ReportingService ..> Grade
+ReportingService ..> Report
+ReportingService ..> EmailDeliveryService
+DeadlineReminderService ..> PhaseWindowService
+DeadlineReminderService ..> InAppNotificationService
+InAppNotificationService ..> EmailNotification
+EmailDeliveryService ..> EmailNotification
+AuditService ..> AuditLog
+
+note right of StudentProfile
+  StudentProfile is academic data only.
+  It has no User association, role,
+  account, token, session or dashboard.
+end note
+@enduml

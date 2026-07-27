@@ -1,0 +1,205 @@
+digraph FYP_Use_Cases {
+  graph [
+    rankdir=LR,
+    compound=true,
+    newrank=true,
+    splines=polyline,
+    overlap=false,
+    bgcolor="#F7F9FC",
+    pad="0.35",
+    nodesep="0.28",
+    ranksep="0.85",
+    fontname="Arial",
+    fontsize=22,
+    labelloc=t,
+    label="Sultan Qaboos University - FYP Online Grading Platform\nDiagramme global de cas d'utilisation"
+  ];
+  node [fontname="Arial", fontsize=10, color="#334155", penwidth=1.2];
+  edge [fontname="Arial", fontsize=8.5, color="#64748B", penwidth=1.0, arrowsize=0.75];
+
+  actor_base [shape=box, style="rounded,filled", fillcolor="#E2E8F0", label="<<acteur abstrait>>\nUtilisateur authentifie"];
+  actor_eval [shape=box, style="rounded,filled", fillcolor="#E2E8F0", label="<<acteur abstrait>>\nEvaluateur"];
+  actor_admin [shape=box, style="rounded,filled", fillcolor="#DBEAFE", label="<<acteur>>\nAdministrateur"];
+  actor_supervisor [shape=box, style="rounded,filled", fillcolor="#DCFCE7", label="<<acteur>>\nSuperviseur"];
+  actor_faculty [shape=box, style="rounded,filled", fillcolor="#DCFCE7", label="<<acteur>>\nEvaluateur academique"];
+  actor_industry [shape=box, style="rounded,filled", fillcolor="#FEF3C7", label="<<acteur>>\nRepresentant industriel"];
+  actor_coordinator [shape=box, style="rounded,filled", fillcolor="#EDE9FE", label="<<acteur>>\nCoordinateur FYP"];
+  actor_scheduler [shape=box, style="rounded,dashed,filled", fillcolor="#FFFFFF", label="<<systeme externe>>\nPlanificateur"];
+  actor_mail [shape=box, style="rounded,dashed,filled", fillcolor="#FFFFFF", label="<<systeme externe>>\nServeur SMTP / Mailpit"];
+
+  { rank=same; actor_admin; actor_supervisor; actor_faculty; actor_industry; actor_coordinator; }
+  actor_supervisor -> actor_eval [arrowhead=empty, label="generalisation"];
+  actor_faculty -> actor_eval [arrowhead=empty];
+  actor_industry -> actor_eval [arrowhead=empty];
+  actor_eval -> actor_base [arrowhead=empty];
+  actor_admin -> actor_base [arrowhead=empty];
+  actor_coordinator -> actor_base [arrowhead=empty];
+
+  subgraph cluster_system {
+    label="FYP ONLINE GRADING PLATFORM";
+    color="#1E3A5F";
+    penwidth=2.0;
+    style="rounded,filled";
+    fillcolor="#FFFFFF";
+    fontname="Arial Bold";
+    fontsize=17;
+
+    subgraph cluster_access {
+      label="1. Authentification et espace personnel";
+      color="#93C5FD";
+      style="rounded,filled";
+      fillcolor="#EFF6FF";
+      uc_login [shape=ellipse, label="Se connecter"];
+      uc_dashboard [shape=ellipse, label="Acceder au tableau\nde bord du role"];
+      uc_notifications [shape=ellipse, label="Consulter et marquer\nles notifications"];
+      uc_logout [shape=ellipse, label="Se deconnecter"];
+    }
+
+    subgraph cluster_admin {
+      label="2. Administration et configuration";
+      color="#60A5FA";
+      style="rounded,filled";
+      fillcolor="#F8FAFC";
+      uc_users [shape=ellipse, label="Gerer les comptes\ndes acteurs"];
+      uc_students [shape=ellipse, label="Gerer les fiches etudiantes\n(sans compte)"];
+      uc_import [shape=ellipse, label="Importer et valider\nles fichiers Excel"];
+      uc_tracks [shape=ellipse, label="Gerer les filieres\nEIC / CSN / CSP / PSE"];
+      uc_projects [shape=ellipse, label="Gerer les projets"];
+      uc_teams [shape=ellipse, label="Gerer les equipes et\nleurs membres etudiants"];
+      uc_assign_sup [shape=ellipse, label="Affecter les superviseurs"];
+      uc_assign_eval [shape=ellipse, label="Affecter les evaluateurs\npar type d'evaluation"];
+      uc_phases [shape=ellipse, label="Configurer FYP I / FYP II,\nstatuts et echeances"];
+      uc_forms [shape=ellipse, label="Configurer les formulaires\net criteres de bareme"];
+      uc_rules [shape=ellipse, label="Configurer les regles\nde ponderation"];
+      uc_progress [shape=ellipse, label="Suivre l'avancement global\net les fiches en attente"];
+      uc_audit [shape=ellipse, label="Consulter le journal d'audit"];
+      uc_api [shape=ellipse, label="Tester les API via\nSwagger / console API"];
+    }
+
+    subgraph cluster_eval {
+      label="3. Evaluations, brouillons et validation";
+      color="#4ADE80";
+      style="rounded,filled";
+      fillcolor="#F0FDF4";
+      uc_assignments [shape=ellipse, label="Consulter les projets\net equipes affectes"];
+      uc_deadlines [shape=ellipse, label="Consulter les phases\net echeances effectives"];
+      uc_supervisor_forms [shape=ellipse, label="Evaluer comme superviseur\nFYP I et FYP II"];
+      uc_report_forms [shape=ellipse, label="Evaluer les rapports\nFYP I et FYP II"];
+      uc_oral_forms [shape=ellipse, label="Evaluer les soutenances\nFYP I et FYP II"];
+      uc_demo_form [shape=ellipse, label="Evaluer le Demo Day\n(prototype / industrie)"];
+      uc_scores [shape=ellipse, label="Saisir les notes, criteres\net commentaires"];
+      uc_draft [shape=ellipse, label="Enregistrer automatiquement\nou manuellement le brouillon"];
+      uc_submit [shape=ellipse, label="Valider et soumettre\nla fiche"];
+      uc_assignment_check [shape=ellipse, label="Verifier l'affectation\nde l'evaluateur"];
+      uc_deadline_check [shape=ellipse, label="Verifier phase ouverte\net delai non depasse"];
+      uc_complete_check [shape=ellipse, label="Verifier la completude\nde tous les criteres"];
+      uc_lock [shape=ellipse, label="Verrouiller et horodater\nla soumission"];
+      uc_history [shape=ellipse, label="Consulter ses brouillons\net fiches soumises"];
+      uc_extension [shape=ellipse, label="Demander une prolongation\npersonnelle"];
+      uc_review_extension [shape=ellipse, label="Approuver ou rejeter\nune prolongation"];
+    }
+
+    subgraph cluster_grading {
+      label="4. Consolidation, publication et reporting";
+      color="#A78BFA";
+      style="rounded,filled";
+      fillcolor="#F5F3FF";
+      uc_consolidate [shape=ellipse, label="Calculer et consolider\nles notes par phase"];
+      uc_locked_only [shape=ellipse, label="Inclure uniquement les\nfiches verrouillees"];
+      uc_apply_rules [shape=ellipse, label="Appliquer les ponderations\npar type d'evaluation"];
+      uc_finalize [shape=ellipse, label="Finaliser / publier les notes\npour traitement institutionnel"];
+      uc_view_grades [shape=ellipse, label="Consulter les notes\nconsolidees"];
+      uc_phase_report [shape=ellipse, label="Generer un rapport\nde phase"];
+      uc_final_report [shape=ellipse, label="Generer le rapport final"];
+      uc_send_report [shape=ellipse, label="Envoyer le rapport au\ncoordinateur / collecteur"];
+      uc_exports [shape=ellipse, label="Consulter l'historique et\nexporter les resultats"];
+    }
+
+    subgraph cluster_automation {
+      label="5. Notifications et automatisations";
+      color="#F59E0B";
+      style="rounded,filled";
+      fillcolor="#FFFBEB";
+      uc_reminders [shape=ellipse, label="Detecter les echeances\na 24 h et 12 h"];
+      uc_inapp [shape=ellipse, label="Creer une notification\ndans la plateforme"];
+      uc_email [shape=ellipse, label="Envoyer et tracer\nun e-mail"];
+      uc_expired_draft [shape=ellipse, label="Exclure les brouillons\nexpires du calcul"];
+    }
+
+    note_student [shape=note, style="filled", fillcolor="#FFF7ED", color="#F97316", label="Regle metier\nEtudiant = donnee academique\nPas de compte, pas de session,\npas de dashboard, pas d'acteur UML"];
+  }
+
+  actor_base -> uc_login [dir=none];
+  actor_base -> uc_dashboard [dir=none];
+  actor_base -> uc_notifications [dir=none];
+  actor_base -> uc_logout [dir=none];
+
+  actor_admin -> uc_users [dir=none];
+  actor_admin -> uc_students [dir=none];
+  actor_admin -> uc_import [dir=none];
+  actor_admin -> uc_tracks [dir=none];
+  actor_admin -> uc_projects [dir=none];
+  actor_admin -> uc_teams [dir=none];
+  actor_admin -> uc_assign_sup [dir=none];
+  actor_admin -> uc_assign_eval [dir=none];
+  actor_admin -> uc_phases [dir=none];
+  actor_admin -> uc_forms [dir=none];
+  actor_admin -> uc_rules [dir=none];
+  actor_admin -> uc_progress [dir=none];
+  actor_admin -> uc_audit [dir=none];
+  actor_admin -> uc_api [dir=none];
+  actor_admin -> uc_review_extension [dir=none];
+  actor_admin -> uc_consolidate [dir=none];
+  actor_admin -> uc_finalize [dir=none];
+  actor_admin -> uc_phase_report [dir=none];
+  actor_admin -> uc_final_report [dir=none];
+  actor_admin -> uc_send_report [dir=none];
+
+  actor_eval -> uc_assignments [dir=none];
+  actor_eval -> uc_deadlines [dir=none];
+  actor_eval -> uc_history [dir=none];
+  actor_eval -> uc_extension [dir=none];
+  actor_supervisor -> uc_supervisor_forms [dir=none];
+  actor_faculty -> uc_report_forms [dir=none];
+  actor_faculty -> uc_oral_forms [dir=none];
+  actor_industry -> uc_demo_form [dir=none];
+
+  actor_coordinator -> uc_progress [dir=none];
+  actor_coordinator -> uc_view_grades [dir=none];
+  actor_coordinator -> uc_phase_report [dir=none];
+  actor_coordinator -> uc_final_report [dir=none];
+  actor_coordinator -> uc_send_report [dir=none];
+  actor_coordinator -> uc_exports [dir=none];
+
+  uc_students -> uc_import [style=dashed, arrowhead=open, label="<<extend>>"];
+  uc_teams -> uc_students [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_projects -> uc_assign_sup [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_projects -> uc_assign_eval [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_forms -> uc_rules [style=dashed, arrowhead=open, label="<<include>>"];
+
+  uc_supervisor_forms -> uc_scores [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_report_forms -> uc_scores [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_oral_forms -> uc_scores [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_demo_form -> uc_scores [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_scores -> uc_draft [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_submit -> uc_assignment_check [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_submit -> uc_deadline_check [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_submit -> uc_complete_check [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_submit -> uc_lock [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_extension -> uc_deadline_check [style=dashed, arrowhead=open, label="<<extend>>"];
+  uc_review_extension -> uc_inapp [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_review_extension -> uc_email [style=dashed, arrowhead=open, label="<<include>>"];
+
+  uc_consolidate -> uc_locked_only [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_consolidate -> uc_apply_rules [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_locked_only -> uc_expired_draft [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_phase_report -> uc_consolidate [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_final_report -> uc_consolidate [style=dashed, arrowhead=open, label="<<include>>"];
+  uc_send_report -> uc_email [style=dashed, arrowhead=open, label="<<include>>"];
+
+  actor_scheduler -> uc_reminders [dir=none];
+  uc_reminders -> uc_inapp [style=dashed, arrowhead=open, label="<<include>>"];
+  actor_mail -> uc_email [dir=none];
+
+  note_student -> uc_students [style=dotted, arrowhead=none];
+}

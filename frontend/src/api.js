@@ -39,7 +39,8 @@ export function pretty(value) {
 
 export function itemName(item, fallback = 'Untitled') {
   if (!item || typeof item !== 'object') return fallback
-  return item.fullName || item.title || item.name || item.code || item.email || item.studentNumber || item.id || fallback
+  const personName = [item.firstName, item.lastName].filter(Boolean).join(' ')
+  return item.fullName || personName || item.title || item.name || item.code || item.email || item.studentNumber || item.id || fallback
 }
 
 export function itemId(item) {

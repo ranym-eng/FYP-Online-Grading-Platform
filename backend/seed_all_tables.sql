@@ -20,8 +20,6 @@ ON CONFLICT DO NOTHING;
 -- Tous ces users ont le mot de passe: Test@123
 INSERT INTO app_users (id, created_at, updated_at, email, full_name, password_hash, phone, role, status, university_id)
 VALUES
-('20000000-0000-0000-0000-000000000001', now(), now(), 'seed.student1@squ.edu.om', 'Ali Al-Harthy', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '90000001', 'STUDENT', 'ACTIVE', 'SEED-STU-001'),
-('20000000-0000-0000-0000-000000000002', now(), now(), 'seed.student2@squ.edu.om', 'Maha Al-Balushi', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '90000002', 'STUDENT', 'ACTIVE', 'SEED-STU-002'),
 ('20000000-0000-0000-0000-000000000003', now(), now(), 'seed.supervisor1@squ.edu.om', 'Dr Ahmed Supervisor', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '90000003', 'SUPERVISOR', 'ACTIVE', 'SEED-SUP-001'),
 ('20000000-0000-0000-0000-000000000004', now(), now(), 'seed.faculty.report@squ.edu.om', 'Dr Fatma Report Evaluator', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '90000004', 'FACULTY_EVALUATOR', 'ACTIVE', 'SEED-FAC-001'),
 ('20000000-0000-0000-0000-000000000005', now(), now(), 'seed.faculty.oral@squ.edu.om', 'Dr Said Oral Evaluator', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '90000005', 'FACULTY_EVALUATOR', 'ACTIVE', 'SEED-FAC-002'),
@@ -30,10 +28,10 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- 3. Student profiles
-INSERT INTO student_profiles (id, created_at, updated_at, academic_year, level, student_number, track_code, user_id)
+INSERT INTO student_profiles (id, created_at, updated_at, academic_year, first_name, last_name, level, student_number, track_code)
 VALUES
-('30000000-0000-0000-0000-000000000001', now(), now(), '2025-2026', 'Final Year', 'SEED20260001', 'PSE', '20000000-0000-0000-0000-000000000001'),
-('30000000-0000-0000-0000-000000000002', now(), now(), '2025-2026', 'Final Year', 'SEED20260002', 'PSE', '20000000-0000-0000-0000-000000000002')
+('30000000-0000-0000-0000-000000000001', now(), now(), '2025-2026', 'Ali', 'Al-Harthy', 'Final Year', 'SEED20260001', 'PSE'),
+('30000000-0000-0000-0000-000000000002', now(), now(), '2025-2026', 'Maha', 'Al-Balushi', 'Final Year', 'SEED20260002', 'PSE')
 ON CONFLICT DO NOTHING;
 
 -- 4. Evaluator profiles
