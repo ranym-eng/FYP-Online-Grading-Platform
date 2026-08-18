@@ -6,6 +6,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProjectSupervisorAssignmentRepository extends JpaRepository<ProjectSupervisorAssignment, UUID> {
-    Optional<ProjectSupervisorAssignment> findByProjectIdAndActiveTrue(UUID projectId);
+
+    List<ProjectSupervisorAssignment> findAllByProjectIdAndActiveTrue(UUID projectId);
+    Optional<ProjectSupervisorAssignment> findByProjectIdAndSupervisorId(UUID projectId, UUID supervisorId);
     List<ProjectSupervisorAssignment> findBySupervisorIdAndActiveTrue(UUID supervisorId);
+    boolean existsByProjectIdAndSupervisorIdAndActiveTrue(UUID projectId, UUID supervisorId);
 }

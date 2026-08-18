@@ -44,7 +44,7 @@ export const views = [
   { id: 'crud', label: 'Gestion des données', roles: ['ADMIN'] },
   { id: 'evaluations', label: 'Évaluations', roles: ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
   { id: 'extensions', label: 'Prolongations', roles: ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
-  { id: 'grading', label: 'Notes consolidees', roles: ['ADMIN', 'COORDINATOR'] },
+  { id: 'grading', label: 'Notes consolidees', roles: ['ADMIN', 'INDUSTRY_REPRESENTATIVE', 'COORDINATOR'] },
   { id: 'reports', label: 'Rapports', roles: ['ADMIN', 'COORDINATOR'] },
   { id: 'api', label: 'Console API', roles: ['ADMIN'] },
 ]

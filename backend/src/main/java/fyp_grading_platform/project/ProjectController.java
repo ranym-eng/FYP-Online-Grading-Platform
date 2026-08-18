@@ -1,5 +1,7 @@
 package fyp_grading_platform.project;
 
+import fyp_grading_platform.common.EvaluationType;
+import fyp_grading_platform.common.UserRole;
 import fyp_grading_platform.common.api.ApiResponse;
 import fyp_grading_platform.common.exception.BusinessException;
 import fyp_grading_platform.security.CurrentUserService;
@@ -32,6 +34,7 @@ public class ProjectController {
     private final ProjectEvaluatorAssignmentRepository evaluators;
     private final EvaluatorProfileRepository evaluatorProfiles;
     private final CurrentUserService currentUsers;
+    private final ProjectAccessService projectAccess;
 
     public ProjectController(
             ProjectRepository projects,
@@ -39,7 +42,8 @@ public class ProjectController {
             ProjectSupervisorAssignmentRepository supervisors,
             ProjectEvaluatorAssignmentRepository evaluators,
             EvaluatorProfileRepository evaluatorProfiles,
-            CurrentUserService currentUsers
+            CurrentUserService currentUsers,
+            ProjectAccessService projectAccess
     ) {
         this.projects = projects;
         this.tracks = tracks;
@@ -47,6 +51,7 @@ public class ProjectController {
         this.evaluators = evaluators;
         this.evaluatorProfiles = evaluatorProfiles;
         this.currentUsers = currentUsers;
+        this.projectAccess = projectAccess;
     }
 
     @PostMapping
@@ -63,12 +68,16 @@ public class ProjectController {
     }
 
     @GetMapping
-    ApiResponse<?> all() {
-        return ApiResponse.ok("Projects", projects.findAll());
+    ApiResponse<?> all(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return ApiResponse.ok("Projects", projectAccess.visibleProjects(currentUsers.requireUser(authorization)));
     }
 
     @GetMapping("/{id}")
-    ApiResponse<?> one(@PathVariable UUID id) {
+    ApiResponse<?> one(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID id
+    ) {
+        projectAccess.assertCanView(currentUsers.requireUser(authorization), id);
         return ApiResponse.ok("Project", projects.findById(id)
                 .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found")));
     }
@@ -114,21 +123,35 @@ public class ProjectController {
     }
 
     @GetMapping("/by-track/{trackId}")
-    ApiResponse<?> byTrack(@PathVariable UUID trackId) {
-        return ApiResponse.ok("Projects", projects.findByTrackId(trackId));
+    ApiResponse<?> byTrack(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID trackId
+    ) {
+        return ApiResponse.ok("Projects", projectAccess.visibleProjects(currentUsers.requireUser(authorization)).stream()
+                .filter(project -> project.getTrack() != null && project.getTrack().getId().equals(trackId))
+                .toList());
     }
 
     @GetMapping("/by-academic-year/{year}")
-    ApiResponse<?> byYear(@PathVariable String year) {
-        return ApiResponse.ok("Projects", projects.findByAcademicYear(year));
+    ApiResponse<?> byYear(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable String year
+    ) {
+        return ApiResponse.ok("Projects", projectAccess.visibleProjects(currentUsers.requireUser(authorization)).stream()
+                .filter(project -> project.getAcademicYear().equals(year))
+                .toList());
     }
 
     @GetMapping("/search")
-    ApiResponse<?> search(@RequestParam String keyword) {
-        return ApiResponse.ok(
-                "Projects",
-                projects.findByTitleContainingIgnoreCaseOrProjectNumberContainingIgnoreCase(keyword, keyword)
-        );
+    ApiResponse<?> search(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam String keyword
+    ) {
+        String value = keyword.toLowerCase(Locale.ROOT);
+        return ApiResponse.ok("Projects", projectAccess.visibleProjects(currentUsers.requireUser(authorization)).stream()
+                .filter(project -> project.getTitle().toLowerCase(Locale.ROOT).contains(value)
+                        || project.getProjectNumber().toLowerCase(Locale.ROOT).contains(value))
+                .toList());
     }
 
     @PostMapping("/{projectId}/supervisor/{supervisorId}")
@@ -138,7 +161,7 @@ public class ProjectController {
             @PathVariable UUID supervisorId
     ) {
         currentUsers.requireAdmin(authorization);
-        ProjectSupervisorAssignment assignment = supervisors.findByProjectIdAndActiveTrue(projectId)
+        ProjectSupervisorAssignment assignment = supervisors.findByProjectIdAndSupervisorId(projectId, supervisorId)
                 .orElse(new ProjectSupervisorAssignment());
         assignment.setProject(projects.findById(projectId).orElseThrow());
         assignment.setSupervisor(evaluatorProfiles.findById(supervisorId).orElseThrow());
@@ -147,8 +170,12 @@ public class ProjectController {
     }
 
     @GetMapping("/{projectId}/supervisor")
-    ApiResponse<?> supervisor(@PathVariable UUID projectId) {
-        return ApiResponse.ok("Supervisor", supervisors.findByProjectIdAndActiveTrue(projectId));
+    ApiResponse<?> supervisor(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId
+    ) {
+        projectAccess.assertCanView(currentUsers.requireUser(authorization), projectId);
+        return ApiResponse.ok("Supervisors", supervisors.findAllByProjectIdAndActiveTrue(projectId));
     }
 
     @DeleteMapping("/{projectId}/supervisor")
@@ -157,7 +184,7 @@ public class ProjectController {
             @PathVariable UUID projectId
     ) {
         currentUsers.requireAdmin(authorization);
-        supervisors.findByProjectIdAndActiveTrue(projectId).ifPresent(assignment -> {
+        supervisors.findAllByProjectIdAndActiveTrue(projectId).forEach(assignment -> {
             assignment.setActive(false);
             supervisors.save(assignment);
         });
@@ -171,16 +198,40 @@ public class ProjectController {
             @Valid @RequestBody EvaluatorAssignmentRequest request
     ) {
         currentUsers.requireAdmin(authorization);
+        var evaluator = evaluatorProfiles.findById(request.evaluatorId())
+                .orElseThrow(() -> new BusinessException("EVALUATOR_NOT_FOUND", "Evaluator not found"));
+        if (evaluator.getUser().getRole() == UserRole.INDUSTRY_REPRESENTATIVE
+                && request.evaluationType() != EvaluationType.DEMO_DAY_INDUSTRY) {
+            throw new BusinessException(
+                    "INDUSTRY_DEMO_DAY_ONLY",
+                    "Industry representatives can be assigned only to the Demo Day form"
+            );
+        }
         ProjectEvaluatorAssignment assignment = new ProjectEvaluatorAssignment();
-        assignment.setProject(projects.findById(projectId).orElseThrow());
-        assignment.setEvaluator(evaluatorProfiles.findById(request.evaluatorId()).orElseThrow());
+        assignment.setProject(projects.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found")));
+        assignment.setEvaluator(evaluator);
         assignment.setEvaluationType(request.evaluationType());
         return ApiResponse.ok("Evaluator assigned", evaluators.save(assignment));
     }
 
     @GetMapping("/{projectId}/evaluators")
-    ApiResponse<?> projectEvaluators(@PathVariable UUID projectId) {
+    ApiResponse<?> projectEvaluators(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId
+    ) {
+        projectAccess.assertCanView(currentUsers.requireUser(authorization), projectId);
         return ApiResponse.ok("Evaluators", evaluators.findByProjectIdAndActiveTrue(projectId));
+    }
+
+    @GetMapping("/my-evaluation-assignments")
+    ApiResponse<?> myEvaluationAssignments(
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        return ApiResponse.ok(
+                "Evaluation assignments",
+                projectAccess.evaluationAssignments(currentUsers.requireUser(authorization))
+        );
     }
 
     @DeleteMapping("/{projectId}/evaluators/{assignmentId}")

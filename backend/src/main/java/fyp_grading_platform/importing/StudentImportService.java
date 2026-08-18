@@ -74,8 +74,8 @@ public class StudentImportService {
             StudentProfile profile = existingById.get(row.studentNumber());
             boolean isNew = profile == null;
             if (isNew) profile = new StudentProfile();
-            boolean changed = isNew || applyOfficialFields(profile, row);
-            if (changed) students.save(profile);
+            boolean changed = applyOfficialFields(profile, row);
+            if (isNew || changed) students.save(profile);
             if (isNew) created++;
             else if (changed) updated++;
             else unchanged++;

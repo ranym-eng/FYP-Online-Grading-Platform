@@ -1,14 +1,18 @@
 package fyp_grading_platform.importing;
 
 import fyp_grading_platform.audit.AuditService;
+import fyp_grading_platform.user.StudentProfile;
 import fyp_grading_platform.user.StudentProfileRepository;
+import fyp_grading_platform.user.User;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -16,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class StudentImportServiceTest {
@@ -40,6 +45,29 @@ class StudentImportServiceTest {
         assertEquals("2022", report.rows().getFirst().cohort());
         assertEquals("Mohammed Qasim Al Saadi", report.rows().getFirst().fullName());
         assertEquals("s142430@student.squ.edu.om", report.rows().getFirst().email());
+    }
+
+    @Test
+    void populatesRequiredFieldsBeforeSavingANewStudent() throws Exception {
+        when(students.findAll()).thenReturn(List.of());
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "students.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                workbookWithOneStudent()
+        );
+        User actor = new User();
+        actor.setId(UUID.randomUUID());
+
+        StudentImportReport report = service.importStudents(file, actor);
+
+        ArgumentCaptor<StudentProfile> savedStudent = ArgumentCaptor.forClass(StudentProfile.class);
+        verify(students).save(savedStudent.capture());
+        assertEquals(1, report.created());
+        assertEquals("142430", savedStudent.getValue().getStudentNumber());
+        assertEquals("2022", savedStudent.getValue().getCohort());
+        assertEquals("Mohammed Qasim Al Saadi", savedStudent.getValue().getFullName());
+        assertEquals("s142430@student.squ.edu.om", savedStudent.getValue().getEmail());
     }
 
     @Test

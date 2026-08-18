@@ -2,7 +2,10 @@ package fyp_grading_platform.evaluation;
 
 import fyp_grading_platform.common.EvaluationType;
 import fyp_grading_platform.common.api.ApiResponse;
+import fyp_grading_platform.common.exception.BusinessException;
+import fyp_grading_platform.project.ProjectAccessService;
 import fyp_grading_platform.security.CurrentUserService;
+import fyp_grading_platform.user.User;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,17 +28,20 @@ public class EvaluationController {
     private final CriterionScoreRepository scores;
     private final EvaluationService service;
     private final CurrentUserService currentUsers;
+    private final ProjectAccessService projectAccess;
 
     public EvaluationController(
             EvaluationSubmissionRepository submissions,
             CriterionScoreRepository scores,
             EvaluationService service,
-            CurrentUserService currentUsers
+            CurrentUserService currentUsers,
+            ProjectAccessService projectAccess
     ) {
         this.submissions = submissions;
         this.scores = scores;
         this.service = service;
         this.currentUsers = currentUsers;
+        this.projectAccess = projectAccess;
     }
 
     @PostMapping("/draft")
@@ -91,15 +98,11 @@ public class EvaluationController {
             @RequestParam UUID evaluatorId,
             @RequestParam EvaluationType evaluationType
     ) {
+        User actor = currentUsers.requireUser(authorization);
+        projectAccess.assertCanView(actor, projectId);
         return ApiResponse.ok(
                 "Current score sheet",
-                service.currentSheet(
-                        projectId,
-                        phaseId,
-                        evaluatorId,
-                        evaluationType,
-                        currentUsers.requireUser(authorization)
-                )
+                service.currentSheet(projectId, phaseId, evaluatorId, evaluationType, actor)
         );
     }
 
@@ -126,51 +129,123 @@ public class EvaluationController {
     }
 
     @GetMapping("/{submissionId}")
-    ApiResponse<?> one(@PathVariable UUID submissionId) {
-        return ApiResponse.ok("Evaluation", submissions.findById(submissionId));
+    ApiResponse<?> one(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID submissionId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        return ApiResponse.ok("Evaluation", requireVisibleSubmission(submissionId, actor));
     }
 
     @GetMapping("/{submissionId}/scores")
-    ApiResponse<?> submissionScores(@PathVariable UUID submissionId) {
+    ApiResponse<?> submissionScores(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID submissionId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        requireVisibleSubmission(submissionId, actor);
         return ApiResponse.ok("Scores", scores.findBySubmissionId(submissionId));
     }
 
     @GetMapping("/by-project/{projectId}")
-    ApiResponse<?> byProject(@PathVariable UUID projectId) {
-        return ApiResponse.ok("Evaluations", submissions.findByProjectId(projectId));
+    ApiResponse<?> byProject(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        projectAccess.assertCanView(actor, projectId);
+        return ApiResponse.ok("Evaluations", visibleSubmissions(submissions.findByProjectId(projectId), actor));
     }
 
     @GetMapping("/by-evaluator/{evaluatorId}")
-    ApiResponse<?> byEvaluator(@PathVariable UUID evaluatorId) {
-        return ApiResponse.ok("Evaluations", submissions.findByEvaluatorId(evaluatorId));
+    ApiResponse<?> byEvaluator(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID evaluatorId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        return ApiResponse.ok("Evaluations", visibleSubmissions(submissions.findByEvaluatorId(evaluatorId), actor));
     }
 
     @GetMapping("/by-project/{projectId}/phase/{phaseId}")
-    ApiResponse<?> byPhase(@PathVariable UUID projectId, @PathVariable UUID phaseId) {
-        return ApiResponse.ok("Evaluations", submissions.findByProjectIdAndPhaseId(projectId, phaseId));
-    }
-
-    @GetMapping("/by-project/{projectId}/type/{type}")
-    ApiResponse<?> byType(@PathVariable UUID projectId, @PathVariable EvaluationType type) {
-        return ApiResponse.ok("Evaluations", submissions.findByProjectIdAndEvaluationType(projectId, type));
-    }
-
-    @GetMapping("/progress/project/{projectId}")
-    ApiResponse<?> progress(@PathVariable UUID projectId) {
-        var list = submissions.findByProjectId(projectId);
-        long locked = list.stream().filter(EvaluationSubmission::isLocked).count();
+    ApiResponse<?> byPhase(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId,
+            @PathVariable UUID phaseId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        projectAccess.assertCanView(actor, projectId);
         return ApiResponse.ok(
-                "Progress",
-                Map.of(
-                        "totalSubmissions", list.size(),
-                        "lockedSubmissions", locked,
-                        "completionPercentage", list.isEmpty() ? 0 : locked * 100.0 / list.size()
-                )
+                "Evaluations",
+                visibleSubmissions(submissions.findByProjectIdAndPhaseId(projectId, phaseId), actor)
         );
     }
 
+    @GetMapping("/by-project/{projectId}/type/{type}")
+    ApiResponse<?> byType(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId,
+            @PathVariable EvaluationType type
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        projectAccess.assertCanView(actor, projectId);
+        return ApiResponse.ok(
+                "Evaluations",
+                visibleSubmissions(submissions.findByProjectIdAndEvaluationType(projectId, type), actor)
+        );
+    }
+
+    @GetMapping("/progress/project/{projectId}")
+    ApiResponse<?> progress(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        projectAccess.assertCanView(actor, projectId);
+        return ApiResponse.ok("Progress", progressData(projectId, actor));
+    }
+
     @GetMapping("/status/project/{projectId}")
-    ApiResponse<?> status(@PathVariable UUID projectId) {
-        return progress(projectId);
+    ApiResponse<?> status(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        projectAccess.assertCanView(actor, projectId);
+        return ApiResponse.ok("Progress", progressData(projectId, actor));
+    }
+
+    private EvaluationSubmission requireVisibleSubmission(UUID submissionId, User actor) {
+        EvaluationSubmission submission = submissions.findById(submissionId)
+                .orElseThrow(() -> new BusinessException("SUBMISSION_NOT_FOUND", "Evaluation submission not found"));
+        projectAccess.assertCanView(actor, submission.getProject().getId());
+        if (!projectAccess.canViewAll(actor) && !belongsToActor(submission, actor)) {
+            throw new BusinessException("EVALUATION_ACCESS_DENIED", "This evaluation does not belong to your account");
+        }
+        return submission;
+    }
+
+    private List<EvaluationSubmission> visibleSubmissions(List<EvaluationSubmission> candidates, User actor) {
+        if (projectAccess.canViewAll(actor)) return candidates;
+        return candidates.stream()
+                .filter(submission -> submission.getProject() != null
+                        && projectAccess.canView(actor, submission.getProject().getId())
+                        && belongsToActor(submission, actor))
+                .toList();
+    }
+
+    private boolean belongsToActor(EvaluationSubmission submission, User actor) {
+        return submission.getEvaluator() != null
+                && submission.getEvaluator().getUser() != null
+                && submission.getEvaluator().getUser().getId().equals(actor.getId());
+    }
+
+    private Map<String, Object> progressData(UUID projectId, User actor) {
+        List<EvaluationSubmission> visible = visibleSubmissions(submissions.findByProjectId(projectId), actor);
+        long locked = visible.stream().filter(EvaluationSubmission::isLocked).count();
+        return Map.of(
+                "totalSubmissions", visible.size(),
+                "lockedSubmissions", locked,
+                "completionPercentage", visible.isEmpty() ? 0 : locked * 100.0 / visible.size()
+        );
     }
 }

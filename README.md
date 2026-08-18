@@ -388,6 +388,22 @@ Validate the Docker Compose configuration:
 docker compose config
 ```
 
+## Annual Data Initialization
+
+The former EIC, CSN, CSP and PSE grading workbooks are replaced by one validated
+administrative import. From **Excel Imports**, an administrator can download the
+master workbook, validate it without saving, and then import tracks, academic
+student records, actor accounts, projects, teams, assignments and FYP phases in a
+single transaction.
+
+- Master template: [`docs/templates/modele_initialisation_plateforme_fyp.xlsx`](docs/templates/modele_initialisation_plateforme_fyp.xlsx)
+- Detailed administrator guide (French): [`docs/IMPORT_INITIAL_ADMIN_FR.md`](docs/IMPORT_INITIAL_ADMIN_FR.md)
+- Preview endpoint: `POST /api/import/initialization/preview`
+- Transactional import endpoint: `POST /api/import/initialization`
+
+The import is idempotent and does not delete records omitted from a later file.
+Students remain academic records and do not receive platform accounts.
+
 ## Data and Email Handling
 
 - Hibernate creates and updates the PostgreSQL schema at startup.

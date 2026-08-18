@@ -3,6 +3,7 @@ package fyp_grading_platform.evaluation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fyp_grading_platform.common.EvaluationType;
+import fyp_grading_platform.common.PhaseType;
 import fyp_grading_platform.common.SubmissionStatus;
 import fyp_grading_platform.common.UserRole;
 import fyp_grading_platform.common.exception.BusinessException;
@@ -74,6 +75,7 @@ public class EvaluationService {
         EvaluatorProfile evaluator = evaluators.findById(request.evaluatorId())
                 .orElseThrow(() -> new BusinessException("EVALUATOR_NOT_FOUND", "Evaluator not found"));
         assertEvaluatorIdentity(evaluator, actor);
+        assertEvaluationScope(actor, request.evaluationType(), phase);
         phaseWindows.assertEvaluationAllowed(phase, actor);
         assertAssignment(request.projectId(), request.evaluatorId(), request.evaluationType());
 
@@ -112,6 +114,7 @@ public class EvaluationService {
         EvaluatorProfile evaluator = evaluators.findById(request.evaluatorId())
                 .orElseThrow(() -> new BusinessException("EVALUATOR_NOT_FOUND", "Evaluator not found"));
         assertEvaluatorIdentity(evaluator, actor);
+        assertEvaluationScope(actor, request.evaluationType(), phase);
         phaseWindows.assertEvaluationAllowed(phase, actor);
         assertAssignment(request.projectId(), request.evaluatorId(), request.evaluationType());
         var project = projects.findById(request.projectId())
@@ -169,6 +172,9 @@ public class EvaluationService {
         EvaluatorProfile evaluator = evaluators.findById(evaluatorId)
                 .orElseThrow(() -> new BusinessException("EVALUATOR_NOT_FOUND", "Evaluator not found"));
         assertEvaluatorIdentity(evaluator, actor);
+        Phase phase = phases.findById(phaseId)
+                .orElseThrow(() -> new BusinessException("PHASE_NOT_FOUND", "Phase not found"));
+        assertEvaluationScope(actor, evaluationType, phase);
         return submissions
                 .findFirstByProjectIdAndPhaseIdAndEvaluatorIdAndEvaluationTypeOrderByCreatedAtDesc(
                         projectId,
@@ -184,6 +190,7 @@ public class EvaluationService {
         EvaluationSubmission submission = submissions.findById(id)
                 .orElseThrow(() -> new BusinessException("SUBMISSION_NOT_FOUND", "Submission not found"));
         assertEvaluatorIdentity(submission.getEvaluator(), actor);
+        assertEvaluationScope(actor, submission.getEvaluationType(), submission.getPhase());
         phaseWindows.assertEvaluationAllowed(submission.getPhase(), actor);
         if (submission.isLocked()) {
             throw new BusinessException("EVALUATION_LOCKED", "Evaluation is already locked");
@@ -261,6 +268,27 @@ public class EvaluationService {
             throw new BusinessException(
                     "EVALUATOR_NOT_ASSIGNED",
                     "Evaluator is not assigned to this project and evaluation type"
+            );
+        }
+    }
+
+    void assertEvaluationScope(User actor, EvaluationType type, Phase phase) {
+        if (actor.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
+                && type != EvaluationType.DEMO_DAY_INDUSTRY) {
+            throw new BusinessException(
+                    "INDUSTRY_DEMO_DAY_ONLY",
+                    "Industry representatives can evaluate only the Demo Day form"
+            );
+        }
+
+        PhaseType expectedPhase = switch (type) {
+            case SUPERVISOR_PHASE_I, REPORT_PHASE_I, ORAL_PHASE_I -> PhaseType.PHASE_I;
+            case SUPERVISOR_PHASE_II, REPORT_PHASE_II, ORAL_PHASE_II, DEMO_DAY_INDUSTRY -> PhaseType.PHASE_II;
+        };
+        if (phase.getType() != expectedPhase) {
+            throw new BusinessException(
+                    "EVALUATION_PHASE_MISMATCH",
+                    "The selected phase does not match the evaluation form"
             );
         }
     }
