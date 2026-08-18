@@ -42,3 +42,11 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+app:
+  security:
+    token-secret: ${APP_TOKEN_SECRET:}
+    token-lifetime-seconds: ${APP_TOKEN_LIFETIME_SECONDS:28800}
+    allow-email-token: ${APP_ALLOW_EMAIL_TOKEN:false}
+  reports:
+    output-dir: ${REPORT_OUTPUT_DIR:generated}

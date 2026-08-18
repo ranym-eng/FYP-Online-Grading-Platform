@@ -72,7 +72,7 @@ const reportTemplate = {
   kind: 'report',
   label: 'Rapport technique',
   shortFormula: 'Somme pondérée ÷ 11',
-  sections: [{ id: 'individual', label: 'Évaluation du rapport', target: 'student', criteria: reportCriteria }],
+  sections: [{ id: 'group', label: 'Évaluation commune du rapport', target: 'group', criteria: reportCriteria }],
 }
 
 const supervisorTemplate = {

@@ -23,7 +23,7 @@ for (const [type, template] of Object.entries(SCORING_TEMPLATES)) {
   const scores = filledScores(template, students, 10)
   const results = calculateTemplate(template, scores, students)
   for (const result of Object.values(results)) {
-    assert.equal(result.finalScore, 10, `${type} doit produire 10/10 avec toutes les notes Ã  10`)
+    assert.equal(result.finalScore, 10, `${type} doit produire 10/10 avec toutes les notes à 10`)
   }
 }
 
@@ -53,8 +53,8 @@ assert.equal(industryResult.finalScore, 8.1)
 
 const report = SCORING_TEMPLATES.REPORT_PHASE_I
 const reportScores = filledScores(report, ['s1'], 5)
-reportScores[scoreKey('individual', 'analyze-solutions', 's1')] = 10
-const reportResult = calculateTemplate(report, reportScores, ['s1']).s1
+reportScores[scoreKey('group', 'analyze-solutions', 'group')] = 10
+const reportResult = calculateTemplate(report, reportScores, ['s1']).group
 assert.equal(reportResult.finalScore, 65 / 11)
 
 console.log('7 modèles vérifiés; formules de présentation, rapport et Industry Guest vérifiées.')

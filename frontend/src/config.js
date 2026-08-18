@@ -42,7 +42,7 @@ export const views = [
   { id: 'notifications', label: 'Notifications', roles: ROLES },
   { id: 'imports', label: 'Imports Excel', roles: ['ADMIN'] },
   { id: 'crud', label: 'Gestion des données', roles: ['ADMIN'] },
-  { id: 'evaluations', label: 'Évaluations', roles: ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
+  { id: 'evaluations', label: 'Évaluations', roles: ['SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
   { id: 'extensions', label: 'Prolongations', roles: ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
   { id: 'grading', label: 'Notes consolidees', roles: ['ADMIN', 'INDUSTRY_REPRESENTATIVE', 'COORDINATOR'] },
   { id: 'reports', label: 'Rapports', roles: ['ADMIN', 'COORDINATOR'] },

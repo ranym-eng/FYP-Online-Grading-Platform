@@ -161,10 +161,21 @@ public class ProjectController {
             @PathVariable UUID supervisorId
     ) {
         currentUsers.requireAdmin(authorization);
-        ProjectSupervisorAssignment assignment = supervisors.findByProjectIdAndSupervisorId(projectId, supervisorId)
-                .orElse(new ProjectSupervisorAssignment());
-        assignment.setProject(projects.findById(projectId).orElseThrow());
-        assignment.setSupervisor(evaluatorProfiles.findById(supervisorId).orElseThrow());
+        var project = projects.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found"));
+        var supervisor = evaluatorProfiles.findById(supervisorId)
+                .orElseThrow(() -> new BusinessException("SUPERVISOR_NOT_FOUND", "Supervisor profile not found"));
+        if (supervisor.getUser().getRole() != UserRole.SUPERVISOR) {
+            throw new BusinessException("INVALID_SUPERVISOR_ROLE", "Only a supervisor account can supervise a project");
+        }
+        var existingAssignment = supervisors.findByProjectIdAndSupervisorId(projectId, supervisorId);
+        if ((existingAssignment.isEmpty() || !existingAssignment.get().isActive())
+                && supervisors.findAllByProjectIdAndActiveTrue(projectId).size() >= 2) {
+            throw new BusinessException("SUPERVISOR_LIMIT_EXCEEDED", "A project can have at most two supervisors");
+        }
+        ProjectSupervisorAssignment assignment = existingAssignment.orElse(new ProjectSupervisorAssignment());
+        assignment.setProject(project);
+        assignment.setSupervisor(supervisor);
         assignment.setActive(true);
         return ApiResponse.ok("Supervisor assigned", supervisors.save(assignment));
     }
@@ -198,20 +209,18 @@ public class ProjectController {
             @Valid @RequestBody EvaluatorAssignmentRequest request
     ) {
         currentUsers.requireAdmin(authorization);
+        var project = projects.findById(projectId)
+                .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found"));
         var evaluator = evaluatorProfiles.findById(request.evaluatorId())
                 .orElseThrow(() -> new BusinessException("EVALUATOR_NOT_FOUND", "Evaluator not found"));
-        if (evaluator.getUser().getRole() == UserRole.INDUSTRY_REPRESENTATIVE
-                && request.evaluationType() != EvaluationType.DEMO_DAY_INDUSTRY) {
-            throw new BusinessException(
-                    "INDUSTRY_DEMO_DAY_ONLY",
-                    "Industry representatives can be assigned only to the Demo Day form"
-            );
-        }
-        ProjectEvaluatorAssignment assignment = new ProjectEvaluatorAssignment();
-        assignment.setProject(projects.findById(projectId)
-                .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found")));
+        assertEvaluationRole(evaluator.getUser().getRole(), request.evaluationType());
+        ProjectEvaluatorAssignment assignment = evaluators
+                .findByProjectIdAndEvaluatorIdAndEvaluationType(projectId, request.evaluatorId(), request.evaluationType())
+                .orElse(new ProjectEvaluatorAssignment());
+        assignment.setProject(project);
         assignment.setEvaluator(evaluator);
         assignment.setEvaluationType(request.evaluationType());
+        assignment.setActive(true);
         return ApiResponse.ok("Evaluator assigned", evaluators.save(assignment));
     }
 
@@ -234,17 +243,50 @@ public class ProjectController {
         );
     }
 
-    @DeleteMapping("/{projectId}/evaluators/{assignmentId}")
-    ApiResponse<Void> removeEvaluator(
+    @DeleteMapping("/{projectId}/supervisor/{assignmentId}")
+    ApiResponse<Void> removeOneSupervisor(
             @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId,
             @PathVariable UUID assignmentId
     ) {
         currentUsers.requireAdmin(authorization);
-        if (!evaluators.existsById(assignmentId)) {
-            throw new BusinessException("ASSIGNMENT_NOT_FOUND", "Evaluator assignment not found");
-        }
-        evaluators.deleteById(assignmentId);
+        ProjectSupervisorAssignment assignment = supervisors.findById(assignmentId)
+                .filter(value -> value.getProject().getId().equals(projectId))
+                .orElseThrow(() -> new BusinessException("ASSIGNMENT_NOT_FOUND", "Supervisor assignment not found"));
+        assignment.setActive(false);
+        supervisors.save(assignment);
+        return ApiResponse.ok("Supervisor removed", null);
+    }
+
+    @DeleteMapping("/{projectId}/evaluators/{assignmentId}")
+    ApiResponse<Void> removeEvaluator(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId,
+            @PathVariable UUID assignmentId
+    ) {
+        currentUsers.requireAdmin(authorization);
+        ProjectEvaluatorAssignment assignment = evaluators.findById(assignmentId)
+                .filter(value -> value.getProject().getId().equals(projectId))
+                .orElseThrow(() -> new BusinessException("ASSIGNMENT_NOT_FOUND", "Evaluator assignment not found"));
+        assignment.setActive(false);
+        evaluators.save(assignment);
         return ApiResponse.ok("Evaluator removed", null);
+    }
+
+    private void assertEvaluationRole(UserRole role, EvaluationType type) {
+        boolean valid = switch (role) {
+            case INDUSTRY_REPRESENTATIVE -> type == EvaluationType.DEMO_DAY_INDUSTRY;
+            case FACULTY_EVALUATOR -> type == EvaluationType.REPORT_PHASE_I
+                    || type == EvaluationType.ORAL_PHASE_I
+                    || type == EvaluationType.REPORT_PHASE_II
+                    || type == EvaluationType.ORAL_PHASE_II;
+            case SUPERVISOR -> type == EvaluationType.SUPERVISOR_PHASE_I
+                    || type == EvaluationType.SUPERVISOR_PHASE_II;
+            default -> false;
+        };
+        if (!valid) {
+            throw new BusinessException("EVALUATOR_ROLE_MISMATCH", "The selected account role cannot complete this evaluation form");
+        }
     }
 
     private void apply(Project project, ProjectRequest request) {

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronRight, CircleAlert, Eye, EyeOff, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react'
 import squLogo from './assets/Sultan_Qaboos_University_Logo.png'
 import squMark from './assets/sultan-qaboos-university-logo-png_seeklogo-271991.png'
-import { apiRequest, itemName, pretty, unwrapList } from './api.js'
+import { apiRequest, downloadFile, itemName, pretty, unwrapList } from './api.js'
 import { EVALUATION_TYPES, ROLES, actorTemplates, resourceConfigs, views } from './config.js'
 import { SCORING_TEMPLATES, calculateTemplate, normalizeScore, performanceBand, scoreKey, sectionAverage } from './gradingTemplates.js'
 import { currentLocale, getInitialLanguage, setLanguagePreference, translateText, useAutoTranslate } from './i18n.js'
@@ -102,6 +102,17 @@ function App() {
     window.__toast = window.setTimeout(() => setToast(null), 4200)
   }, [])
 
+  useEffect(() => {
+    if (!session?.token) return undefined
+    let active = true
+    apiRequest('/api/auth/validate-token', {}, session.token).catch((error) => {
+      if (!active || (error.status !== 401 && error.status !== 403)) return
+      setSession(null)
+      notify('Votre session a expiré. Reconnectez-vous.', 'danger')
+    })
+    return () => { active = false }
+  }, [notify, session?.token])
+
   function openWorkspace(rawSession, fallbackRole) {
     const next = normalizeSession(rawSession, fallbackRole)
     setSession(next)
@@ -122,7 +133,9 @@ function LanguageSwitcher({ language, setLanguage }) {
 function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, setTheme }) {
   const [busy, setBusy] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [mode, setMode] = useState('login')
   const [loginForm, setLoginForm] = useState({ email: 'admin@squ.edu.om', password: 'Admin@123' })
+  const [recovery, setRecovery] = useState({ email: '', token: '', newPassword: '' })
 
   async function login(event) {
     event.preventDefault()
@@ -136,6 +149,43 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
       setBusy(false)
     }
   }
+
+  async function requestReset(event) {
+    event.preventDefault()
+    setBusy(true)
+    try {
+      await apiRequest('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: recovery.email }) })
+      setMode('reset')
+      notify('Un jeton de réinitialisation a été envoyé. En local, consultez Mailpit.')
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function resetPassword(event) {
+    event.preventDefault()
+    setBusy(true)
+    try {
+      await apiRequest('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: recovery.token, newPassword: recovery.newPassword }) })
+      setLoginForm({ email: recovery.email, password: '' })
+      setRecovery({ email: '', token: '', newPassword: '' })
+      setMode('login')
+      notify('Mot de passe réinitialisé. Vous pouvez vous connecter.')
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const heading = mode === 'login' ? 'Bienvenue' : mode === 'forgot' ? 'Récupérer le compte' : 'Nouveau mot de passe'
+  const description = mode === 'login'
+    ? 'Connectez-vous avec le compte attribué par l’administration FYP.'
+    : mode === 'forgot'
+      ? 'Saisissez l’adresse du compte importé par l’administration.'
+      : 'Saisissez le jeton reçu par e-mail et choisissez un nouveau mot de passe.'
 
   return <main className="auth-screen">
     <section className="auth-visual">
@@ -152,13 +202,15 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
       <section className="auth-panel page-enter">
         <div className="auth-panel-tools"><ThemeToggle theme={theme} setTheme={setTheme} compact /><LanguageSwitcher language={language} setLanguage={setLanguage} /></div>
         <div className="brand-badge"><img src={squMark} alt="SQU" /><div><span>Portail académique sécurisé</span><small>College of Engineering</small></div></div>
-        <form className="stack-form auth-form" onSubmit={login}>
-          <div className="auth-form-heading"><span className="eyebrow">Accès institutionnel</span><h2>Bienvenue</h2><p>Connectez-vous avec le compte attribué par l’administration FYP.</p></div>
-          <AuthField icon={Mail} label="Adresse e-mail" type="email" value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" />
-          <AuthField icon={ShieldCheck} label="Mot de passe" type={showPassword ? 'text' : 'password'} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} />
-          <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Connexion…</> : <>Se connecter<ArrowRight size={18} /></>}</button>
+        <form className="stack-form auth-form" onSubmit={mode === 'login' ? login : mode === 'forgot' ? requestReset : resetPassword}>
+          <div className="auth-form-heading"><span className="eyebrow">Accès institutionnel</span><h2>{heading}</h2><p>{description}</p></div>
+          {mode === 'login' && <><AuthField icon={Mail} label="Adresse e-mail" type="email" value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" /><AuthField icon={ShieldCheck} label="Mot de passe" type={showPassword ? 'text' : 'password'} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} /></>}
+          {mode === 'forgot' && <AuthField icon={Mail} label="Adresse e-mail" type="email" value={recovery.email} onChange={(email) => setRecovery({ ...recovery, email })} autoComplete="email" />}
+          {mode === 'reset' && <><AuthField icon={ShieldCheck} label="Jeton reçu" type="text" value={recovery.token} onChange={(token) => setRecovery({ ...recovery, token })} autoComplete="one-time-code" /><AuthField icon={ShieldCheck} label="Nouveau mot de passe" type="password" minLength="8" value={recovery.newPassword} onChange={(newPassword) => setRecovery({ ...recovery, newPassword })} autoComplete="new-password" /></>}
+          <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Traitement…</> : <>{mode === 'login' ? 'Se connecter' : mode === 'forgot' ? 'Envoyer le jeton' : 'Changer le mot de passe'}<ArrowRight size={18} /></>}</button>
+          {mode === 'login' ? <button className="auth-link" type="button" onClick={() => { setRecovery((current) => ({ ...current, email: loginForm.email })); setMode('forgot') }}>Mot de passe oublié ?</button> : <button className="auth-link" type="button" onClick={() => setMode('login')}>Retour à la connexion</button>}
           <div className="auth-security-note"><ShieldCheck size={16} /><span>Session personnelle, accès contrôlé par rôle et traçabilité des actions.</span></div>
-          <div className="demo-account"><span>Compte de démonstration</span><strong>admin@squ.edu.om</strong><code>Admin@123</code></div>
+          {mode === 'login' && <div className="demo-account"><span>Compte de démonstration</span><strong>admin@squ.edu.om</strong><code>Admin@123</code></div>}
         </form>
       </section>
     </div>
@@ -259,8 +311,8 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
   if (activeView === 'crud') activeContent = <CrudStudio datasets={datasets} request={request} reload={loadCore} notify={notify} />
   if (activeView === 'evaluations') activeContent = <EvaluationStudio datasets={datasets} request={request} notify={notify} activeRole={activeRole} session={session} />
   if (activeView === 'extensions') activeContent = <ExtensionRequestCenter datasets={datasets} request={request} notify={notify} activeRole={activeRole} />
-  if (activeView === 'grading') activeContent = <GradingCenter datasets={datasets} request={request} reload={loadCore} notify={notify} activeRole={activeRole} />
-  if (activeView === 'reports') activeContent = <ReportCenter datasets={datasets} request={request} reload={loadCore} notify={notify} />
+  if (activeView === 'grading') activeContent = <GradingCenter datasets={datasets} request={request} reload={loadCore} notify={notify} activeRole={activeRole} token={session.token} />
+  if (activeView === 'reports') activeContent = <ReportCenter datasets={datasets} request={request} reload={loadCore} notify={notify} token={session.token} />
   if (activeView === 'api') activeContent = <ApiConsole request={request} notify={notify} />
 
   const initialLoading = loading && Object.keys(datasets).length === 0
@@ -324,7 +376,7 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
         {initialLoading ? <AppSkeleton /> : error ? <ErrorState message={error} onRetry={loadCore} /> : activeContent}
       </section>
     </main>
-    <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} session={session} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} onLogout={onLogout} roleLabel={actorTemplates[activeRole]?.title || pretty(activeRole)} />
+    <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} session={session} request={request} notify={notify} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} onLogout={onLogout} roleLabel={actorTemplates[activeRole]?.title || pretty(activeRole)} />
     {toast && <Toast {...toast} />}
   </div>
 }
@@ -471,7 +523,6 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
   const [editing, setEditing] = useState(null)
   const [filter, setFilter] = useState('')
   const [busy, setBusy] = useState(false)
-  const [csvText, setCsvText] = useState('')
   useEffect(() => {
     const timer = window.setTimeout(() => setRows(datasets[resourceKey] || []), 0)
     return () => window.clearTimeout(timer)
@@ -503,22 +554,9 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
     try { await request(config.endpoint + '/' + row.id, { method: 'DELETE' }); notify(config.title + ' deleted'); await reload(); setRows(unwrapList(await request(config.endpoint))) } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
-  async function importCsv() {
-    const [head, ...lines] = csvText.trim().split(/\r?\n/); if (!head) return
-    const headers = head.split(',').map((x) => x.trim()); setBusy(true)
-    try {
-      for (const line of lines) {
-        const values = line.split(',').map((x) => x.trim())
-        await request(config.customCreateEndpoint || config.endpoint, { method: 'POST', body: JSON.stringify(Object.fromEntries(headers.map((h, i) => [h, values[i] || '']))) })
-      }
-      notify('CSV import completed'); setCsvText(''); await reload()
-    } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
-  }
-
   return <div className="manager-grid">
     <Panel title={config.title} subtitle={config.subtitle} wide><div className="table-toolbar"><input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search records" /><button className="soft-button" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}>Reload</button></div><DataTable rows={filtered} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? remove : null} /></Panel>
     {!config.readOnly && <Panel title={editing ? 'Edit record' : 'Create record'} accent="green"><form className="stack-form compact" onSubmit={submit}>{(config.fields || []).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => setForm({ ...form, [field.name]: value })} />)}<button className="primary-action" disabled={busy}>{busy ? 'Saving...' : editing ? 'Update' : 'Create'}</button>{editing && <button type="button" className="ghost-button" onClick={() => { setEditing(null); setForm(initialForm(config.fields || [])) }}>Cancel edit</button>}</form></Panel>}
-    {!config.readOnly && <Panel title="Import CSV" accent="gold"><p className="muted">Paste CSV using field names as headers. Useful for bulk users, tracks and projects.</p><textarea className="csv-box" value={csvText} onChange={(e) => setCsvText(e.target.value)} placeholder="title,academicYear,status,trackId" /><button className="soft-button" onClick={importCsv} disabled={busy}>Importer le CSV</button></Panel>}
   </div>
 }
 function ImportCenter({ request, notify, reload }) {
@@ -613,7 +651,7 @@ function ImportCenter({ request, notify, reload }) {
         <span className="eyebrow">Administration des données</span>
         <h2>{initializationMode ? 'Initialiser une année FYP' : 'Mettre à jour les étudiants'}</h2>
         <p>{initializationMode
-          ? 'Chargez en une opération les filières, étudiants, comptes acteurs, projets, équipes, affectations et phases.'
+          ? 'Chargez en une opération les étudiants, comptes acteurs, projets, équipes et affectations. Configurez ensuite les phases et leurs échéances dans la plateforme.'
           : 'Synchronisez ponctuellement le référentiel officiel SQU sans modifier les projets et les affectations.'}</p>
       </div>
       <a className="soft-button download-template" href={templateHref} download>Télécharger le modèle Excel</a>
@@ -626,7 +664,7 @@ function ImportCenter({ request, notify, reload }) {
 
     {initializationMode && <section className="import-steps" aria-label="Étapes d’initialisation">
       <div><span>01</span><strong>Télécharger</strong><small>Utiliser le modèle officiel.</small></div>
-      <div><span>02</span><strong>Compléter</strong><small>Remplir les huit feuilles de données.</small></div>
+      <div><span>02</span><strong>Compléter</strong><small>Remplir les sept feuilles de données.</small></div>
       <div><span>03</span><strong>Analyser</strong><small>Corriger toutes les références invalides.</small></div>
       <div><span>04</span><strong>Importer</strong><small>Valider la transaction complète.</small></div>
     </section>}
@@ -750,7 +788,7 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
   const selectedPhase = (datasets.phases || []).find((phase) => phase.id === draft.phaseId)
   const evaluationBlocked = Boolean(draft.phaseId && phaseAccess && !phaseAccess.allowed)
   const editingDisabled = locked || !draft.phaseId || phaseAccess?.allowed !== true
-  const contextReady = Boolean(draft.projectId && draft.phaseId && draft.evaluatorId && draft.evaluationType)
+  const contextSelected = Boolean(draft.projectId && draft.phaseId && draft.evaluatorId && draft.evaluationType)
   const allEvaluators = useMemo(() => datasets.evaluators || [], [datasets.evaluators])
   const evaluatorOptions = useMemo(() => activeRole === 'ADMIN' ? allEvaluators : allEvaluators.filter((evaluator) => {
     const user = evaluator.user || {}
@@ -767,11 +805,9 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
     return linkedProjectId && linkedProjectId === draft.projectId
   })
   const importedStudents = (selectedTeam?.students || []).map(toStudentTarget)
-  const studentTargets = importedStudents.length ? importedStudents : [
-    { id: 'student-01', label: 'Étudiant 01', secondary: 'ID-01' },
-    { id: 'student-02', label: 'Étudiant 02', secondary: 'ID-02' },
-    { id: 'student-03', label: 'Étudiant 03', secondary: 'ID-03' },
-  ]
+  const studentTargets = importedStudents
+  const requiresStudentTargets = template.sections.some((section) => section.target === 'student')
+  const contextReady = contextSelected && (!requiresStudentTargets || studentTargets.length > 0)
   const targetIds = studentTargets.map((student) => student.id)
   const results = calculateTemplate(template, activeScores, targetIds)
   const resultTargets = template.sections.some((section) => section.target === 'student')
@@ -1015,19 +1051,15 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
 
     {activeRole !== 'ADMIN' && !evaluationProjects.length && <EmptyState title="Aucun projet affecté" detail="Contactez l’administrateur FYP pour recevoir une affectation de projet et de fiche." />}
 
-    {draft.evaluationType === 'DEMO_DAY_INDUSTRY' && <section className="industry-form-meta" aria-label="Informations de la fiche Industry Guest">
-      <div className="industry-form-title">
-        <span className="eyebrow">FYP Demo Evaluation Sheet</span>
-        <strong>Industry Guest · SP2026</strong>
-        <p>Évaluation par projet, et non par étudiant. Chaque composante est notée sur 10.</p>
-      </div>
-      <dl>
-        <div><dt>Filière</dt><dd>{selectedProject?.track?.code || selectedProject?.trackCode || draft.trackCode || '—'}</dd></div>
-        <div><dt>Numéro de projet</dt><dd>{selectedProject?.projectNumber || '—'}</dd></div>
-        <div><dt>Membre du jury</dt><dd>{evaluatorDisplayName}</dd></div>
-        <div><dt>Date</dt><dd>{new Intl.DateTimeFormat('fr-FR').format(new Date())}</dd></div>
-      </dl>
-    </section>}
+    <LegacyEvaluationHeader
+      template={template}
+      project={selectedProject}
+      team={selectedTeam}
+      phase={selectedPhase}
+      evaluatorName={evaluatorDisplayName}
+      trackCode={draft.trackCode}
+      status={status}
+    />
 
     {draft.phaseId && <section className={'deadline-banner ' + (phaseAccess?.allowed ? 'open' : 'closed')}>
       <div><span className="eyebrow">Fenêtre d’évaluation</span><strong>{phaseAccess?.allowed ? 'Évaluation ouverte' : 'Évaluation verrouillée'}</strong><p>{phaseAccess?.message || 'Vérification de l’échéance…'}</p></div>
@@ -1043,13 +1075,15 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
 
     <div className="sheet-toolbar">
       <div className="sheet-title"><strong>{template.label}</strong><span>{template.phase} · note sur 10</span></div>
-      <div className="completion-meter"><span>{completedCells}/{requiredCells} cellules</span><div><i style={{ width: Math.round((completedCells / requiredCells) * 100) + '%' }} /></div></div>
+      <div className="completion-meter"><span>{completedCells}/{requiredCells} cellules</span><div><i style={{ width: (requiredCells ? Math.round((completedCells / requiredCells) * 100) : 0) + '%' }} /></div></div>
       <button className="soft-button" type="button" onClick={() => setShowFormula((value) => !value)}>{showFormula ? 'Masquer le calcul' : 'Afficher le calcul'}</button>
     </div>
 
     {showFormula && <FormulaPanel template={template} />}
 
-    <div className={'score-sheet ' + (locked ? 'locked' : '')}>
+    {requiresStudentTargets && selectedTeam && studentTargets.length === 0 && <EmptyState title="Équipe sans étudiant" detail="Ajoutez les étudiants au projet avant de remplir cette fiche individuelle." />}
+
+    {(!requiresStudentTargets || studentTargets.length > 0) && <div className={'score-sheet ' + (locked ? 'locked' : '')}>
       {template.sections.map((section) => <ExcelScoreSection
         key={section.id}
         section={section}
@@ -1058,9 +1092,9 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
         onScoreChange={updateScore}
         disabled={editingDisabled}
       />)}
-    </div>
+    </div>}
 
-    <ResultSummary template={template} targets={resultTargets} results={results} />
+    {(!requiresStudentTargets || studentTargets.length > 0) && <ResultSummary template={template} targets={resultTargets} results={results} />}
 
     <section className="sheet-footer">
       <label className="field comment-field"><span>Commentaire général</span><textarea value={draft.generalComment} disabled={editingDisabled} onChange={(event) => { const generalComment = event.target.value; setDraft({ ...draft, generalComment }); queueAutoSave(activeScores, generalComment) }} /></label>
@@ -1083,6 +1117,26 @@ function toStudentTarget(student, index) {
   }
 }
 
+function LegacyEvaluationHeader({ template, project, team, phase, evaluatorName, trackCode, status }) {
+  const isIndustry = template.kind === 'demo'
+  return <section className="legacy-workbook-header" aria-label="En-tête de la fiche officielle">
+    <div className="legacy-workbook-brand">
+      <img src={squMark} alt="Sultan Qaboos University" />
+      <div><span>Sultan Qaboos University · College of Engineering</span><strong>{isIndustry ? 'FYP Demo Evaluation Sheet' : template.label + ' Evaluation Sheet'}</strong><small>{template.phase} · Official online grading form</small></div>
+      <b>{status === 'SUBMITTED' || status === 'LOCKED' ? 'LOCKED' : 'DRAFT'}</b>
+    </div>
+    <div className="legacy-workbook-meta">
+      <div><span>Track</span><strong>{project?.track?.code || project?.trackCode || trackCode || '-'}</strong></div>
+      <div><span>Project No.</span><strong>{project?.projectNumber || '-'}</strong></div>
+      <div className="wide"><span>Project title</span><strong>{project?.title || 'Select an assigned project'}</strong></div>
+      <div><span>Team</span><strong>{team?.name || '-'}</strong></div>
+      <div><span>Evaluator</span><strong>{evaluatorName}</strong></div>
+      <div><span>Phase / cohort</span><strong>{phase?.name || template.phase} · {project?.academicYear || '-'}</strong></div>
+      <div><span>Date</span><strong>{new Intl.DateTimeFormat(currentLocale()).format(new Date())}</strong></div>
+    </div>
+    <div className="legacy-scale"><strong>Marking scale</strong><span>0 Missing</span><span>2 Poor</span><span>4 Below expectations</span><span>6 Satisfactory</span><span>8 Very good</span><span>10 Excellent</span></div>
+  </section>
+}
 function ExcelScoreSection({ section, targets, scores, onScoreChange, disabled }) {
   return <section className="sheet-section">
     <div className="sheet-section-title"><strong>{section.label}</strong><span>{section.target === 'student' ? 'Par étudiant' : 'Commun au groupe'}</span></div>
@@ -1181,66 +1235,173 @@ function ExtensionRequestCenter({ datasets, request, notify, activeRole }) {
     <Panel title={isAdmin ? 'Demandes reçues' : 'Mes demandes'} wide><DataTable rows={rows} columns={isAdmin ? ['phase','requester','reason','requestedDeadline','status','extendedDeadline','adminComment','requestedAt'] : ['phase','reason','requestedDeadline','status','extendedDeadline','adminComment','requestedAt']} compact extraAction={isAdmin ? action : null} /></Panel>
   </section>
 }
-function GradingCenter({ datasets, request, reload, notify, activeRole }) {
+function GradingCenter({ datasets, request, reload, notify, activeRole, token }) {
   const canManageGrades = activeRole === 'ADMIN'
+  const canExport = activeRole === 'ADMIN' || activeRole === 'COORDINATOR'
   const projects = useMemo(() => datasets.projects || [], [datasets.projects])
-  const [projectId, setProjectId] = useState(projects[0]?.id || '')
-  const [phaseId, setPhaseId] = useState(datasets.phases?.[0]?.id || '')
-  const [grades, setGrades] = useState([])
-  const loadGrades = useCallback(async (id) => {
-    if (!id) { setGrades([]); return }
-    try { setGrades(unwrapList(await request('/api/grades/project/' + id))) }
-    catch (error) { setGrades([]); notify(error.message, 'danger') }
+  const [projectId, setProjectId] = useState('')
+  const [phaseId, setPhaseId] = useState('')
+  const [projectGrades, setProjectGrades] = useState([])
+  const [studentGrades, setStudentGrades] = useState([])
+  const [busy, setBusy] = useState(false)
+  const effectiveProjectId = projects.some((project) => project.id === projectId) ? projectId : projects[0]?.id || ''
+  const selectedProject = projects.find((project) => project.id === effectiveProjectId)
+  const phaseOptions = useMemo(() => (datasets.phases || []).filter((phase) =>
+    !selectedProject?.academicYear || !phase.academicYear || phase.academicYear === selectedProject.academicYear
+  ), [datasets.phases, selectedProject])
+  const effectivePhaseId = phaseOptions.some((phase) => phase.id === phaseId) ? phaseId : phaseOptions[0]?.id || ''
+  const selectedProjectGrade = projectGrades.find((grade) => (grade.phase?.id || grade.phaseId) === effectivePhaseId)
+
+  const loadGrades = useCallback(async (nextProjectId, nextPhaseId) => {
+    if (!nextProjectId) {
+      setProjectGrades([])
+      setStudentGrades([])
+      return
+    }
+    try {
+      const projectResponse = await request('/api/grades/project/' + nextProjectId)
+      setProjectGrades(unwrapList(projectResponse))
+      if (nextPhaseId) {
+        setStudentGrades(unwrapList(await request('/api/grades/students/project/' + nextProjectId + '/phase/' + nextPhaseId)))
+      } else {
+        setStudentGrades(unwrapList(await request('/api/grades/students/project/' + nextProjectId)))
+      }
+    } catch (error) {
+      setProjectGrades([])
+      setStudentGrades([])
+      notify(error.message, 'danger')
+    }
   }, [notify, request])
 
   useEffect(() => {
-    if (!projectId) return undefined
-    let active = true
-    request('/api/grades/project/' + projectId)
-      .then((response) => { if (active) setGrades(unwrapList(response)) })
-      .catch((error) => {
-        if (!active) return
-        setGrades([])
-        notify(error.message, 'danger')
-      })
-    return () => { active = false }
-  }, [notify, projectId, request])
+    if (!effectiveProjectId) return undefined
+    const timer = window.setTimeout(() => loadGrades(effectiveProjectId, effectivePhaseId), 0)
+    return () => window.clearTimeout(timer)
+  }, [effectivePhaseId, effectiveProjectId, loadGrades])
 
   async function calculate() {
+    if (!effectiveProjectId || !effectivePhaseId) return
+    setBusy(true)
     try {
-      const response = await request('/api/grades/calculate/project/' + projectId + '/phase/' + phaseId, { method: 'POST' })
-      notify('Note calculée')
-      setGrades((current) => [response.data, ...current.filter((grade) => grade.id !== response.data.id)])
+      await request('/api/grades/calculate/project/' + effectiveProjectId + '/phase/' + effectivePhaseId, { method: 'POST' })
+      await loadGrades(effectiveProjectId, effectivePhaseId)
       await reload()
-    } catch (error) { notify(error.message, 'danger') }
+      notify('Notes consolidées pour chaque étudiant')
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
   }
-  async function publish(id) {
+
+  async function publish() {
+    if (!selectedProjectGrade) return
+    setBusy(true)
     try {
-      await request('/api/grades/' + id + '/publish', { method: 'PATCH' })
-      notify('Note publiée')
-      await loadGrades(projectId)
+      await request('/api/grades/' + selectedProjectGrade.id + '/publish', { method: 'PATCH' })
+      await loadGrades(effectiveProjectId, effectivePhaseId)
+      notify('Résultats publiés pour cette phase')
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function exportProject() {
+    try {
+      const filename = await downloadFile('/api/reports/export/project/' + effectiveProjectId, token, 'FYP_Project_Results.xlsx')
+      notify('Export téléchargé: ' + filename)
+    } catch (error) {
+      notify(error.message, 'danger')
+    }
+  }
+
+  return <section className="page-grid grading-center">
+    <div className="section-head full-span"><div><span className="eyebrow">Consolidation officielle</span><h2>{canManageGrades ? 'Calcul et publication des notes' : 'Résultats consolidés'}</h2><p>La moyenne utilise exclusivement les fiches validées et verrouillées. Les brouillons et fiches expirées restent hors calcul.</p></div></div>
+    <Panel title="Périmètre des résultats" accent="green"><div className="form-grid two"><SelectData label="Projet" value={effectiveProjectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={effectivePhaseId} data={phaseOptions} onChange={setPhaseId} /></div><div className="action-row">{canManageGrades && <button className="primary-action" disabled={busy || !effectiveProjectId || !effectivePhaseId} onClick={calculate}>{busy ? 'Calcul…' : 'Calculer / recalculer'}</button>}{canManageGrades && selectedProjectGrade && !selectedProjectGrade.published && <button className="soft-button" disabled={busy} onClick={publish}>Publier la phase</button>}{canExport && <button className="soft-button icon-text" disabled={!effectiveProjectId} onClick={exportProject}><Download size={16} />Exporter le projet</button>}</div></Panel>
+    <Panel title="Règle de consolidation" accent="gold"><p className="muted">Chaque type est d’abord moyenné entre tous les évaluateurs affectés, puis pondéré selon les règles de la phase. Une valeur 0 validée est une note réelle et reste incluse.</p><div className="tag-list">{EVALUATION_TYPES.map((type) => <span key={type}>{SCORING_TEMPLATES[type]?.label || pretty(type)}</span>)}</div></Panel>
+    <Panel title="Résultats individuels" subtitle={selectedProject ? selectedProject.projectNumber + ' · ' + selectedProject.title : ''} wide>{!projects.length
+      ? <EmptyState title="Aucun projet accessible" detail="Les projets apparaissent selon les affectations du compte connecté." />
+      : studentGrades.length
+        ? <StudentGradeTable rows={studentGrades} />
+        : <EmptyState title="Aucun résultat calculé" detail={canManageGrades ? 'Validez toutes les fiches requises, puis lancez le calcul.' : 'Les résultats apparaîtront après calcul et publication.'} />}</Panel>
+    {projectGrades.length > 0 && <Panel title="Synthèse du projet par phase" wide><DataTable rows={projectGrades} columns={['phaseType','finalScore','published']} compact /></Panel>}
+  </section>
+}
+
+function StudentGradeTable({ rows }) {
+  const score = (value) => value === null || value === undefined ? '-' : formatScore(value)
+  return <div className="table-wrap student-grade-table"><table><thead><tr><th>Student ID</th><th>Student name</th><th>Supervisor</th><th>Report</th><th>Presentation</th><th>Demo Day</th><th>Final /10</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><strong>{row.student?.studentNumber || '-'}</strong></td><td>{row.student?.fullName || '-'}</td><td>{score(row.supervisorScore)}</td><td>{score(row.reportScore)}</td><td>{score(row.oralScore)}</td><td>{score(row.demoScore)}</td><td className="final-score">{score(row.finalScore)}</td><td><StatusPill value={row.published ? 'PUBLISHED' : 'INTERNAL'} /></td></tr>)}</tbody></table></div>
+}
+
+function ReportCenter({ datasets, request, reload, notify, token }) {
+  const projects = datasets.projects || []
+  const phases = datasets.phases || []
+  const [projectId, setProjectId] = useState('')
+  const [phaseId, setPhaseId] = useState('')
+  const [completenessSnapshot, setCompletenessSnapshot] = useState({ phaseId: '', rows: [] })
+  const [busy, setBusy] = useState(false)
+  const effectiveProjectId = projects.some((project) => project.id === projectId) ? projectId : projects[0]?.id || ''
+  const effectivePhaseId = phases.some((phase) => phase.id === phaseId) ? phaseId : phases[0]?.id || ''
+  const reports = datasets.reports || []
+  const completeness = completenessSnapshot.phaseId === effectivePhaseId ? completenessSnapshot.rows : []
+
+  useEffect(() => {
+    if (!effectivePhaseId) return undefined
+    let active = true
+    request('/api/reports/completeness/phase/' + effectivePhaseId)
+      .then((response) => { if (active) setCompletenessSnapshot({ phaseId: effectivePhaseId, rows: unwrapList(response) }) })
+      .catch(() => { if (active) setCompletenessSnapshot({ phaseId: effectivePhaseId, rows: [] }) })
+    return () => { active = false }
+  }, [effectivePhaseId, request])
+
+  async function generate(finalReport) {
+    if (!effectiveProjectId || (!finalReport && !effectivePhaseId)) return
+    setBusy(true)
+    try {
+      const path = finalReport ? '/api/reports/project/' + effectiveProjectId + '/final' : '/api/reports/project/' + effectiveProjectId + '/phase/' + effectivePhaseId
+      await request(path, { method: 'POST' })
+
+      await reload()
+      notify('Rapport Excel généré et archivé')
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function downloadPhase() {
+    try {
+      const filename = await downloadFile('/api/reports/export/phase/' + effectivePhaseId, token, 'Final_Evaluation_Summary.xlsx')
+      notify('Synthèse téléchargée: ' + filename)
     } catch (error) { notify(error.message, 'danger') }
   }
 
-  return <section className="page-grid">
-    <div className="section-head full-span"><div><h2>{canManageGrades ? 'Centre de notation' : 'Notes consolidées publiées'}</h2><p>{canManageGrades ? 'Calculez et publiez les notes à partir des fiches verrouillées.' : 'Consultation en lecture seule des résultats publiés pour vos projets attribués.'}</p></div></div>
-    {canManageGrades && <Panel title="Calcul des notes" accent="green"><div className="form-grid two"><SelectData label="Projet" value={projectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={phaseId} data={datasets.phases || []} onChange={setPhaseId} /></div><button className="primary-action" disabled={!projectId || !phaseId} onClick={calculate}>Calculer la note</button></Panel>}
-    {!canManageGrades && <Panel title="Projet attribué" accent="green"><SelectData label="Projet" value={projectId} data={projects} onChange={setProjectId} /><p className="muted">Les résultats non publiés par l’administration restent confidentiels.</p></Panel>}
-    <Panel title="Règles de notation" accent="gold"><p className="muted">Chaque fiche produit une note sur 10. La consolidation utilise uniquement les fiches validées et verrouillées.</p><div className="tag-list">{EVALUATION_TYPES.map((type) => <span key={type}>{pretty(type)}</span>)}</div></Panel>
-    <Panel title="Notes par phase" wide>{!projects.length
-      ? <EmptyState title="Aucun projet attribué" detail="Aucune note ne peut être consultée sans affectation active." />
-      : grades.length
-        ? <DataTable rows={grades} columns={['phaseType','rawScore','weightedScore','finalScore','published']} compact extraAction={(row) => canManageGrades && !row.published && <button className="mini-button" onClick={() => publish(row.id)}>Publier</button>} />
-        : <EmptyState title="Aucune note publiée" detail="Les notes apparaîtront ici après calcul et publication par l’administration." />}</Panel>
+  async function downloadProject() {
+    try {
+      const filename = await downloadFile('/api/reports/export/project/' + effectiveProjectId, token, 'FYP_Project_Results.xlsx')
+      notify('Rapport projet téléchargé: ' + filename)
+    } catch (error) { notify(error.message, 'danger') }
+  }
+
+  async function send(id) {
+    try {
+      await request('/api/reports/' + id + '/send', { method: 'POST' })
+
+      await reload()
+      notify('Rapport envoyé par e-mail')
+    } catch (error) { notify(error.message, 'danger') }
+  }
+
+  return <section className="page-grid report-center">
+    <div className="section-head full-span"><div><span className="eyebrow">Remplacement du script MATLAB</span><h2>Consolidation et exports Excel</h2><p>Contrôlez les fiches manquantes, puis exportez la synthèse finale compatible avec l’ancien processus.</p></div></div>
+    <Panel title="Génération et téléchargement" accent="green"><div className="form-grid two"><SelectData label="Projet" value={effectiveProjectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={effectivePhaseId} data={phases} onChange={setPhaseId} /></div><div className="action-row"><button className="soft-button icon-text" disabled={!effectivePhaseId} onClick={downloadPhase}><FileSpreadsheet size={16} />Final Evaluation Summary</button><button className="soft-button icon-text" disabled={!effectiveProjectId} onClick={downloadProject}><Download size={16} />Export projet</button><button className="primary-action" disabled={busy || !effectiveProjectId} onClick={() => generate(true)}>Archiver le rapport final</button></div></Panel>
+    <Panel title="Contenu de l’export" accent="gold"><p className="muted">Le classeur contient la synthèse historique à 11 colonnes, le détail par étudiant, les notes de chaque évaluateur, les fiches manquantes et la piste d’audit.</p><div className="tag-list"><span>LEGACY_SUMMARY</span><span>FINAL_SUMMARY</span><span>EVALUATOR_DETAILS</span><span>MISSING_FORMS</span><span>AUDIT_TRAIL</span></div></Panel>
+    <Panel title="Complétude des évaluations" wide>{completeness.length ? <DataTable rows={completeness} columns={['projectNumber','projectTitle','evaluationType','evaluatorName','evaluatorEmail','status']} compact /> : <EmptyState title="Aucune affectation pour cette phase" detail="Créez les affectations ou choisissez une autre phase." />}</Panel>
+    <Panel title="Archive des rapports" wide>{reports.length ? <DataTable rows={reports} columns={['project','phase','status','recipientEmail','generatedAt','sentAt']} compact extraAction={(row) => row.status !== 'SENT' && <button className="mini-button" onClick={() => send(row.id)}>Envoyer</button>} /> : <EmptyState title="Aucun rapport archivé" detail="Le téléchargement direct reste disponible sans créer d’archive." />}</Panel>
   </section>
-}
-function ReportCenter({ datasets, request, reload, notify }) {
-  const [projectId, setProjectId] = useState(datasets.projects?.[0]?.id || '')
-  const [phaseId, setPhaseId] = useState(datasets.phases?.[0]?.id || '')
-  const [reports, setReports] = useState(datasets.reports || [])
-  async function generate(finalReport) { try { const path = finalReport ? '/api/reports/project/' + projectId + '/final' : '/api/reports/project/' + projectId + '/phase/' + phaseId; const res = await request(path, { method: 'POST' }); notify('Report generated'); setReports([res.data, ...reports]); await reload() } catch (error) { notify(error.message, 'danger') } }
-  async function send(id) { try { await request('/api/reports/' + id + '/send', { method: 'POST' }); notify('Report sent'); setReports(unwrapList(await request('/api/reports'))); await reload() } catch (error) { notify(error.message, 'danger') } }
-  return <section className="page-grid"><div className="section-head full-span"><div><h2>Reporting and collection</h2><p>Generate reports and trace emails sent to the FYP coordinator.</p></div></div><Panel title="Report generator" accent="green"><div className="form-grid two"><SelectData label="Project" value={projectId} data={datasets.projects || []} onChange={setProjectId} /><SelectData label="Phase" value={phaseId} data={datasets.phases || []} onChange={setPhaseId} /></div><div className="action-row"><button className="soft-button" onClick={() => generate(false)}>Generate phase report</button><button className="primary-action" onClick={() => generate(true)}>Generate final report</button></div></Panel><Panel title="Notifications" accent="gold"><DataTable rows={datasets.notifications || []} columns={['recipient','subject','status','sentAt']} compact /></Panel><Panel title="Report archive" wide><DataTable rows={reports} columns={['project','phase','status','recipientEmail','generatedAt','sentAt']} compact extraAction={(row) => row.status !== 'SENT' && <button className="mini-button" onClick={() => send(row.id)}>Send</button>} /></Panel></section>
 }
 
 function ApiConsole({ request, notify }) {

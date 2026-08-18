@@ -715,3 +715,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--green-soft) 55%, var(--
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+.auth-link { align-self: center; border: 0; color: var(--blue); background: transparent; font-size: 12px; font-weight: 800; }
+.auth-link:hover { text-decoration: underline; }
+.profile-password { display: grid; gap: 9px; padding-top: 18px; border-top: 1px solid var(--line); }
+.profile-password input { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--surface-2); }
+.profile-password .soft-button { justify-self: stretch; }

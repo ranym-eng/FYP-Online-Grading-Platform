@@ -35,6 +35,24 @@ class EvaluationSheetCalculatorTest {
     }
 
     @Test
+    void calculatesReportOnceAtProjectLevel() {
+        double result = calculator.calculateForTarget(EvaluationType.REPORT_PHASE_I, Map.ofEntries(
+                Map.entry("group:identify-problem:group", 8.0),
+                Map.entry("group:formulate-problem:group", 8.0),
+                Map.entry("group:design-requirements:group", 8.0),
+                Map.entry("group:analyze-solutions:group", 10.0),
+                Map.entry("group:develop-solutions:group", 8.0),
+                Map.entry("group:build-test:group", 8.0),
+                Map.entry("group:technical-report:group", 8.0),
+                Map.entry("group:professional-ethics:group", 8.0),
+                Map.entry("group:evaluate-impact:group", 8.0),
+                Map.entry("group:complete-work:group", 8.0)
+        ), "any-student");
+
+        assertEquals(8.36, result);
+    }
+
+    @Test
     void rejectsScoreOutsideAllowedRange() {
         assertThrows(BusinessException.class, () -> calculator.calculate(
                 EvaluationType.DEMO_DAY_INDUSTRY,

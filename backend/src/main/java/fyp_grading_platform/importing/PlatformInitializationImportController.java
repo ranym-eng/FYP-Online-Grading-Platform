@@ -19,14 +19,17 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/import/initialization")
 @Tag(name = "Platform initialization", description = "Validated, transactional import of the annual FYP dataset")
 public class PlatformInitializationImportController {
-    private final PlatformInitializationImportService imports;
+    private final PlatformInitializationImportService legacyImports;
+    private final SimplifiedInitializationImportService simplifiedImports;
     private final CurrentUserService currentUsers;
 
     public PlatformInitializationImportController(
-            PlatformInitializationImportService imports,
+            PlatformInitializationImportService legacyImports,
+            SimplifiedInitializationImportService simplifiedImports,
             CurrentUserService currentUsers
     ) {
-        this.imports = imports;
+        this.legacyImports = legacyImports;
+        this.simplifiedImports = simplifiedImports;
         this.currentUsers = currentUsers;
     }
 
@@ -37,7 +40,10 @@ public class PlatformInitializationImportController {
             @RequestPart("file") MultipartFile file
     ) {
         currentUsers.requireAdmin(authorization);
-        return ResponseEntity.ok(ApiResponse.ok("Initialization workbook analyzed", imports.preview(file)));
+        InitializationImportReport report = simplifiedImports.supports(file)
+                ? simplifiedImports.preview(file)
+                : legacyImports.preview(file);
+        return ResponseEntity.ok(ApiResponse.ok("Initialization workbook analyzed", report));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -47,7 +53,9 @@ public class PlatformInitializationImportController {
             @RequestPart("file") MultipartFile file
     ) {
         User actor = currentUsers.requireAdmin(authorization);
-        InitializationImportReport report = imports.importWorkbook(file, actor);
+        InitializationImportReport report = simplifiedImports.supports(file)
+                ? simplifiedImports.importWorkbook(file, actor)
+                : legacyImports.importWorkbook(file, actor);
         if (!report.importable()) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                     .body(ApiResponse.fail("Initialization import validation failed", report));

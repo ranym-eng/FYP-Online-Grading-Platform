@@ -1,5 +1,6 @@
 package fyp_grading_platform.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import fyp_grading_platform.common.BaseEntity;
 import fyp_grading_platform.common.UserRole;
 import fyp_grading_platform.common.UserStatus;
@@ -25,6 +26,7 @@ public class User extends BaseEntity {
     private String email;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String passwordHash;
 
     private String phone;

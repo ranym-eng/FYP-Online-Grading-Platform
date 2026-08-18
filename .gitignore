@@ -24,6 +24,7 @@ output/
 *.iml
 .DS_Store
 Thumbs.db
+~$*
 
 # Test captures
 ui-*.png

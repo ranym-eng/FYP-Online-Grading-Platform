@@ -61,8 +61,21 @@ public class EvaluationSheetCalculator {
         validateValues(scores);
         return switch (type) {
             case ORAL_PHASE_I, ORAL_PHASE_II -> presentation(scores);
-            case REPORT_PHASE_I, REPORT_PHASE_II -> individualAverage(scores, REPORT);
+            case REPORT_PHASE_I, REPORT_PHASE_II -> report(scores);
             case SUPERVISOR_PHASE_I, SUPERVISOR_PHASE_II -> individualAverage(scores, SUPERVISOR);
+            case DEMO_DAY_INDUSTRY -> weightedAverage(scores, "group", "group", DEMO);
+        };
+    }
+
+    public double calculateForTarget(EvaluationType type, Map<String, Double> scores, String studentId) {
+        validateValues(scores);
+        return switch (type) {
+            case ORAL_PHASE_I, ORAL_PHASE_II -> presentationForTarget(scores, studentId);
+            case REPORT_PHASE_I, REPORT_PHASE_II -> scores.keySet().stream().anyMatch(key -> key.startsWith("group:"))
+                    ? weightedAverage(scores, "group", "group", REPORT)
+                    : weightedAverage(scores, "individual", studentId, REPORT);
+            case SUPERVISOR_PHASE_I, SUPERVISOR_PHASE_II ->
+                    weightedAverage(scores, "individual", studentId, SUPERVISOR);
             case DEMO_DAY_INDUSTRY -> weightedAverage(scores, "group", "group", DEMO);
         };
     }
@@ -75,10 +88,7 @@ public class EvaluationSheetCalculator {
                 addIndividualKeys(expected, studentIds, PRESENTATION_INDIVIDUAL);
                 addGroupKeys(expected, PRESENTATION_GROUP);
             }
-            case REPORT_PHASE_I, REPORT_PHASE_II -> {
-                requireStudents(studentIds);
-                addIndividualKeys(expected, studentIds, REPORT);
-            }
+            case REPORT_PHASE_I, REPORT_PHASE_II -> addGroupKeys(expected, REPORT);
             case SUPERVISOR_PHASE_I, SUPERVISOR_PHASE_II -> {
                 requireStudents(studentIds);
                 addIndividualKeys(expected, studentIds, SUPERVISOR);
@@ -108,6 +118,20 @@ public class EvaluationSheetCalculator {
                         * (15.0 / 40.0) + group * (25.0 / 40.0))
                 .average()
                 .orElse(0);
+    }
+
+    private double presentationForTarget(Map<String, Double> scores, String studentId) {
+        double individual = weightedAverage(scores, "individual", studentId, PRESENTATION_INDIVIDUAL);
+        double group = weightedAverage(scores, "group", "group", PRESENTATION_GROUP);
+        return Math.round((individual * (15.0 / 40.0) + group * (25.0 / 40.0)) * 100.0) / 100.0;
+    }
+
+    private double report(Map<String, Double> scores) {
+        if (scores.keySet().stream().anyMatch(key -> key.startsWith("group:"))) {
+            return weightedAverage(scores, "group", "group", REPORT);
+        }
+        // Backward compatibility for drafts created before reports became project-level forms.
+        return individualAverage(scores, REPORT);
     }
 
     private double individualAverage(Map<String, Double> scores, Map<String, Double> weights) {

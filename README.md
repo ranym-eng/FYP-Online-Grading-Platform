@@ -52,13 +52,14 @@ It is designed to:
 
 ### Excel Imports
 
-- Import official SQU student lists using the exact `stdID`, `cohort`, `name`, and `Email` columns.
-- Import academic and industry evaluator lists.
-- Preview and validate rows before submission, with atomic persistence after successful validation.
-- Create, update, or leave unchanged each student record by its unique SQU student ID.
-- Detect missing values, duplicates, invalid cohort formats, and inconsistent SQU email addresses.
-- Reusable blank Excel template included in the frontend public assets.
-- Detailed French workflow: [Student import and Industry Guest evaluation guide](docs/IMPORT_ETUDIANTS_ET_EVALUATION_INDUSTRIE_FR.md).
+- Initialize an academic cohort from one validated master workbook.
+- Seven data sheets: `STUDENTS`, `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS`, `FACULTY_EVALUATORS`, `INDUSTRY_GUESTS`, and `PROJECT_ASSIGNMENTS`.
+- Preview every row and cross-reference without writing to PostgreSQL, then persist the accepted workbook in one transaction.
+- Link each project to one to five students, one or two supervisors, faculty report/oral evaluators, and Industry Guest evaluators.
+- Create or update records idempotently by SQU student ID, actor e-mail/ID, and project number.
+- Keep a separate official-student update import using `stdID`, `cohort`, `name`, and `Email`.
+- Download the final template from the administrator import screen or from [`docs/templates/modele_initialisation_plateforme_fyp.xlsx`](docs/templates/modele_initialisation_plateforme_fyp.xlsx).
+- Configure FYP I/FYP II phases and deadlines in the application after the master data import.
 
 ### Phase and Deadline Management
 
@@ -77,7 +78,7 @@ It is designed to:
 - Oral presentation evaluations for FYP I and FYP II.
 - Industry representative evaluation for Demo Day.
 - Official Industry Guest sheet with the five criteria and 2/1/4/2/1 weighting supplied by SQU.
-- Configurable forms and rubric criteria.
+- Official Excel-compatible forms and rubric criteria with server-side validation of every expected score cell.
 - Individual and team scoring support.
 - Automatic draft saving.
 - Explicit final submission and locking.
@@ -88,8 +89,8 @@ It is designed to:
 - Consolidate evaluation results using grading rules.
 - Track pending, submitted, and locked evaluation sheets.
 - Approve and publish grades for coordinator reporting and official academic records.
-- Generate phase and final reports.
-- Track report generation and email delivery.
+- Generate real phase and final `.xlsx` reports with legacy-compatible and enhanced sheets.
+- Track report generation and send notification e-mails while keeping grade files behind authenticated downloads.
 - Provide coordinator and administrator views of overall progress.
 
 ### Notifications and Audit
@@ -324,7 +325,9 @@ Available variables:
 | `FRONTEND_PORT` | `3000` |
 | `MAILPIT_SMTP_PORT` | `1025` |
 | `MAILPIT_UI_PORT` | `8025` |
-| `MAIL_FROM` | `no-reply@squ.edu.om` |
+| MAIL_FROM |
+o-reply@squ.edu.om |
+| APP_TOKEN_SECRET | Ephemeral when empty; set 32+ private characters for stable deployments |
 
 PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local PostgreSQL installation on `5432`. Inside Docker, Spring Boot connects to the PostgreSQL service on the standard port `5432`.
 
@@ -390,25 +393,47 @@ docker compose config
 
 ## Annual Data Initialization
 
-The former EIC, CSN, CSP and PSE grading workbooks are replaced by one validated
-administrative import. From **Excel Imports**, an administrator can download the
-master workbook, validate it without saving, and then import tracks, academic
-student records, actor accounts, projects, teams, assignments and FYP phases in a
-single transaction.
+The old per-track EIC, CSN, CSP, and PSE workbooks are replaced by one master-data import. The grading sheets themselves are not imported: evaluators complete their assigned forms directly in the platform.
 
-- Master template: [`docs/templates/modele_initialisation_plateforme_fyp.xlsx`](docs/templates/modele_initialisation_plateforme_fyp.xlsx)
-- Detailed administrator guide (French): [`docs/IMPORT_INITIAL_ADMIN_FR.md`](docs/IMPORT_INITIAL_ADMIN_FR.md)
+### Required workbook sheets
+
+| Sheet | Required purpose |
+| --- | --- |
+| `STUDENTS` | `studentId`, `studentName`, `email`, `cohort`, `trackCode`, and `level` |
+| `ADMINISTRATORS` | Administrator account identity, status, and temporary password for new accounts |
+| `COORDINATORS` | FYP coordinator accounts |
+| `SUPERVISORS` | Supervisor accounts and academic profile fields |
+| `FACULTY_EVALUATORS` | Faculty report and oral evaluator accounts |
+| `INDUSTRY_GUESTS` | Industry account, organization, status, and temporary password |
+| `PROJECT_ASSIGNMENTS` | Cohort, track, project, one student, one supervisor, and evaluator e-mail lists per row |
+
+`PROJECT_ASSIGNMENTS` repeats a project across rows: each row carries one student and one supervisor. Project metadata may be filled only on the first row and is carried down. A project must have 1-5 distinct students and 1-2 distinct supervisors. Multiple evaluator e-mails in an assignment cell are separated with commas or semicolons.
+
+### First-run workflow
+
+1. Start Docker and sign in as `admin@squ.edu.om` / `Admin@123`.
+2. Open **Excel Imports**, download the master template, and complete all seven sheets.
+3. Run **Analyze without saving**. Fix every reported sheet, row, and field error.
+4. Run **Initialize platform**. The import is atomic and safe to repeat after corrections.
+5. Open **Data Management > Phases**. Create FYP I and FYP II with an `academicYear` exactly matching the imported `cohort`, then set dates, deadlines, and `OPEN` status.
+6. Each imported actor signs in with the temporary password and changes it from the profile drawer.
+7. Evaluators see only assigned projects and forms. Scores auto-save as drafts and count only after **Validate form**.
+8. The administrator calculates and publishes student results after all required forms are locked.
+9. The administrator or coordinator downloads `Final_Evaluation_Summary.xlsx` from **Reports**.
+
+The export contains `LEGACY_SUMMARY`, `FINAL_SUMMARY`, `EVALUATOR_DETAILS`, `MISSING_FORMS`, and `AUDIT_TRAIL`. Presentation uses the official individual/group formula, report is project-level, supervisor scoring is individual, Demo Day uses `2/1/4/2/1`, multiple locked evaluators are averaged, valid zero scores are retained, and drafts are excluded.
+
 - Preview endpoint: `POST /api/import/initialization/preview`
 - Transactional import endpoint: `POST /api/import/initialization`
-
-The import is idempotent and does not delete records omitted from a later file.
-Students remain academic records and do not receive platform accounts.
+- Phase export: `GET /api/reports/export/phase/{phaseId}`
+- Project export: `GET /api/reports/export/project/{projectId}`
+- Detailed administrator guide (French): [`docs/IMPORT_INITIAL_ADMIN_FR.md`](docs/IMPORT_INITIAL_ADMIN_FR.md)
 
 ## Data and Email Handling
 
 - Hibernate creates and updates the PostgreSQL schema at startup.
 - Docker database data is persisted in the `postgres_data` volume.
-- Development emails are captured by Mailpit and can be inspected at http://localhost:8025.
+- Development e-mails, password-reset tokens, reminders, and report-availability notices are captured by Mailpit at http://localhost:8025. Grade workbooks remain authenticated downloads.
 - The backend can be configured to use a real SMTP server through environment variables for deployment.
 
 ## Troubleshooting

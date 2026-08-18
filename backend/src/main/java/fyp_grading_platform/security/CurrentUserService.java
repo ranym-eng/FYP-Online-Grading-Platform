@@ -1,65 +1,77 @@
 package fyp_grading_platform.security;
 
 import fyp_grading_platform.common.UserRole;
+import fyp_grading_platform.common.UserStatus;
 import fyp_grading_platform.common.exception.BusinessException;
 import fyp_grading_platform.user.User;
 import fyp_grading_platform.user.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.UUID;
+import java.util.Arrays;
 
 @Service
 public class CurrentUserService {
     private final UserRepository users;
+    private final TokenService tokens;
+    private final boolean allowEmailToken;
 
-    public CurrentUserService(UserRepository users) {
+    public CurrentUserService(
+            UserRepository users,
+            TokenService tokens,
+            @Value("${app.security.allow-email-token:false}") boolean allowEmailToken
+    ) {
         this.users = users;
+        this.tokens = tokens;
+        this.allowEmailToken = allowEmailToken;
     }
 
     public User requireUser(String authorization) {
         String token = bearerToken(authorization);
-        User user = resolveGeneratedToken(token);
-        if (user != null) return user;
+        if (allowEmailToken && !token.contains(".")) {
+            return requireActive(users.findByEmailIgnoreCase(token)
+                    .orElseThrow(() -> authenticationRequired()));
+        }
 
-        // Keeps the existing Swagger development convention: Bearer admin@squ.edu.om.
-        return users.findByEmailIgnoreCase(token)
-                .orElseThrow(() -> new BusinessException("AUTHENTICATION_REQUIRED", "A valid authentication token is required"));
-    }
-
-    public User requireAdmin(String authorization) {
-        User user = requireUser(authorization);
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new BusinessException("ADMIN_REQUIRED", "Only an administrator can perform this action");
+        TokenService.TokenClaims claims = tokens.parse(token);
+        User user = users.findById(claims.subject())
+                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "Authenticated user was not found"));
+        requireActive(user);
+        if (!user.getEmail().equalsIgnoreCase(claims.email()) || user.getRole() != claims.role()) {
+            throw new BusinessException("STALE_TOKEN", "Account permissions changed; sign in again");
         }
         return user;
     }
 
-    private User resolveGeneratedToken(String token) {
-        try {
-            String decoded = new String(Base64.getUrlDecoder().decode(token), StandardCharsets.UTF_8);
-            String[] parts = decoded.split(":", 4);
-            if (parts.length != 4) return null;
-            long expiresAt = Long.parseLong(parts[3]);
-            if (expiresAt <= Instant.now().getEpochSecond()) {
-                throw new BusinessException("TOKEN_EXPIRED", "Authentication token has expired");
-            }
-            return users.findById(UUID.fromString(parts[0]))
-                    .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "Authenticated user was not found"));
-        } catch (BusinessException exception) {
-            throw exception;
-        } catch (RuntimeException ignored) {
-            return null;
+    public User requireAdmin(String authorization) {
+        return requireAnyRole(authorization, UserRole.ADMIN);
+    }
+
+    public User requireAnyRole(String authorization, UserRole... roles) {
+        User user = requireUser(authorization);
+        if (Arrays.stream(roles).noneMatch(role -> role == user.getRole())) {
+            throw new BusinessException("ACCESS_DENIED", "This account is not allowed to perform this action");
         }
+        return user;
+    }
+
+    private User requireActive(User user) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new BusinessException("ACCOUNT_INACTIVE", "Account is inactive");
+        }
+        return user;
     }
 
     private String bearerToken(String authorization) {
-        if (authorization == null || authorization.isBlank()) {
-            throw new BusinessException("AUTHENTICATION_REQUIRED", "Authentication is required");
-        }
+        if (authorization == null || authorization.isBlank()) throw authenticationRequired();
         String value = authorization.trim();
-        return value.regionMatches(true, 0, "Bearer ", 0, 7) ? value.substring(7).trim() : value;
+        if (!value.regionMatches(true, 0, "Bearer ", 0, 7)) throw authenticationRequired();
+        String token = value.substring(7).trim();
+        if (token.isBlank()) throw authenticationRequired();
+        return token;
+    }
+
+    private BusinessException authenticationRequired() {
+        return new BusinessException("AUTHENTICATION_REQUIRED", "A valid authentication token is required");
     }
 }

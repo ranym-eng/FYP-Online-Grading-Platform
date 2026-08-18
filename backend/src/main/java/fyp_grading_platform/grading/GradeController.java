@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -21,6 +22,8 @@ import java.util.UUID;
 public class GradeController {
     private final GradingService service;
     private final GradeRepository grades;
+    private final StudentPhaseGradeRepository studentGrades;
+    private final ConsolidationService consolidation;
     private final GradeRuleRepository rules;
     private final CurrentUserService currentUsers;
     private final ProjectAccessService projectAccess;
@@ -28,12 +31,16 @@ public class GradeController {
     public GradeController(
             GradingService service,
             GradeRepository grades,
+            StudentPhaseGradeRepository studentGrades,
+            ConsolidationService consolidation,
             GradeRuleRepository rules,
             CurrentUserService currentUsers,
             ProjectAccessService projectAccess
     ) {
         this.service = service;
         this.grades = grades;
+        this.studentGrades = studentGrades;
+        this.consolidation = consolidation;
         this.rules = rules;
         this.currentUsers = currentUsers;
         this.projectAccess = projectAccess;
@@ -46,7 +53,7 @@ public class GradeController {
             @PathVariable UUID phaseId
     ) {
         currentUsers.requireAdmin(authorization);
-        return ApiResponse.ok("Grade calculated", service.calculate(projectId, phaseId));
+        return ApiResponse.ok("Project and student grades calculated", service.calculate(projectId, phaseId));
     }
 
     @PostMapping("/recalculate/project/{projectId}/phase/{phaseId}")
@@ -65,11 +72,11 @@ public class GradeController {
     ) {
         User actor = currentUsers.requireUser(authorization);
         projectAccess.assertCanView(actor, projectId);
-        var visibleGrades = grades.findByProjectId(projectId);
+        List<Grade> visible = grades.findByProjectId(projectId);
         if (!projectAccess.canViewAll(actor)) {
-            visibleGrades = visibleGrades.stream().filter(Grade::isPublished).toList();
+            visible = visible.stream().filter(Grade::isPublished).toList();
         }
-        return ApiResponse.ok("Grades", visibleGrades);
+        return ApiResponse.ok("Grades", visible);
     }
 
     @GetMapping("/project/{projectId}/phase/{phaseId}")
@@ -87,6 +94,33 @@ public class GradeController {
         return ApiResponse.ok("Grade", grade);
     }
 
+    @GetMapping("/students/project/{projectId}")
+    ApiResponse<?> studentResultsByProject(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        projectAccess.assertCanView(actor, projectId);
+        return ApiResponse.ok(
+                "Student grades",
+                visibleStudentGrades(actor, consolidation.resultsByProject(projectId))
+        );
+    }
+
+    @GetMapping("/students/project/{projectId}/phase/{phaseId}")
+    ApiResponse<?> studentResultsByPhase(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID projectId,
+            @PathVariable UUID phaseId
+    ) {
+        User actor = currentUsers.requireUser(authorization);
+        projectAccess.assertCanView(actor, projectId);
+        return ApiResponse.ok(
+                "Student phase grades",
+                visibleStudentGrades(actor, consolidation.results(projectId, phaseId))
+        );
+    }
+
     @PatchMapping("/{gradeId}/publish")
     ApiResponse<?> publish(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -94,8 +128,8 @@ public class GradeController {
     ) {
         currentUsers.requireAdmin(authorization);
         Grade grade = grades.findById(gradeId).orElseThrow();
-        grade.setPublished(true);
-        return ApiResponse.ok("Grade published", grades.save(grade));
+        consolidation.publish(grade.getProject().getId(), grade.getPhase().getId(), true);
+        return ApiResponse.ok("Grade published", grades.findById(gradeId).orElseThrow());
     }
 
     @PatchMapping("/project/{projectId}/publish")
@@ -104,9 +138,9 @@ public class GradeController {
             @PathVariable UUID projectId
     ) {
         currentUsers.requireAdmin(authorization);
-        var projectGrades = grades.findByProjectId(projectId);
-        projectGrades.forEach(grade -> grade.setPublished(true));
-        return ApiResponse.ok("Project grades published", grades.saveAll(projectGrades));
+        List<Grade> projectGrades = grades.findByProjectId(projectId);
+        projectGrades.forEach(grade -> consolidation.publish(projectId, grade.getPhase().getId(), true));
+        return ApiResponse.ok("Project grades published", grades.findByProjectId(projectId));
     }
 
     @PatchMapping("/project/{projectId}/unpublish")
@@ -115,9 +149,13 @@ public class GradeController {
             @PathVariable UUID projectId
     ) {
         currentUsers.requireAdmin(authorization);
-        var projectGrades = grades.findByProjectId(projectId);
-        projectGrades.forEach(grade -> grade.setPublished(false));
-        return ApiResponse.ok("Project grades unpublished", grades.saveAll(projectGrades));
+        List<Grade> projectGrades = grades.findByProjectId(projectId);
+        projectGrades.forEach(grade -> {
+            List<StudentPhaseGrade> values = studentGrades
+                    .findByProjectIdAndPhaseIdOrderByStudentStudentNumberAsc(projectId, grade.getPhase().getId());
+            if (!values.isEmpty()) consolidation.publish(projectId, grade.getPhase().getId(), false);
+        });
+        return ApiResponse.ok("Project grades unpublished", grades.findByProjectId(projectId));
     }
 
     @GetMapping("/rules")
@@ -133,8 +171,16 @@ public class GradeController {
             @RequestParam double weight
     ) {
         currentUsers.requireAdmin(authorization);
+        if (!Double.isFinite(weight) || weight < 0 || weight > 100) {
+            throw new IllegalArgumentException("Weight must be between 0 and 100");
+        }
         GradeRule rule = rules.findById(id).orElseThrow();
         rule.setWeight(weight);
         return ApiResponse.ok("Rule updated", rules.save(rule));
+    }
+
+    private List<StudentPhaseGrade> visibleStudentGrades(User actor, List<StudentPhaseGrade> values) {
+        if (projectAccess.canViewAll(actor)) return values;
+        return values.stream().filter(StudentPhaseGrade::isPublished).toList();
     }
 }
