@@ -1,7 +1,9 @@
 package fyp_grading_platform.user;
 
 import fyp_grading_platform.common.UserStatus;
+import fyp_grading_platform.common.UserRole;
 import fyp_grading_platform.common.exception.BusinessException;
+import fyp_grading_platform.auth.OneTimeTokenHasher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -11,10 +13,12 @@ import java.util.UUID;
 public class UserService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
+    private final OneTimeTokenHasher tokenHasher;
 
-    public UserService(UserRepository users, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository users, PasswordEncoder passwordEncoder, OneTimeTokenHasher tokenHasher) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
+        this.tokenHasher = tokenHasher;
     }
 
     public User create(UserRequest request) {
@@ -26,7 +30,10 @@ public class UserService {
         }
         User user = new User();
         apply(user, request);
-        user.setPasswordHash(passwordEncoder.encode(request.password() == null || request.password().isBlank() ? "Password@123" : request.password()));
+        String initialPassword = request.password() == null || request.password().isBlank()
+                ? tokenHasher.generate()
+                : request.password();
+        user.setPasswordHash(passwordEncoder.encode(initialPassword));
         return users.save(user);
     }
 
@@ -51,5 +58,11 @@ public class UserService {
         user.setEmail(request.email());
         user.setPhone(request.phone());
         user.setRole(request.role());
+        user.setAccessExpiresAt(request.role() == UserRole.INDUSTRY_REPRESENTATIVE
+                ? request.accessExpiresAt()
+                : null);
+        if (request.role() == UserRole.INDUSTRY_REPRESENTATIVE && request.accessExpiresAt() == null) {
+            throw new BusinessException("ACCESS_EXPIRY_REQUIRED", "Industry Guest access requires an expiration date");
+        }
     }
 }

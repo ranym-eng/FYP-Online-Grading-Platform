@@ -1,6 +1,8 @@
 package fyp_grading_platform.importing;
 
 import fyp_grading_platform.audit.AuditService;
+import fyp_grading_platform.auth.IndustryInvitationService;
+import fyp_grading_platform.auth.OneTimeTokenHasher;
 import fyp_grading_platform.common.EvaluationType;
 import fyp_grading_platform.common.UserRole;
 import fyp_grading_platform.common.UserStatus;
@@ -32,6 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -73,6 +78,8 @@ public class SimplifiedInitializationImportService {
     private final ProjectSupervisorAssignmentRepository supervisorAssignments;
     private final ProjectEvaluatorAssignmentRepository evaluatorAssignments;
     private final PasswordEncoder passwordEncoder;
+    private final OneTimeTokenHasher tokenHasher;
+    private final IndustryInvitationService industryInvitations;
     private final AuditService audit;
 
     public SimplifiedInitializationImportService(
@@ -85,6 +92,8 @@ public class SimplifiedInitializationImportService {
             ProjectSupervisorAssignmentRepository supervisorAssignments,
             ProjectEvaluatorAssignmentRepository evaluatorAssignments,
             PasswordEncoder passwordEncoder,
+            OneTimeTokenHasher tokenHasher,
+            IndustryInvitationService industryInvitations,
             AuditService audit
     ) {
         this.students = students;
@@ -96,6 +105,8 @@ public class SimplifiedInitializationImportService {
         this.supervisorAssignments = supervisorAssignments;
         this.evaluatorAssignments = evaluatorAssignments;
         this.passwordEncoder = passwordEncoder;
+        this.tokenHasher = tokenHasher;
+        this.industryInvitations = industryInvitations;
         this.audit = audit;
     }
 
@@ -202,16 +213,32 @@ public class SimplifiedInitializationImportService {
             if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                 error(row, "email", "Invalid email address", errors);
             }
-            if (users.findByEmailIgnoreCase(email).isEmpty() && row.value("temporaryPassword").isBlank()) {
-                error(row, "temporaryPassword", "A temporary password is required for a new actor", errors);
+            if (role != UserRole.INDUSTRY_REPRESENTATIVE && !email.endsWith("@squ.edu.om")) {
+                error(row, "email", "Internal actors require an institutional @squ.edu.om email", errors);
             }
             if (role == UserRole.INDUSTRY_REPRESENTATIVE && row.value("organization").isBlank()) {
                 error(row, "organization", "Industry guests require an organization", errors);
             }
+            if (role == UserRole.INDUSTRY_REPRESENTATIVE) {
+                if (!"PENDING_INVITATION".equals(upper(row.value("status")))) {
+                    error(row, "status", "New Industry Guests must use PENDING_INVITATION", errors);
+                }
+                if (row.value("accessExpiresAt").isBlank()) {
+                    error(row, "accessExpiresAt", "Industry Guest access requires an expiration date", errors);
+                } else {
+                    try {
+                        if (parseAccessExpiresAt(row.value("accessExpiresAt")).isBefore(LocalDateTime.now())) {
+                            error(row, "accessExpiresAt", "Industry Guest access expiration must be in the future", errors);
+                        }
+                    } catch (IllegalArgumentException exception) {
+                        error(row, "accessExpiresAt", "Use YYYY-MM-DD or YYYY-MM-DDTHH:mm", errors);
+                    }
+                }
+            }
             try {
                 UserStatus.valueOf(upper(row.value("status")));
             } catch (IllegalArgumentException exception) {
-                error(row, "status", "Status must be ACTIVE or INACTIVE", errors);
+                error(row, "status", "Status must be ACTIVE, PENDING_INVITATION, INACTIVE or SUSPENDED", errors);
             }
         }
     }
@@ -329,18 +356,28 @@ public class SimplifiedInitializationImportService {
                 boolean changed = created || different(user.getUniversityId(), row.value("actorId"))
                         || different(user.getFullName(), row.value("actorName"))
                         || different(user.getEmail(), email) || user.getRole() != entry.getValue()
-                        || user.getStatus() != status;
+                        || user.getStatus() != status
+                        || different(user.getAccessExpiresAt(), entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
+                                ? parseAccessExpiresAt(row.value("accessExpiresAt"))
+                                : null);
                 user.setUniversityId(row.value("actorId"));
                 user.setFullName(row.value("actorName"));
                 user.setEmail(email);
                 user.setPhone(blankToNull(row.value("phone")));
                 user.setRole(entry.getValue());
                 user.setStatus(status);
-                if (created || !row.value("temporaryPassword").isBlank()) {
-                    user.setPasswordHash(passwordEncoder.encode(row.value("temporaryPassword")));
+                user.setAccessExpiresAt(entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
+                        ? parseAccessExpiresAt(row.value("accessExpiresAt"))
+                        : null);
+                if (created) {
+                    user.setPasswordHash(passwordEncoder.encode(tokenHasher.generate()));
                 }
                 user = users.save(user);
                 if (isEvaluator(entry.getValue())) upsertEvaluatorProfile(user, row, entry.getValue());
+                if (entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
+                        && status == UserStatus.PENDING_INVITATION) {
+                    industryInvitations.invite(user);
+                }
                 result.put(lower(row.value("actorId")), user);
                 counters.get(entry.getKey()).record(created, changed);
             }
@@ -549,7 +586,7 @@ public class SimplifiedInitializationImportService {
             case "specialization" -> "specialization";
             case "organization", "externalorganization" -> "organization";
             case "phone" -> "phone";
-            case "temporarypassword", "password" -> "temporaryPassword";
+            case "accessexpiresat", "accessuntil", "expirydate", "expirationdate" -> "accessExpiresAt";
             case "status" -> "status";
             case "projectnumber", "project", "projectno" -> "projectNumber";
             case "projecttitle", "title" -> "projectTitle";
@@ -615,6 +652,19 @@ public class SimplifiedInitializationImportService {
     private boolean isEvaluator(UserRole role) {
         return role == UserRole.SUPERVISOR || role == UserRole.FACULTY_EVALUATOR
                 || role == UserRole.INDUSTRY_REPRESENTATIVE;
+    }
+
+    private LocalDateTime parseAccessExpiresAt(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return LocalDateTime.parse(value.trim());
+        } catch (DateTimeParseException exception) {
+            try {
+                return LocalDate.parse(value.trim()).atTime(23, 59, 59);
+            } catch (DateTimeParseException nested) {
+                throw new IllegalArgumentException("Invalid access expiration", nested);
+            }
+        }
     }
 
     private boolean different(Object left, Object right) {

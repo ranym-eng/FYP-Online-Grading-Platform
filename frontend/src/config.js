@@ -51,15 +51,15 @@ export const views = [
 
 export const resourceConfigs = {
   users: {
-    title: 'Users', endpoint: '/api/users', subtitle: 'All platform accounts and RBAC roles.',
-    columns: ['universityId', 'fullName', 'email', 'role', 'status'],
+    title: 'Comptes et accès', endpoint: '/api/users', subtitle: 'Comptes internes provisionnés pour le SSO et invitations Industry Guest.',
+    columns: ['universityId', 'fullName', 'email', 'role', 'status', 'accessExpiresAt'],
     fields: [
       { name: 'universityId', label: 'University ID', required: true },
       { name: 'fullName', label: 'Full name', required: true },
       { name: 'email', label: 'Email', type: 'email', required: true },
       { name: 'phone', label: 'Phone' },
-      { name: 'password', label: 'Password', type: 'password', placeholder: 'Leave blank on update' },
       { name: 'role', label: 'Role', type: 'select', options: ROLES, required: true },
+      { name: 'accessExpiresAt', label: 'Expiration Industry Guest', type: 'datetime-local' },
     ],
   },
   students: {

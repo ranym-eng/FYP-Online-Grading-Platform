@@ -1,5 +1,7 @@
 package fyp_grading_platform.config;
 
+import fyp_grading_platform.auth.SsoAuthenticationSuccessHandler;
+import fyp_grading_platform.auth.SsoLoginService;
 import fyp_grading_platform.security.TokenAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,10 +23,14 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, TokenAuthenticationFilter tokenFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            TokenAuthenticationFilter tokenFilter,
+            SsoLoginService sso,
+            SsoAuthenticationSuccessHandler ssoSuccessHandler
+    ) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .exceptionHandling(errors -> errors
@@ -35,9 +41,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/forgot-password",
-                                "/api/auth/reset-password",
+                                 "/api/auth/login",
+                                "/api/auth/sso/config",
+                                "/api/auth/sso/exchange",
+                                "/api/auth/industry/activate",
+                                 "/api/auth/forgot-password",
+                                 "/api/auth/reset-password",
+                                "/oauth2/**",
+                                "/login/oauth2/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
@@ -67,6 +78,15 @@ public class SecurityConfig {
                         ).hasAnyRole("ADMIN", "COORDINATOR")
                         .anyRequest().authenticated())
                 .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
+        if (sso.configured()) {
+            http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                    .oauth2Login(oauth -> oauth
+                            .successHandler(ssoSuccessHandler)
+                            .failureHandler((request, response, exception) ->
+                                    response.sendRedirect(sso.failureRedirect("SSO_AUTHENTICATION_FAILED"))));
+        } else {
+            http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        }
         return http.build();
     }
 

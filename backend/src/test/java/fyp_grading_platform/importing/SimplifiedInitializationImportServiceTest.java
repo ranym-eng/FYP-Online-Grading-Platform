@@ -1,6 +1,8 @@
 package fyp_grading_platform.importing;
 
 import fyp_grading_platform.audit.AuditService;
+import fyp_grading_platform.auth.IndustryInvitationService;
+import fyp_grading_platform.auth.OneTimeTokenHasher;
 import fyp_grading_platform.project.ProjectEvaluatorAssignmentRepository;
 import fyp_grading_platform.project.ProjectRepository;
 import fyp_grading_platform.project.ProjectSupervisorAssignmentRepository;
@@ -20,7 +22,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,6 +39,8 @@ class SimplifiedInitializationImportServiceTest {
     @Mock ProjectSupervisorAssignmentRepository supervisors;
     @Mock ProjectEvaluatorAssignmentRepository evaluators;
     @Mock PasswordEncoder passwordEncoder;
+    @Mock OneTimeTokenHasher tokenHasher;
+    @Mock IndustryInvitationService industryInvitations;
     @Mock AuditService audit;
 
     @Test
@@ -49,8 +52,6 @@ class SimplifiedInitializationImportServiceTest {
         when(tracks.findByCode(anyString())).thenAnswer(invocation -> configuredTracks.stream()
                 .filter(track -> track.getCode().equals(invocation.getArgument(0)))
                 .findFirst());
-        when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
-
         Path template = Path.of("../frontend/public/modele_initialisation_plateforme_fyp.xlsx");
         MockMultipartFile workbook = new MockMultipartFile(
                 "file",
@@ -63,7 +64,8 @@ class SimplifiedInitializationImportServiceTest {
 
         assertTrue(report.importable(), () -> "Template errors: " + report.errors());
         assertEquals(7, report.sheets().size());
-        assertEquals(13, report.totalRows());
+        assertEquals(32, report.totalRows());
+        assertEquals(32, report.validRows());
     }
 
     private SimplifiedInitializationImportService service() {
@@ -77,6 +79,8 @@ class SimplifiedInitializationImportServiceTest {
                 supervisors,
                 evaluators,
                 passwordEncoder,
+                tokenHasher,
+                industryInvitations,
                 audit
         );
     }

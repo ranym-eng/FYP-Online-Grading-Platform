@@ -195,13 +195,15 @@ export function ProfileDrawer({
           <div>{['fr', 'en'].map((code) => <button key={code} type="button" className={language === code ? 'active' : ''} onClick={() => setLanguage(code)}>{code.toUpperCase()}</button>)}</div>
         </div>
       </section>
-      <form className="profile-password" onSubmit={changePassword}>
+      {session.role === 'INDUSTRY_REPRESENTATIVE' ? <form className="profile-password" onSubmit={changePassword}>
         <div className="preference-heading"><ShieldCheck size={18} /><div><strong>Changer le mot de passe</strong><span>Au moins huit caractères.</span></div></div>
         <input required type="password" autoComplete="current-password" placeholder="Mot de passe actuel" value={passwords.currentPassword} onChange={(event) => setPasswords({ ...passwords, currentPassword: event.target.value })} />
         <input required minLength="8" type="password" autoComplete="new-password" placeholder="Nouveau mot de passe" value={passwords.newPassword} onChange={(event) => setPasswords({ ...passwords, newPassword: event.target.value })} />
         <input required minLength="8" type="password" autoComplete="new-password" placeholder="Confirmer le mot de passe" value={passwords.confirmPassword} onChange={(event) => setPasswords({ ...passwords, confirmPassword: event.target.value })} />
         <button className="soft-button" disabled={passwordBusy}>{passwordBusy ? 'Modification…' : 'Mettre à jour'}</button>
-      </form>
+      </form> : <section className="profile-password">
+        <div className="preference-heading"><ShieldCheck size={18} /><div><strong>Identité gérée par SQU</strong><span>La connexion et le mot de passe sont administrés par le compte institutionnel SQU.</span></div></div>
+      </section>}
       <button type="button" className="danger-action" onClick={onLogout}><LogOut size={18} />Se déconnecter</button>
     </aside>
   </div>

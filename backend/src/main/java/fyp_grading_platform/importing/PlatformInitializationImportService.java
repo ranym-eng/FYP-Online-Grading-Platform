@@ -1,6 +1,8 @@
 package fyp_grading_platform.importing;
 
 import fyp_grading_platform.audit.AuditService;
+import fyp_grading_platform.auth.IndustryInvitationService;
+import fyp_grading_platform.auth.OneTimeTokenHasher;
 import fyp_grading_platform.common.EvaluationType;
 import fyp_grading_platform.common.PhaseStatus;
 import fyp_grading_platform.common.PhaseType;
@@ -65,7 +67,7 @@ public class PlatformInitializationImportService {
     private static final Map<String, Set<String>> REQUIRED_HEADERS = Map.of(
             "TRACKS", Set.of("code", "name", "description", "active"),
             "STUDENTS", Set.of("studentNumber", "fullName", "email", "cohort", "academicYear", "trackCode", "level"),
-            "ACTORS", Set.of("universityId", "fullName", "email", "role", "department", "specialization", "externalOrganization", "phone", "temporaryPassword", "status"),
+            "ACTORS", Set.of("universityId", "fullName", "email", "role", "department", "specialization", "externalOrganization", "phone", "accessExpiresAt", "status"),
             "PROJECTS", Set.of("projectNumber", "title", "academicYear", "trackCode", "status", "abstractText", "teamName", "section"),
             "TEAM_MEMBERS", Set.of("projectNumber", "studentNumber"),
             "SUPERVISORS", Set.of("projectNumber", "supervisorEmail"),
@@ -89,6 +91,8 @@ public class PlatformInitializationImportService {
     private final ProjectEvaluatorAssignmentRepository evaluatorAssignments;
     private final PhaseRepository phases;
     private final PasswordEncoder passwordEncoder;
+    private final OneTimeTokenHasher tokenHasher;
+    private final IndustryInvitationService industryInvitations;
     private final AuditService audit;
 
     public PlatformInitializationImportService(
@@ -102,6 +106,8 @@ public class PlatformInitializationImportService {
             ProjectEvaluatorAssignmentRepository evaluatorAssignments,
             PhaseRepository phases,
             PasswordEncoder passwordEncoder,
+            OneTimeTokenHasher tokenHasher,
+            IndustryInvitationService industryInvitations,
             AuditService audit
     ) {
         this.tracks = tracks;
@@ -114,6 +120,8 @@ public class PlatformInitializationImportService {
         this.evaluatorAssignments = evaluatorAssignments;
         this.phases = phases;
         this.passwordEncoder = passwordEncoder;
+        this.tokenHasher = tokenHasher;
+        this.industryInvitations = industryInvitations;
         this.audit = audit;
     }
 
@@ -264,14 +272,24 @@ public class PlatformInitializationImportService {
                 if (role == UserRole.INDUSTRY_REPRESENTATIVE && row.value("externalOrganization").isBlank()) {
                     error(row, "externalOrganization", "Industry representatives require an organization", errors);
                 }
+                if (role != UserRole.INDUSTRY_REPRESENTATIVE && !lower(row.value("email")).endsWith("@squ.edu.om")) {
+                    error(row, "email", "Internal actors require an institutional @squ.edu.om email", errors);
+                }
+                if (role == UserRole.INDUSTRY_REPRESENTATIVE) {
+                    if (!"PENDING_INVITATION".equals(upper(row.value("status")))) {
+                        error(row, "status", "New Industry Guests must use PENDING_INVITATION", errors);
+                    }
+                    required(row, "accessExpiresAt", errors);
+                    LocalDateTime expiresAt = dateTime(row, "accessExpiresAt", errors);
+                    if (expiresAt != null && !expiresAt.isAfter(LocalDateTime.now())) {
+                        error(row, "accessExpiresAt", "Industry Guest access expiration must be in the future", errors);
+                    }
+                }
             });
             enumValue(row, "status", UserStatus.class, errors);
             String email = lower(row.value("email"));
             if (!email.isBlank() && !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                 error(row, "email", "Invalid email address", errors);
-            }
-            if (!existing.containsKey(email) && row.value("temporaryPassword").isBlank()) {
-                error(row, "temporaryPassword", "A temporary password is required for a new actor", errors);
             }
             if (existingUniversityIds.contains(lower(row.value("universityId"))) && !existing.containsKey(email)) {
                 error(row, "universityId", "University ID already belongs to another account", errors);
@@ -397,16 +415,21 @@ public class PlatformInitializationImportService {
             if (created) user = new User();
             UserRole role = enumRequired(row.value("role"), UserRole.class);
             UserStatus status = enumOrDefault(row.value("status"), UserStatus.class, UserStatus.ACTIVE);
+            LocalDateTime accessExpiresAt = role == UserRole.INDUSTRY_REPRESENTATIVE
+                    ? parseDateTime(row.value("accessExpiresAt"))
+                    : null;
             boolean changed = created || changed(user.getUniversityId(), row.value("universityId"))
                     || changed(user.getFullName(), row.value("fullName")) || changed(user.getEmail(), email)
-                    || changed(user.getPhone(), row.value("phone")) || user.getRole() != role || user.getStatus() != status;
+                    || changed(user.getPhone(), row.value("phone")) || user.getRole() != role || user.getStatus() != status
+                    || changed(user.getAccessExpiresAt(), accessExpiresAt);
             user.setUniversityId(row.value("universityId"));
             user.setFullName(row.value("fullName"));
             user.setEmail(email);
             user.setPhone(row.value("phone"));
             user.setRole(role);
             user.setStatus(status);
-            if (created) user.setPasswordHash(passwordEncoder.encode(row.value("temporaryPassword")));
+            user.setAccessExpiresAt(accessExpiresAt);
+            if (created) user.setPasswordHash(passwordEncoder.encode(tokenHasher.generate()));
             user = users.save(user);
             if (EVALUATOR_ROLES.contains(role)) {
                 EvaluatorProfile profile = evaluatorProfiles.findByUserId(user.getId()).orElse(null);
@@ -419,6 +442,9 @@ public class PlatformInitializationImportService {
                 profile.setExternal(role == UserRole.INDUSTRY_REPRESENTATIVE);
                 evaluatorProfiles.save(profile);
                 changed = changed || profileCreated;
+            }
+            if (role == UserRole.INDUSTRY_REPRESENTATIVE && status == UserStatus.PENDING_INVITATION) {
+                industryInvitations.invite(user);
             }
             counts.record(created, changed);
         }

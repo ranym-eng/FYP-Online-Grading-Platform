@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
+import java.time.LocalDateTime;
 
 @Service
 public class CurrentUserService {
@@ -58,6 +59,10 @@ public class CurrentUserService {
     private User requireActive(User user) {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BusinessException("ACCOUNT_INACTIVE", "Account is inactive");
+        }
+        if (user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
+                && (user.getAccessExpiresAt() == null || user.getAccessExpiresAt().isBefore(LocalDateTime.now()))) {
+            throw new BusinessException("ACCESS_EXPIRED", "Industry Guest access has expired");
         }
         return user;
     }

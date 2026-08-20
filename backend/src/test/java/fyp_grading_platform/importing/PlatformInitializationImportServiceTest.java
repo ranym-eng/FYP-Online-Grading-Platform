@@ -1,6 +1,8 @@
 package fyp_grading_platform.importing;
 
 import fyp_grading_platform.audit.AuditService;
+import fyp_grading_platform.auth.IndustryInvitationService;
+import fyp_grading_platform.auth.OneTimeTokenHasher;
 import fyp_grading_platform.project.PhaseRepository;
 import fyp_grading_platform.project.ProjectEvaluatorAssignmentRepository;
 import fyp_grading_platform.project.ProjectRepository;
@@ -55,6 +57,8 @@ class PlatformInitializationImportServiceTest {
                 mock(ProjectEvaluatorAssignmentRepository.class),
                 mock(PhaseRepository.class),
                 mock(PasswordEncoder.class),
+                mock(OneTimeTokenHasher.class),
+                mock(IndustryInvitationService.class),
                 mock(AuditService.class)
         );
     }
@@ -102,10 +106,10 @@ class PlatformInitializationImportServiceTest {
                     List.of("studentNumber", "fullName", "email", "cohort", "academicYear", "trackCode", "level"),
                     List.of(List.of("20270001", "Ali Al Harthy", "s20270001@student.squ.edu.om", "2023", "2026-2027", "PSE", "Final Year")));
             sheet(workbook, "ACTORS",
-                    List.of("universityId", "fullName", "email", "role", "department", "specialization", "externalOrganization", "phone", "temporaryPassword", "status"),
+                    List.of("universityId", "fullName", "email", "role", "department", "specialization", "externalOrganization", "phone", "accessExpiresAt", "status"),
                     List.of(
-                            List.of("SUP001", "Dr Sara", "sara@squ.edu.om", "SUPERVISOR", "Electrical Engineering", "Power", "", "", "ChangeMe@123", "ACTIVE"),
-                            List.of("IND001", "Ahmed Guest", "ahmed@industry.om", "INDUSTRY_REPRESENTATIVE", "", "", "Oman Energy", "", "ChangeMe@123", "ACTIVE")
+                            List.of("SUP001", "Dr Sara", "sara@squ.edu.om", "SUPERVISOR", "Electrical Engineering", "Power", "", "", "", "ACTIVE"),
+                            List.of("IND001", "Ahmed Guest", "ahmed@industry.om", "INDUSTRY_REPRESENTATIVE", "", "", "Oman Energy", "", "2027-06-30 23:59", "PENDING_INVITATION")
                     ));
             sheet(workbook, "PROJECTS",
                     List.of("projectNumber", "title", "academicYear", "trackCode", "status", "abstractText", "teamName", "section"),

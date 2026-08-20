@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react'
+import { ArrowRight, Bell, Building2, CheckCheck, CheckCircle2, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, RefreshCw, Send, ShieldCheck, Trash2, X } from 'lucide-react'
 import squLogo from './assets/Sultan_Qaboos_University_Logo.png'
 import squMark from './assets/sultan-qaboos-university-logo-png_seeklogo-271991.png'
 import { apiRequest, downloadFile, itemName, pretty, unwrapList } from './api.js'
@@ -131,11 +131,53 @@ function LanguageSwitcher({ language, setLanguage }) {
 }
 
 function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, setTheme }) {
+  const initialInvitationToken = new URL(window.location.href).searchParams.get('industryInvitation') || ''
   const [busy, setBusy] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [mode, setMode] = useState('login')
-  const [loginForm, setLoginForm] = useState({ email: 'admin@squ.edu.om', password: 'Admin@123' })
+  const [mode, setMode] = useState(() => initialInvitationToken ? 'activate' : 'login')
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [recovery, setRecovery] = useState({ email: '', token: '', newPassword: '' })
+  const [activation, setActivation] = useState(() => ({ token: initialInvitationToken, newPassword: '', confirmPassword: '' }))
+  const [ssoConfig, setSsoConfig] = useState({ enabled: false, loginUrl: null, localInternalLoginEnabled: false })
+  const authLinkHandled = useRef(false)
+
+  useEffect(() => {
+    let active = true
+    apiRequest('/api/auth/sso/config').then((response) => {
+      if (!active) return
+      const next = response.data || { enabled: false, loginUrl: null, localInternalLoginEnabled: false }
+      setSsoConfig(next)
+      if (next.localInternalLoginEnabled) {
+        setLoginForm((current) => current.email ? current : { email: 'admin@squ.edu.om', password: 'Admin@123' })
+      }
+    }).catch(() => {
+      if (active) setSsoConfig({ enabled: false, loginUrl: null, localInternalLoginEnabled: false })
+    })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (authLinkHandled.current) return
+    const url = new URL(window.location.href)
+    const invitationToken = url.searchParams.get('industryInvitation')
+    const ssoCode = url.searchParams.get('ssoCode')
+    const ssoError = url.searchParams.get('ssoError')
+    if (!invitationToken && !ssoCode && !ssoError) return
+    authLinkHandled.current = true
+    ;['industryInvitation', 'ssoCode', 'ssoError'].forEach((name) => url.searchParams.delete(name))
+    window.history.replaceState({}, document.title, url.pathname + url.search + url.hash)
+    if (invitationToken) {
+      return
+    }
+    if (ssoError) {
+      notify('Connexion SQU refusée : ' + pretty(ssoError), 'danger')
+      return
+    }
+    apiRequest('/api/auth/sso/exchange', { method: 'POST', body: JSON.stringify({ code: ssoCode }) })
+      .then((response) => onSession(response.data))
+      .catch((error) => notify(error.message, 'danger'))
+      .finally(() => setBusy(false))
+  }, [notify, onSession])
 
   async function login(event) {
     event.preventDefault()
@@ -180,12 +222,42 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
     }
   }
 
-  const heading = mode === 'login' ? 'Bienvenue' : mode === 'forgot' ? 'Récupérer le compte' : 'Nouveau mot de passe'
+  async function activateIndustryGuest(event) {
+    event.preventDefault()
+    if (activation.newPassword !== activation.confirmPassword) {
+      notify('Les deux mots de passe ne correspondent pas.', 'danger')
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await apiRequest('/api/auth/industry/activate', {
+        method: 'POST',
+        body: JSON.stringify({ token: activation.token, newPassword: activation.newPassword }),
+      })
+      onSession(result.data)
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function startSso() {
+    if (!ssoConfig.enabled || !ssoConfig.loginUrl) {
+      notify('Le SSO SQU doit être configuré par le service informatique.', 'danger')
+      return
+    }
+    window.location.assign(ssoConfig.loginUrl)
+  }
+
+  const heading = mode === 'login' ? 'Bienvenue' : mode === 'forgot' ? 'Récupérer le compte' : mode === 'activate' ? 'Activer votre invitation' : 'Nouveau mot de passe'
   const description = mode === 'login'
-    ? 'Connectez-vous avec le compte attribué par l’administration FYP.'
+    ? 'Utilisez votre identité institutionnelle SQU ou votre accès Industry Guest.'
     : mode === 'forgot'
       ? 'Saisissez l’adresse du compte importé par l’administration.'
-      : 'Saisissez le jeton reçu par e-mail et choisissez un nouveau mot de passe.'
+      : mode === 'activate'
+        ? 'Choisissez le mot de passe associé à votre invitation temporaire.'
+        : 'Saisissez le jeton reçu par e-mail et choisissez un nouveau mot de passe.'
 
   return <main className="auth-screen">
     <section className="auth-visual">
@@ -202,15 +274,23 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
       <section className="auth-panel page-enter">
         <div className="auth-panel-tools"><ThemeToggle theme={theme} setTheme={setTheme} compact /><LanguageSwitcher language={language} setLanguage={setLanguage} /></div>
         <div className="brand-badge"><img src={squMark} alt="SQU" /><div><span>Portail académique sécurisé</span><small>College of Engineering</small></div></div>
-        <form className="stack-form auth-form" onSubmit={mode === 'login' ? login : mode === 'forgot' ? requestReset : resetPassword}>
+        <form className="stack-form auth-form" onSubmit={mode === 'login' ? login : mode === 'forgot' ? requestReset : mode === 'activate' ? activateIndustryGuest : resetPassword}>
           <div className="auth-form-heading"><span className="eyebrow">Accès institutionnel</span><h2>{heading}</h2><p>{description}</p></div>
-          {mode === 'login' && <><AuthField icon={Mail} label="Adresse e-mail" type="email" value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" /><AuthField icon={ShieldCheck} label="Mot de passe" type={showPassword ? 'text' : 'password'} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} /></>}
+          {mode === 'login' && <>
+            <button className="sso-login-button" type="button" onClick={startSso} aria-disabled={!ssoConfig.enabled}>
+              <Building2 size={20} /><span><strong>Se connecter avec le compte SQU</strong><small>{ssoConfig.enabled ? 'Single Sign-On institutionnel' : 'Disponible après configuration SQU'}</small></span><ArrowRight size={18} />
+            </button>
+            <div className="auth-divider"><span>{ssoConfig.localInternalLoginEnabled ? 'Industry Guest ou démonstration locale' : 'Accès Industry Guest'}</span></div>
+            <AuthField icon={Mail} label="Adresse e-mail" type="email" value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" />
+            <AuthField icon={ShieldCheck} label="Mot de passe" type={showPassword ? 'text' : 'password'} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} />
+          </>}
           {mode === 'forgot' && <AuthField icon={Mail} label="Adresse e-mail" type="email" value={recovery.email} onChange={(email) => setRecovery({ ...recovery, email })} autoComplete="email" />}
           {mode === 'reset' && <><AuthField icon={ShieldCheck} label="Jeton reçu" type="text" value={recovery.token} onChange={(token) => setRecovery({ ...recovery, token })} autoComplete="one-time-code" /><AuthField icon={ShieldCheck} label="Nouveau mot de passe" type="password" minLength="8" value={recovery.newPassword} onChange={(newPassword) => setRecovery({ ...recovery, newPassword })} autoComplete="new-password" /></>}
-          <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Traitement…</> : <>{mode === 'login' ? 'Se connecter' : mode === 'forgot' ? 'Envoyer le jeton' : 'Changer le mot de passe'}<ArrowRight size={18} /></>}</button>
+          {mode === 'activate' && <><AuthField icon={KeyRound} label="Nouveau mot de passe" type="password" minLength="8" value={activation.newPassword} onChange={(newPassword) => setActivation({ ...activation, newPassword })} autoComplete="new-password" /><AuthField icon={ShieldCheck} label="Confirmer le mot de passe" type="password" minLength="8" value={activation.confirmPassword} onChange={(confirmPassword) => setActivation({ ...activation, confirmPassword })} autoComplete="new-password" /></>}
+          <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Traitement…</> : <>{mode === 'login' ? 'Se connecter' : mode === 'forgot' ? 'Envoyer le jeton' : mode === 'activate' ? 'Activer et ouvrir mon espace' : 'Changer le mot de passe'}<ArrowRight size={18} /></>}</button>
           {mode === 'login' ? <button className="auth-link" type="button" onClick={() => { setRecovery((current) => ({ ...current, email: loginForm.email })); setMode('forgot') }}>Mot de passe oublié ?</button> : <button className="auth-link" type="button" onClick={() => setMode('login')}>Retour à la connexion</button>}
           <div className="auth-security-note"><ShieldCheck size={16} /><span>Session personnelle, accès contrôlé par rôle et traçabilité des actions.</span></div>
-          {mode === 'login' && <div className="demo-account"><span>Compte de démonstration</span><strong>admin@squ.edu.om</strong><code>Admin@123</code></div>}
+          {mode === 'login' && ssoConfig.localInternalLoginEnabled && <div className="demo-account"><span>Compte de démonstration locale</span><strong>admin@squ.edu.om</strong><code>Admin@123</code></div>}
         </form>
       </section>
     </div>
@@ -554,8 +634,28 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
     try { await request(config.endpoint + '/' + row.id, { method: 'DELETE' }); notify(config.title + ' deleted'); await reload(); setRows(unwrapList(await request(config.endpoint))) } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
+  async function resendIndustryInvitation(row) {
+    setBusy(true)
+    try {
+      await request('/api/users/' + row.id + '/invite', { method: 'POST' })
+      notify('Invitation Industry Guest envoyée')
+      await reload()
+      setRows(unwrapList(await request(config.endpoint)))
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const extraAction = resourceKey === 'users'
+    ? (row) => row.role === 'INDUSTRY_REPRESENTATIVE'
+      ? <button type="button" className="mini-button icon-text" disabled={busy} onClick={() => resendIndustryInvitation(row)} title="Renvoyer l’invitation"><Send size={14} />Inviter</button>
+      : null
+    : null
+
   return <div className="manager-grid">
-    <Panel title={config.title} subtitle={config.subtitle} wide><div className="table-toolbar"><input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search records" /><button className="soft-button" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}>Reload</button></div><DataTable rows={filtered} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? remove : null} /></Panel>
+    <Panel title={config.title} subtitle={config.subtitle} wide><div className="table-toolbar"><input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search records" /><button className="soft-button" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}>Reload</button></div><DataTable rows={filtered} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? remove : null} extraAction={extraAction} /></Panel>
     {!config.readOnly && <Panel title={editing ? 'Edit record' : 'Create record'} accent="green"><form className="stack-form compact" onSubmit={submit}>{(config.fields || []).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => setForm({ ...form, [field.name]: value })} />)}<button className="primary-action" disabled={busy}>{busy ? 'Saving...' : editing ? 'Update' : 'Create'}</button>{editing && <button type="button" className="ghost-button" onClick={() => { setEditing(null); setForm(initialForm(config.fields || [])) }}>Cancel edit</button>}</form></Panel>}
   </div>
 }
@@ -621,7 +721,7 @@ function ImportCenter({ request, notify, reload }) {
         setPreview({ ...report, invalidRows: 0, errors: [] })
         const created = (report.sheets || []).reduce((sum, sheet) => sum + (sheet.created || 0), 0)
         const updated = (report.sheets || []).reduce((sum, sheet) => sum + (sheet.updated || 0), 0)
-        notify(`Initialisation terminée : ${created} créations et ${updated} mises à jour`)
+        notify(`Initialisation terminée : ${created} créations, ${updated} mises à jour ; vérifiez les invitations Industry dans Mailpit`)
       } else {
         setPreview((current) => ({
           ...current,
@@ -651,7 +751,7 @@ function ImportCenter({ request, notify, reload }) {
         <span className="eyebrow">Administration des données</span>
         <h2>{initializationMode ? 'Initialiser une année FYP' : 'Mettre à jour les étudiants'}</h2>
         <p>{initializationMode
-          ? 'Chargez en une opération les étudiants, comptes acteurs, projets, équipes et affectations. Configurez ensuite les phases et leurs échéances dans la plateforme.'
+          ? 'Chargez les étudiants, identités SSO, invités externes, projets, équipes et affectations. Les comptes internes utiliseront SQU SSO et les Industry Guests recevront une invitation.'
           : 'Synchronisez ponctuellement le référentiel officiel SQU sans modifier les projets et les affectations.'}</p>
       </div>
       <a className="soft-button download-template" href={templateHref} download>Télécharger le modèle Excel</a>

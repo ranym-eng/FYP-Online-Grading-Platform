@@ -37,10 +37,24 @@ It is designed to:
 - Detailed implementation guide: [Premium frontend redesign](docs/REFONTE_FRONTEND_PREMIUM_FR.md).
 ### Authentication and Role-Based Access
 
-- Login-based access for the five platform actors: administrators, supervisors, faculty evaluators, industry representatives, and FYP coordinators.
+- No public sign-up: every account must be provisioned from an official university or administrator-controlled source.
+- SQU OpenID Connect single sign-on for administrators, coordinators, supervisors, and faculty evaluators whose institutional identity was imported beforehand.
+- One-time e-mail invitations for Industry Guests, with a dedicated activation link and an explicit access-expiration date.
+- Industry Guest permissions remain limited to assigned Demo Day projects.
 - Separate sessions and dashboards for each actor.
 - Role-based navigation and API authorization.
 - Automatic redirection to the correct workspace after login.
+
+### Latest Identity and Onboarding Update
+
+- Internal actors (`ADMIN`, `COORDINATOR`, `SUPERVISOR`, and `FACULTY_EVALUATOR`) are provisioned before their first connection and never create their own platform account.
+- SQU authentication uses a configurable OpenID Connect authorization-code flow. The returned institutional e-mail must belong to an active imported account before a platform session is issued.
+- Internal passwords are not accepted in the annual Excel import and are managed by the institutional identity provider.
+- Industry Guests are created with `PENDING_INVITATION`, a mandatory future `accessExpiresAt`, and a cryptographically hashed one-time activation token.
+- The invitation link expires after the configured invitation window. After activation, the guest can sign in only until the account access-expiration date.
+- Administrators can send or resend an Industry invitation from account management. Development invitations are visible in Mailpit.
+- Expired Industry accounts are rejected at login and during authenticated API access, even if an older session token still exists.
+- Local password login for internal actors is an explicit demonstration fallback controlled by `LOCAL_INTERNAL_LOGIN_ENABLED`; it must be disabled when SQU SSO is enabled.
 
 ### Academic Data Management
 
@@ -118,7 +132,7 @@ It is designed to:
 
 ## Typical Workflow
 
-1. The administrator creates accounts or imports academic data from Excel.
+1. The administrator imports official academic records, internal SQU identities, and Industry Guest invitations from Excel.
 2. Tracks, projects, teams, and student memberships are configured.
 3. Supervisors and evaluators are assigned to projects.
 4. Evaluation forms, criteria, grading rules, phases, and deadlines are configured.
@@ -255,7 +269,7 @@ Email:    admin@squ.edu.om
 Password: Admin@123
 ```
 
-These credentials are intended only for local development. Replace them before deploying the platform to a shared or production environment.
+These credentials and local password login are intended only for local demonstrations. Production must use SQU SSO for internal actors by setting `LOCAL_INTERNAL_LOGIN_ENABLED=false` and configuring the OIDC variables below.
 
 ## Docker Commands
 
@@ -325,9 +339,19 @@ Available variables:
 | `FRONTEND_PORT` | `3000` |
 | `MAILPIT_SMTP_PORT` | `1025` |
 | `MAILPIT_UI_PORT` | `8025` |
-| MAIL_FROM |
-o-reply@squ.edu.om |
-| APP_TOKEN_SECRET | Ephemeral when empty; set 32+ private characters for stable deployments |
+| `MAIL_FROM` | `no-reply@squ.edu.om` |
+| `APP_TOKEN_SECRET` | Ephemeral when empty; set 32+ private characters for stable deployments |
+| `APP_FRONTEND_URL` | `http://localhost:3000` |
+| `LOCAL_INTERNAL_LOGIN_ENABLED` | `true` in the Docker demo; set `false` with SQU SSO |
+| `INDUSTRY_INVITATION_HOURS` | `48` |
+| `SQU_SSO_ENABLED` | `false` until OIDC is configured |
+| `SQU_SSO_CLIENT_ID` | Supplied by the SQU identity team |
+| `SQU_SSO_CLIENT_SECRET` | Supplied by the SQU identity team |
+| `SQU_SSO_ISSUER_URI` | SQU OpenID Connect issuer URI |
+| `SQU_SSO_EMAIL_CLAIM` | `email` |
+| `SQU_SSO_ALLOWED_DOMAIN` | `squ.edu.om` |
+
+When SSO is enabled, register the public callback URL with the SQU identity provider. For the default Docker setup it is `http://localhost:3000/login/oauth2/code/squ`; production must use the corresponding HTTPS application origin. The institutional e-mail returned by SSO must exactly match a previously imported internal actor.
 
 PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local PostgreSQL installation on `5432`. Inside Docker, Spring Boot connects to the PostgreSQL service on the standard port `5432`.
 
@@ -391,6 +415,13 @@ Validate the Docker Compose configuration:
 docker compose config
 ```
 
+### Current Verification Status
+
+- Backend: 31 tests passed, with one optional import test skipped.
+- Frontend: ESLint and the production Vite build passed.
+- Docker: PostgreSQL, Spring Boot, React/Nginx, and Mailpit start and report healthy status.
+- Official master workbook: 32 out of 32 populated rows pass the backend preview validation with no errors.
+
 ## Annual Data Initialization
 
 The old per-track EIC, CSN, CSP, and PSE workbooks are replaced by one master-data import. The grading sheets themselves are not imported: evaluators complete their assigned forms directly in the platform.
@@ -400,26 +431,29 @@ The old per-track EIC, CSN, CSP, and PSE workbooks are replaced by one master-da
 | Sheet | Required purpose |
 | --- | --- |
 | `STUDENTS` | `studentId`, `studentName`, `email`, `cohort`, `trackCode`, and `level` |
-| `ADMINISTRATORS` | Administrator account identity, status, and temporary password for new accounts |
-| `COORDINATORS` | FYP coordinator accounts |
-| `SUPERVISORS` | Supervisor accounts and academic profile fields |
-| `FACULTY_EVALUATORS` | Faculty report and oral evaluator accounts |
-| `INDUSTRY_GUESTS` | Industry account, organization, status, and temporary password |
-| `PROJECT_ASSIGNMENTS` | Cohort, track, project, one student, one supervisor, and evaluator e-mail lists per row |
+| `ADMINISTRATORS` | Official administrator identity, institutional e-mail, `SQU_SSO` authentication mode, and status |
+| `COORDINATORS` | Official FYP coordinator identities using SQU SSO |
+| `SUPERVISORS` | Official supervisor identities and academic profile fields using SQU SSO |
+| `FACULTY_EVALUATORS` | Official report/oral evaluator identities using SQU SSO |
+| `INDUSTRY_GUESTS` | External identity, organization, future `accessExpiresAt`, and `PENDING_INVITATION` status |
+| `PROJECT_ASSIGNMENTS` | Cohort, track, project, optional student, optional supervisor, and evaluator e-mail lists per row |
 
-`PROJECT_ASSIGNMENTS` repeats a project across rows: each row carries one student and one supervisor. Project metadata may be filled only on the first row and is carried down. A project must have 1-5 distinct students and 1-2 distinct supervisors. Multiple evaluator e-mails in an assignment cell are separated with commas or semicolons.
+Every populated row distributed with the template is fictional. Names are labelled `Example`, actor identifiers use `DEMO`, internal actor e-mails use fictional `@squ.edu.om` addresses to satisfy SSO validation, Industry Guest e-mails use the reserved `example.com` domain, and student identifiers use the `99000001...` example series with the required SQU student e-mail syntax. Replace or delete all example rows before importing real university data. The examples cover all four tracks, one and two supervisors, one to five students, a supervisor-only continuation row, single and multiple faculty evaluators, and one or two Industry Guests.
+
+`PROJECT_ASSIGNMENTS` repeats the same `projectNumber` on every row belonging to a project. A row may contain one student, one supervisor, or both. A project must have 1-5 distinct students and 1-2 distinct supervisors. For a project with one student and two supervisors, add a second project row with `studentId` and `studentName` left blank; never duplicate a student ID. Other project metadata may be filled only on the first row. Multiple evaluator e-mails in an assignment cell are separated with commas or semicolons.
 
 ### First-run workflow
 
-1. Start Docker and sign in as `admin@squ.edu.om` / `Admin@123`.
+1. For a local demo, start Docker and sign in as `admin@squ.edu.om` / `Admin@123`. In a real deployment, the provisioned administrator uses **Sign in with SQU account**.
 2. Open **Excel Imports**, download the master template, and complete all seven sheets.
 3. Run **Analyze without saving**. Fix every reported sheet, row, and field error.
 4. Run **Initialize platform**. The import is atomic and safe to repeat after corrections.
 5. Open **Data Management > Phases**. Create FYP I and FYP II with an `academicYear` exactly matching the imported `cohort`, then set dates, deadlines, and `OPEN` status.
-6. Each imported actor signs in with the temporary password and changes it from the profile drawer.
-7. Evaluators see only assigned projects and forms. Scores auto-save as drafts and count only after **Validate form**.
-8. The administrator calculates and publishes student results after all required forms are locked.
-9. The administrator or coordinator downloads `Final_Evaluation_Summary.xlsx` from **Reports**.
+6. Internal actors sign in through SQU SSO; the platform matches their institutional e-mail and redirects them according to the imported role.
+7. Each imported Industry Guest receives a one-time e-mail link, chooses a password, and can access only assigned Demo Day projects until `accessExpiresAt`.
+8. Evaluators see only assigned projects and forms. Scores auto-save as drafts and count only after **Validate form**.
+9. The administrator calculates and publishes student results after all required forms are locked.
+10. The administrator or coordinator downloads `Final_Evaluation_Summary.xlsx` from **Reports**.
 
 The export contains `LEGACY_SUMMARY`, `FINAL_SUMMARY`, `EVALUATOR_DETAILS`, `MISSING_FORMS`, and `AUDIT_TRAIL`. Presentation uses the official individual/group formula, report is project-level, supervisor scoring is individual, Demo Day uses `2/1/4/2/1`, multiple locked evaluators are averaged, valid zero scores are retained, and drafts are excluded.
 

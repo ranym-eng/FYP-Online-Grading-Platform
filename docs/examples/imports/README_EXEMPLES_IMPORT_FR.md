@@ -17,8 +17,10 @@ Ces fichiers contiennent uniquement des donnees fictives et sont compatibles ave
 5. Verifier que le resultat indique que toutes les lignes sont valides.
 6. Cliquer sur **Importer** uniquement lorsque les donnees affichees sont correctes.
 
-## Comptes fictifs
+## Acces des comptes fictifs
 
-Les comptes du fichier complet utilisent le mot de passe temporaire `Demo@2028`. Ceux du fichier minimal utilisent `Demo@2029`. Ces mots de passe servent uniquement a une demonstration locale et doivent etre modifies pour un usage reel.
+Les acteurs internes utilisent leur identifiant institutionnel SQU avec le SSO. Aucun mot de passe n'est stocke dans le fichier Excel. Les invites Industry sont importes avec le statut `PENDING_INVITATION` et une date `accessExpiresAt`; la plateforme leur envoie ensuite un lien d'activation a usage unique.
+
+Pour une nouvelle initialisation, utiliser de preference le modele officiel `docs/templates/modele_initialisation_plateforme_fyp.xlsx`. Les deux classeurs d'exemple restent des jeux de donnees fictifs compatibles avec l'ancien format normalise `ACTORS`.
 
 Les etudiants ne recoivent pas de compte utilisateur. Ils sont importes comme donnees academiques, puis associes aux equipes et aux projets.

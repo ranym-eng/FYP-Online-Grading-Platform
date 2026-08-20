@@ -29,6 +29,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
 
 springdoc:
   swagger-ui:
@@ -44,6 +45,19 @@ management:
         include: health,info,metrics
 
 app:
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
+  auth:
+    local-internal-login-enabled: ${LOCAL_INTERNAL_LOGIN_ENABLED:false}
+    industry-invitation-hours: ${INDUSTRY_INVITATION_HOURS:48}
+    sso:
+      enabled: ${SQU_SSO_ENABLED:false}
+      registration-id: squ
+      client-id: ${SQU_SSO_CLIENT_ID:}
+      client-secret: ${SQU_SSO_CLIENT_SECRET:}
+      issuer-uri: ${SQU_SSO_ISSUER_URI:}
+      scopes: ${SQU_SSO_SCOPES:openid,profile,email}
+      email-claim: ${SQU_SSO_EMAIL_CLAIM:email}
+      allowed-domain: ${SQU_SSO_ALLOWED_DOMAIN:squ.edu.om}
   security:
     token-secret: ${APP_TOKEN_SECRET:}
     token-lifetime-seconds: ${APP_TOKEN_LIFETIME_SECONDS:28800}
