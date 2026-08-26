@@ -80,14 +80,9 @@ public class ProjectAccessService {
                 && supervisorAssignments.existsByProjectIdAndSupervisorIdAndActiveTrue(projectId, profile.getId())) {
             return true;
         }
-        if (actor.getRole() == UserRole.INDUSTRY_REPRESENTATIVE) {
-            return evaluatorAssignments.existsByProjectIdAndEvaluatorIdAndEvaluationTypeAndActiveTrue(
-                    projectId,
-                    profile.getId(),
-                    EvaluationType.DEMO_DAY_INDUSTRY
-            );
-        }
-        return evaluatorAssignments.existsByProjectIdAndEvaluatorIdAndActiveTrue(projectId, profile.getId());
+        return evaluatorAssignments.findByEvaluatorIdAndActiveTrue(profile.getId()).stream()
+                .anyMatch(assignment -> assignment.getProject().getId().equals(projectId)
+                        && canUseEvaluationType(actor, assignment.getEvaluationType()));
     }
 
     public void assertCanView(User actor, UUID projectId) {
@@ -107,7 +102,15 @@ public class ProjectAccessService {
     }
 
     private boolean canUseEvaluationType(User actor, EvaluationType evaluationType) {
-        return actor.getRole() != UserRole.INDUSTRY_REPRESENTATIVE
-                || evaluationType == EvaluationType.DEMO_DAY_INDUSTRY;
+        return switch (actor.getRole()) {
+            case SUPERVISOR -> evaluationType == EvaluationType.SUPERVISOR_PHASE_I
+                    || evaluationType == EvaluationType.SUPERVISOR_PHASE_II;
+            case REPORT_EVALUATOR -> evaluationType == EvaluationType.REPORT_PHASE_I
+                    || evaluationType == EvaluationType.REPORT_PHASE_II;
+            case FACULTY_EVALUATOR -> evaluationType == EvaluationType.ORAL_PHASE_I
+                    || evaluationType == EvaluationType.ORAL_PHASE_II;
+            case INDUSTRY_REPRESENTATIVE -> evaluationType == EvaluationType.DEMO_DAY_INDUSTRY;
+            default -> false;
+        };
     }
 }

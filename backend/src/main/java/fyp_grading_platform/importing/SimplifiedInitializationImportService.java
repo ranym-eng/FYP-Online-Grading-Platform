@@ -54,12 +54,13 @@ public class SimplifiedInitializationImportService {
     private static final long MAX_FILE_BYTES = 15L * 1024 * 1024;
     private static final List<String> SHEETS = List.of(
             "STUDENTS", "ADMINISTRATORS", "COORDINATORS", "SUPERVISORS",
-            "FACULTY_EVALUATORS", "INDUSTRY_GUESTS", "PROJECT_ASSIGNMENTS"
+            "REPORT_EVALUATORS", "FACULTY_EVALUATORS", "INDUSTRY_GUESTS", "PROJECT_ASSIGNMENTS"
     );
     private static final Map<String, UserRole> ACTOR_ROLES = Map.of(
             "ADMINISTRATORS", UserRole.ADMIN,
             "COORDINATORS", UserRole.COORDINATOR,
             "SUPERVISORS", UserRole.SUPERVISOR,
+            "REPORT_EVALUATORS", UserRole.REPORT_EVALUATOR,
             "FACULTY_EVALUATORS", UserRole.FACULTY_EVALUATOR,
             "INDUSTRY_GUESTS", UserRole.INDUSTRY_REPRESENTATIVE
     );
@@ -294,9 +295,9 @@ public class SimplifiedInitializationImportService {
             if (projectStudents.size() > 5) error(first, "studentId", "A project cannot contain more than 5 students", errors);
             if (projectSupervisors.isEmpty()) error(first, "supervisorId", "A project requires at least one supervisor", errors);
             if (projectSupervisors.size() > 2) error(first, "supervisorId", "A project cannot contain more than 2 supervisors", errors);
-            validateEvaluatorEmails(first, "reportPhaseIEvaluatorEmails", UserRole.FACULTY_EVALUATOR, actorsByEmail, errors);
+            validateEvaluatorEmails(first, "reportPhaseIEvaluatorEmails", UserRole.REPORT_EVALUATOR, actorsByEmail, errors);
             validateEvaluatorEmails(first, "oralPhaseIEvaluatorEmails", UserRole.FACULTY_EVALUATOR, actorsByEmail, errors);
-            validateEvaluatorEmails(first, "reportPhaseIIEvaluatorEmails", UserRole.FACULTY_EVALUATOR, actorsByEmail, errors);
+            validateEvaluatorEmails(first, "reportPhaseIIEvaluatorEmails", UserRole.REPORT_EVALUATOR, actorsByEmail, errors);
             validateEvaluatorEmails(first, "oralPhaseIIEvaluatorEmails", UserRole.FACULTY_EVALUATOR, actorsByEmail, errors);
             validateEvaluatorEmails(first, "industryGuestEmails", UserRole.INDUSTRY_REPRESENTATIVE, actorsByEmail, errors);
         }
@@ -650,7 +651,8 @@ public class SimplifiedInitializationImportService {
     }
 
     private boolean isEvaluator(UserRole role) {
-        return role == UserRole.SUPERVISOR || role == UserRole.FACULTY_EVALUATOR
+        return role == UserRole.SUPERVISOR || role == UserRole.REPORT_EVALUATOR
+                || role == UserRole.FACULTY_EVALUATOR
                 || role == UserRole.INDUSTRY_REPRESENTATIVE;
     }
 

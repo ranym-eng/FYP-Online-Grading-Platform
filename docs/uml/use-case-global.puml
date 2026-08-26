@@ -26,7 +26,8 @@ actor "Utilisateur authentifie" as Authenticated <<abstrait>>
 actor "Evaluateur" as Evaluator <<abstrait>>
 actor "Administrateur" as Admin
 actor "Superviseur" as Supervisor
-actor "Evaluateur academique" as Faculty
+actor "Evaluateur de rapports" as ReportEvaluator
+actor "Evaluateur academique oral" as Faculty
 actor "Representant industriel" as Industry
 actor "Coordinateur FYP" as Coordinator
 actor "Fichier Excel / CSV SQU" as Excel <<systeme externe>>
@@ -35,6 +36,7 @@ actor "Serveur SMTP / Mailpit" as Mail <<systeme externe>>
 actor "Collecteur institutionnel" as Collector <<systeme externe>>
 
 Supervisor --|> Evaluator
+ReportEvaluator --|> Evaluator
 Faculty --|> Evaluator
 Industry --|> Evaluator
 Evaluator --|> Authenticated
@@ -203,7 +205,7 @@ Evaluator -- UC_History
 Evaluator -- UC_RequestExtension
 Evaluator -- UC_MyExtensions
 Supervisor -- UC_SupervisorForm
-Faculty -- UC_ReportForm
+ReportEvaluator -- UC_ReportForm
 Faculty -- UC_OralForm
 Industry -- UC_DemoForm
 

@@ -73,6 +73,44 @@ class EvaluationServiceScopeTest {
         assertEquals("EVALUATION_PHASE_MISMATCH", exception.getErrorCode());
     }
 
+    @Test
+    void reportEvaluatorCanUseOnlyReportForms() {
+        assertDoesNotThrow(() -> service.assertEvaluationScope(
+                actor(UserRole.REPORT_EVALUATOR),
+                EvaluationType.REPORT_PHASE_I,
+                phase(PhaseType.PHASE_I)
+        ));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.assertEvaluationScope(
+                        actor(UserRole.REPORT_EVALUATOR),
+                        EvaluationType.ORAL_PHASE_I,
+                        phase(PhaseType.PHASE_I)
+                )
+        );
+        assertEquals("EVALUATION_ROLE_MISMATCH", exception.getErrorCode());
+    }
+
+    @Test
+    void facultyEvaluatorCanUseOnlyOralForms() {
+        assertDoesNotThrow(() -> service.assertEvaluationScope(
+                actor(UserRole.FACULTY_EVALUATOR),
+                EvaluationType.ORAL_PHASE_II,
+                phase(PhaseType.PHASE_II)
+        ));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.assertEvaluationScope(
+                        actor(UserRole.FACULTY_EVALUATOR),
+                        EvaluationType.REPORT_PHASE_II,
+                        phase(PhaseType.PHASE_II)
+                )
+        );
+        assertEquals("EVALUATION_ROLE_MISMATCH", exception.getErrorCode());
+    }
+
     private User actor(UserRole role) {
         User user = new User();
         user.setRole(role);

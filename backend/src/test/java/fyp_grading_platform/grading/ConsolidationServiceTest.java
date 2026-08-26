@@ -108,6 +108,82 @@ class ConsolidationServiceTest {
         assertEquals(7.0, summary.getValue().getFinalScore());
     }
 
+    @Test
+    void reportEvaluationContributesToTheWeightedFinalScore() throws Exception {
+        Project project = new Project();
+        project.setId(UUID.randomUUID());
+        project.setTitle("Paper Report Project");
+        Phase phase = new Phase();
+        phase.setId(UUID.randomUUID());
+        phase.setType(PhaseType.PHASE_I);
+
+        StudentProfile student = student("10003", "Report Student");
+        Team team = new Team();
+        team.getStudents().add(student);
+
+        GradeRule supervisorRule = new GradeRule();
+        supervisorRule.setPhaseType(PhaseType.PHASE_I);
+        supervisorRule.setEvaluationType(EvaluationType.SUPERVISOR_PHASE_I);
+        supervisorRule.setWeight(40);
+        GradeRule reportRule = new GradeRule();
+        reportRule.setPhaseType(PhaseType.PHASE_I);
+        reportRule.setEvaluationType(EvaluationType.REPORT_PHASE_I);
+        reportRule.setWeight(60);
+
+        EvaluationSubmission supervisor = new EvaluationSubmission();
+        supervisor.setProject(project);
+        supervisor.setPhase(phase);
+        supervisor.setEvaluationType(EvaluationType.SUPERVISOR_PHASE_I);
+        supervisor.setLocked(true);
+        supervisor.setTotalScore(8.0);
+
+        EvaluationSubmission report = new EvaluationSubmission();
+        report.setProject(project);
+        report.setPhase(phase);
+        report.setEvaluationType(EvaluationType.REPORT_PHASE_I);
+        report.setLocked(true);
+        report.setScorePayload(new ObjectMapper().writeValueAsString(reportPayload(10.0)));
+
+        when(projects.findById(project.getId())).thenReturn(Optional.of(project));
+        when(phases.findById(phase.getId())).thenReturn(Optional.of(phase));
+        when(teams.findByProjectId(project.getId())).thenReturn(Optional.of(team));
+        when(rules.findByPhaseTypeAndActiveTrue(PhaseType.PHASE_I))
+                .thenReturn(List.of(supervisorRule, reportRule));
+        when(submissions.findByProjectIdAndPhaseId(project.getId(), phase.getId()))
+                .thenReturn(List.of(supervisor, report));
+        when(studentGrades.findByProjectIdAndPhaseIdAndStudentId(any(), any(), any()))
+                .thenReturn(Optional.empty());
+        when(projectGrades.findByProjectIdAndPhaseId(project.getId(), phase.getId()))
+                .thenReturn(Optional.empty());
+
+        List<StudentPhaseGrade> stored = new ArrayList<>();
+        when(studentGrades.findByProjectIdAndPhaseIdOrderByStudentStudentNumberAsc(project.getId(), phase.getId()))
+                .thenAnswer(invocation -> List.copyOf(stored));
+        when(studentGrades.saveAll(any())).thenAnswer(invocation -> {
+            stored.clear();
+            stored.addAll(invocation.getArgument(0));
+            return stored;
+        });
+
+        ConsolidationService service = new ConsolidationService(
+                studentGrades,
+                projectGrades,
+                rules,
+                submissions,
+                projects,
+                phases,
+                teams,
+                new EvaluationSheetCalculator(),
+                new ObjectMapper()
+        );
+
+        StudentPhaseGrade result = service.calculate(project.getId(), phase.getId()).getFirst();
+
+        assertEquals(8.0, result.getSupervisorScore());
+        assertEquals(10.0, result.getReportScore());
+        assertEquals(9.2, result.getFinalScore());
+    }
+
     private StudentProfile student(String number, String name) {
         StudentProfile student = new StudentProfile();
         student.setId(UUID.randomUUID());
@@ -153,5 +229,24 @@ class ConsolidationServiceTest {
     private void individual(Map<String, Double> scores, UUID studentId, double value) {
         scores.put("individual:present-information:" + studentId, value);
         scores.put("individual:answer-questions:" + studentId, value);
+    }
+
+    private Map<String, Double> reportPayload(double value) {
+        Map<String, Double> scores = new LinkedHashMap<>();
+        for (String criterion : List.of(
+                "identify-problem",
+                "formulate-problem",
+                "design-requirements",
+                "analyze-solutions",
+                "develop-solutions",
+                "build-test",
+                "technical-report",
+                "professional-ethics",
+                "evaluate-impact",
+                "complete-work"
+        )) {
+            scores.put("group:" + criterion + ":group", value);
+        }
+        return scores;
     }
 }

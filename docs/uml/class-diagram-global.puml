@@ -204,6 +204,7 @@ package "Business Enumerations" #F8FAFC {
   enum UserRole {
     ADMIN
     SUPERVISOR
+    REPORT_EVALUATOR
     FACULTY_EVALUATOR
     INDUSTRY_REPRESENTATIVE
     COORDINATOR

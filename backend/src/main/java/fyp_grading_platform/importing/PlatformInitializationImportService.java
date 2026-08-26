@@ -76,6 +76,7 @@ public class PlatformInitializationImportService {
     );
     private static final Set<UserRole> EVALUATOR_ROLES = Set.of(
             UserRole.SUPERVISOR,
+            UserRole.REPORT_EVALUATOR,
             UserRole.FACULTY_EVALUATOR,
             UserRole.INDUSTRY_REPRESENTATIVE
     );
@@ -343,8 +344,13 @@ public class PlatformInitializationImportService {
                 if (role == UserRole.SUPERVISOR && type != EvaluationType.SUPERVISOR_PHASE_I && type != EvaluationType.SUPERVISOR_PHASE_II) {
                     error(row, "evaluationType", "Supervisors can use only supervisor forms", errors);
                 }
-                if (role == UserRole.FACULTY_EVALUATOR && (type == EvaluationType.DEMO_DAY_INDUSTRY || type.name().startsWith("SUPERVISOR_"))) {
-                    error(row, "evaluationType", "Faculty evaluators use only report and oral forms", errors);
+                if (role == UserRole.REPORT_EVALUATOR
+                        && type != EvaluationType.REPORT_PHASE_I && type != EvaluationType.REPORT_PHASE_II) {
+                    error(row, "evaluationType", "Report evaluators use only report forms", errors);
+                }
+                if (role == UserRole.FACULTY_EVALUATOR
+                        && type != EvaluationType.ORAL_PHASE_I && type != EvaluationType.ORAL_PHASE_II) {
+                    error(row, "evaluationType", "Faculty evaluators use only oral presentation forms", errors);
                 }
             });
         }

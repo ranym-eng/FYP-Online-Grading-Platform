@@ -10,7 +10,7 @@ L'administrateur importe d'abord un seul classeur de donnees de reference :
 
 Les etudiants restent des donnees academiques. Ils ne possedent aucun compte et ne sont pas un acteur de connexion.
 
-## 2. Les sept feuilles obligatoires
+## 2. Les huit feuilles de donnees obligatoires
 
 | Feuille | Colonnes principales | Utilisation |
 |---|---|---|
@@ -18,7 +18,8 @@ Les etudiants restent des donnees academiques. Ils ne possedent aucun compte et 
 | `ADMINISTRATORS` | `actorId`, `actorName`, `email`, `phone`, `authenticationMode`, `status` | Identites administrateur SQU SSO |
 | `COORDINATORS` | memes colonnes acteur | Identites coordinateur FYP SQU SSO |
 | `SUPERVISORS` | colonnes acteur + `department`, `specialization` | Encadrants SQU SSO |
-| `FACULTY_EVALUATORS` | colonnes acteur + profil academique | Evaluateurs rapport/oral SQU SSO |
+| `REPORT_EVALUATORS` | colonnes acteur + profil academique | Evaluateurs des rapports papier Report I/Report II, via SQU SSO |
+| `FACULTY_EVALUATORS` | colonnes acteur + profil academique | Evaluateurs des soutenances Oral I/Oral II, via SQU SSO |
 | `INDUSTRY_GUESTS` | colonnes acteur + `organization`, `accessExpiresAt`, `status` | Invites externes Demo Day |
 | `PROJECT_ASSIGNMENTS` | projet, etudiant, superviseur et e-mails evaluateurs | Toutes les relations necessaires |
 
@@ -39,7 +40,8 @@ Pour un meme projet, les regles sont :
 - 1 a 5 etudiants distincts maximum ;
 - 1 a 2 superviseurs distincts maximum ;
 - un etudiant ne peut appartenir qu'a un projet pour la meme cohorte ;
-- les e-mails rapport/oral doivent exister dans `FACULTY_EVALUATORS` ;
+- les e-mails Report I/Report II doivent exister dans `REPORT_EVALUATORS` ;
+- les e-mails Oral I/Oral II doivent exister dans `FACULTY_EVALUATORS` ;
 - les e-mails Industry Guest doivent exister dans `INDUSTRY_GUESTS` ;
 - un Industry Guest recoit uniquement la fiche `DEMO_DAY_INDUSTRY` ;
 - chaque superviseur recoit les fiches superviseur FYP I et FYP II du projet.
@@ -51,7 +53,7 @@ Les listes d'e-mails acceptent la virgule ou le point-virgule. `projectNumber` d
 1. Se connecter avec le compte administrateur.
 2. Ouvrir `Imports Excel` puis `Initialisation annuelle`.
 3. Telecharger le modele officiel.
-4. Completer les sept feuilles sans renommer les en-tetes.
+4. Completer les huit feuilles de donnees sans renommer les en-tetes.
 5. Cliquer sur `Analyser sans enregistrer`.
 6. Corriger toutes les erreurs affichees avec feuille, ligne et champ.
 7. Relancer l'analyse jusqu'a zero erreur.
@@ -66,7 +68,7 @@ L'analyse ne modifie pas la base. L'import final utilise une transaction unique 
 
 Il n'existe aucune inscription publique et les etudiants ne possedent pas de compte.
 
-Pour `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS` et `FACULTY_EVALUATORS`, ne fournir aucun mot de passe dans le classeur. `actorId` et l'e-mail institutionnel proviennent de la source officielle SQU, `authenticationMode` vaut `SQU_SSO` et `status` vaut normalement `ACTIVE`. L'acteur clique sur `Se connecter avec le compte SQU`. Apres validation OIDC, la plateforme recherche exactement son e-mail importe, applique son role et ouvre son dashboard. Un compte SQU absent du referentiel importe est refuse.
+Pour `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS`, `REPORT_EVALUATORS` et `FACULTY_EVALUATORS`, ne fournir aucun mot de passe dans le classeur. `actorId` et l'e-mail institutionnel proviennent de la source officielle SQU, `authenticationMode` vaut `SQU_SSO` et `status` vaut normalement `ACTIVE`. L'acteur clique sur `Se connecter avec le compte SQU`. Apres validation OIDC, la plateforme recherche exactement son e-mail importe, applique son role et ouvre son dashboard. Un compte SQU absent du referentiel importe est refuse.
 
 Pour `INDUSTRY_GUESTS`, renseigner l'organisation, une date future `accessExpiresAt` au format `YYYY-MM-DD` ou `YYYY-MM-DDTHH:mm`, puis `PENDING_INVITATION`. L'import genere un lien d'activation unique envoye par e-mail. Le lien d'invitation expire par defaut apres 48 heures. L'invite choisit alors son mot de passe externe. Son compte ne donne acces qu'au Demo Day, seulement aux projets attribues, et devient inutilisable apres `accessExpiresAt`. L'administrateur peut renvoyer une invitation depuis `Comptes et acces`.
 

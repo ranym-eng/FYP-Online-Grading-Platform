@@ -4,7 +4,6 @@ import fyp_grading_platform.common.UserRole;
 import fyp_grading_platform.common.UserStatus;
 import fyp_grading_platform.common.api.ApiResponse;
 import fyp_grading_platform.common.exception.BusinessException;
-import fyp_grading_platform.notification.EmailDeliveryService;
 import fyp_grading_platform.security.CurrentUserService;
 import fyp_grading_platform.security.TokenService;
 import fyp_grading_platform.user.User;
@@ -33,9 +32,7 @@ public class AuthController {
     private final PasswordEncoder encoder;
     private final TokenService tokens;
     private final CurrentUserService currentUsers;
-    private final PasswordResetTokenRepository resetTokens;
-    private final EmailDeliveryService emails;
-    private final OneTimeTokenHasher tokenHasher;
+    private final PasswordResetService passwordResets;
     private final SsoLoginService sso;
     private final IndustryInvitationService industryInvitations;
     private final boolean localInternalLoginEnabled;
@@ -45,9 +42,7 @@ public class AuthController {
             PasswordEncoder encoder,
             TokenService tokens,
             CurrentUserService currentUsers,
-            PasswordResetTokenRepository resetTokens,
-            EmailDeliveryService emails,
-            OneTimeTokenHasher tokenHasher,
+            PasswordResetService passwordResets,
             SsoLoginService sso,
             IndustryInvitationService industryInvitations,
             @Value("${app.auth.local-internal-login-enabled:false}") boolean localInternalLoginEnabled
@@ -56,9 +51,7 @@ public class AuthController {
         this.encoder = encoder;
         this.tokens = tokens;
         this.currentUsers = currentUsers;
-        this.resetTokens = resetTokens;
-        this.emails = emails;
-        this.tokenHasher = tokenHasher;
+        this.passwordResets = passwordResets;
         this.sso = sso;
         this.industryInvitations = industryInvitations;
         this.localInternalLoginEnabled = localInternalLoginEnabled;
@@ -156,35 +149,13 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        users.findByEmailIgnoreCase(request.email())
-                .filter(user -> user.getStatus() == UserStatus.ACTIVE)
-                .filter(user -> user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE || localInternalLoginEnabled)
-                .ifPresent(user -> {
-            resetTokens.deleteByUserId(user.getId());
-            String rawToken = tokenHasher.generate();
-            PasswordResetToken reset = new PasswordResetToken();
-            reset.setUser(user);
-            reset.setTokenHash(tokenHasher.hash(rawToken));
-            reset.setExpiresAt(LocalDateTime.now().plusMinutes(30));
-            resetTokens.save(reset);
-            emails.send(user.getEmail(), "FYP platform password reset",
-                    "Use this one-time token within 30 minutes:\n\n" + rawToken, null);
-        });
+        passwordResets.request(request.email());
         return ApiResponse.ok("If the account exists, a reset email has been sent", null);
     }
 
     @PostMapping("/reset-password")
     ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        PasswordResetToken reset = resetTokens.findByTokenHashAndUsedAtIsNull(tokenHasher.hash(request.token()))
-                .orElseThrow(() -> new BusinessException("INVALID_RESET_TOKEN", "Password reset token is invalid"));
-        if (reset.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("RESET_TOKEN_EXPIRED", "Password reset token has expired");
-        }
-        User user = reset.getUser();
-        user.setPasswordHash(encoder.encode(request.newPassword()));
-        users.save(user);
-        reset.setUsedAt(LocalDateTime.now());
-        resetTokens.save(reset);
+        passwordResets.reset(request.token(), request.newPassword());
         return ApiResponse.ok("Password reset successful", null);
     }
 

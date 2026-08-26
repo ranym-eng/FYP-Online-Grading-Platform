@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Bell,
@@ -76,59 +76,98 @@ export function ThemeToggle({ theme, setTheme, compact = false }) {
 
 export function GlobalSearch({ allowedViews, datasets, onNavigate }) {
   const [query, setQuery] = useState('')
-  const normalized = query.trim().toLocaleLowerCase('fr')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const searchRef = useRef(null)
+  const normalized = normalizeSearch(query)
   const results = useMemo(() => {
     if (!normalized) return []
+    const allowedIds = new Set(allowedViews.map((view) => view.id))
     const navigation = allowedViews
-      .filter((view) => view.label.toLocaleLowerCase('fr').includes(normalized))
+      .filter((view) => normalizeSearch([view.label, ...(VIEW_SEARCH_ALIASES[view.id] || [])].join(' ')).includes(normalized))
       .map((view) => ({ key: 'view-' + view.id, title: view.label, meta: 'Navigation', view: view.id }))
-    const projectView = allowedViews.some((view) => view.id === 'crud')
-      ? 'crud'
-      : allowedViews.some((view) => view.id === 'evaluations')
-        ? 'evaluations'
-        : allowedViews.some((view) => view.id === 'reports')
-          ? 'reports'
-          : 'dashboard'
-    const projects = (datasets.projects || [])
-      .filter((project) => [project.projectNumber, project.title, project.track?.code]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase('fr')
-        .includes(normalized))
-      .slice(0, 5)
-      .map((project) => ({
-        key: 'project-' + project.id,
-        title: project.title || project.projectNumber,
-        meta: [project.projectNumber, project.track?.code].filter(Boolean).join(' · ') || 'Projet',
-        view: projectView,
-      }))
-    return [...navigation, ...projects].slice(0, 7)
-  }, [allowedViews, datasets.projects, normalized])
+    const dataResults = SEARCHABLE_DATASETS.flatMap((config) => {
+      const view = config.views.find((candidate) => allowedIds.has(candidate)) || 'dashboard'
+      return (datasets[config.key] || [])
+        .filter((item) => normalizeSearch(JSON.stringify(item)).includes(normalized))
+        .slice(0, 4)
+        .map((item) => ({
+          key: config.key + '-' + item.id,
+          title: config.title(item),
+          meta: config.meta(item),
+          view,
+          resourceKey: config.resourceKey,
+          query: config.query(item),
+          projectId: config.key === 'projects' ? item.id : item.project?.id || item.projectId,
+        }))
+    })
+    return [...navigation, ...dataResults].slice(0, 9)
+  }, [allowedViews, datasets, normalized])
+
+  useEffect(() => {
+    if (!normalized) return undefined
+    const close = (event) => { if (!searchRef.current?.contains(event.target)) setQuery('') }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [normalized])
 
   function choose(result) {
-    onNavigate(result.view)
+    onNavigate(result.view, result)
     setQuery('')
   }
 
-  return <div className="global-search">
+  return <div className="global-search" ref={searchRef}>
     <Search size={18} aria-hidden="true" />
     <input
       value={query}
-      onChange={(event) => setQuery(event.target.value)}
+      onChange={(event) => { setQuery(event.target.value); setActiveIndex(0) }}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' && results[0]) choose(results[0])
+        if (event.key === 'ArrowDown' && results.length) { event.preventDefault(); setActiveIndex((current) => (current + 1) % results.length) }
+        if (event.key === 'ArrowUp' && results.length) { event.preventDefault(); setActiveIndex((current) => (current - 1 + results.length) % results.length) }
+        if (event.key === 'Enter' && results[activeIndex]) { event.preventDefault(); choose(results[activeIndex]) }
         if (event.key === 'Escape') setQuery('')
       }}
-      placeholder="Rechercher un module ou un projet"
-      aria-label="Rechercher un module ou un projet"
+      placeholder="Rechercher partout…"
+      aria-label="Rechercher partout"
+      role="combobox"
+      aria-expanded={Boolean(normalized)}
+      aria-controls="global-search-results"
     />
     {query && <button type="button" onClick={() => setQuery('')} title="Effacer" aria-label="Effacer la recherche"><X size={16} /></button>}
-    {normalized && <div className="search-results">
-      {results.length ? results.map((result) => <button type="button" key={result.key} onClick={() => choose(result)}>
+    {normalized && <div className="search-results" id="global-search-results" role="listbox">
+      {results.length ? results.map((result, index) => <button type="button" role="option" aria-selected={index === activeIndex} className={index === activeIndex ? 'active' : ''} key={result.key} onMouseEnter={() => setActiveIndex(index)} onClick={() => choose(result)}>
         <span>{result.title}</span><small>{result.meta}</small>
       </button>) : <div className="search-empty">Aucun résultat</div>}
     </div>}
   </div>
+}
+
+const VIEW_SEARCH_ALIASES = {
+  dashboard: ['dashboard', 'accueil', 'home', 'overview'],
+  calendar: ['calendrier', 'calendar', 'phase', 'deadline', 'échéance'],
+  notifications: ['notification', 'alerte', 'message'],
+  imports: ['import', 'excel', 'classeur', 'initialisation'],
+  crud: ['données', 'data', 'utilisateur', 'étudiant', 'projet', 'équipe'],
+  evaluations: ['évaluation', 'evaluation', 'fiche', 'notation'],
+  extensions: ['prolongation', 'extension', 'échéance'],
+  grading: ['note', 'grade', 'résultat', 'consolidation'],
+  reports: ['rapport', 'report', 'export', 'matlab'],
+  api: ['api', 'swagger', 'console'],
+}
+
+const SEARCHABLE_DATASETS = [
+  { key: 'projects', resourceKey: 'projects', views: ['crud', 'evaluations', 'grading', 'reports', 'dashboard'], title: (item) => item.title || item.projectNumber || 'Projet', meta: (item) => [item.projectNumber, item.track?.code || item.trackCode, 'Projet'].filter(Boolean).join(' · '), query: (item) => item.projectNumber || item.title || '' },
+  { key: 'users', resourceKey: 'users', views: ['crud', 'dashboard'], title: (item) => item.fullName || item.email || 'Utilisateur', meta: (item) => [item.role, item.email].filter(Boolean).join(' · '), query: (item) => item.email || item.fullName || '' },
+  { key: 'students', resourceKey: 'students', views: ['crud', 'dashboard'], title: (item) => item.fullName || item.studentNumber || 'Étudiant', meta: (item) => [item.studentNumber, item.trackCode, 'Étudiant'].filter(Boolean).join(' · '), query: (item) => item.studentNumber || item.fullName || '' },
+  { key: 'evaluators', resourceKey: 'evaluators', views: ['crud', 'dashboard'], title: (item) => item.user?.fullName || item.user?.email || 'Évaluateur', meta: (item) => [item.user?.role, item.department].filter(Boolean).join(' · '), query: (item) => item.user?.email || item.user?.fullName || '' },
+  { key: 'tracks', resourceKey: 'tracks', views: ['crud', 'dashboard'], title: (item) => item.name || item.code || 'Filière', meta: (item) => [item.code, 'Filière'].filter(Boolean).join(' · '), query: (item) => item.code || item.name || '' },
+  { key: 'teams', resourceKey: 'teams', views: ['crud', 'evaluations', 'dashboard'], title: (item) => item.name || 'Équipe', meta: (item) => [item.project?.projectNumber, item.academicYear, 'Équipe'].filter(Boolean).join(' · '), query: (item) => item.name || item.project?.projectNumber || '' },
+  { key: 'phases', views: ['calendar', 'dashboard'], title: (item) => item.name || 'Phase', meta: (item) => [item.type, item.status, 'Phase'].filter(Boolean).join(' · '), query: (item) => item.name || '' },
+  { key: 'forms', resourceKey: 'forms', views: ['crud', 'evaluations', 'dashboard'], title: (item) => item.name || 'Fiche', meta: (item) => [item.evaluationType, 'Fiche'].filter(Boolean).join(' · '), query: (item) => item.name || item.evaluationType || '' },
+  { key: 'reports', resourceKey: 'reports', views: ['reports', 'crud', 'dashboard'], title: (item) => item.title || item.project?.title || 'Rapport', meta: (item) => [item.status, item.project?.projectNumber, 'Rapport'].filter(Boolean).join(' · '), query: (item) => item.title || item.project?.projectNumber || '' },
+]
+
+function normalizeSearch(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr').trim()
 }
 
 export function ProfileDrawer({

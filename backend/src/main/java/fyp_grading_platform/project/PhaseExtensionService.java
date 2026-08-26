@@ -17,6 +17,7 @@ import java.util.UUID;
 public class PhaseExtensionService {
     private static final List<UserRole> EVALUATION_ROLES = List.of(
             UserRole.SUPERVISOR,
+            UserRole.REPORT_EVALUATOR,
             UserRole.FACULTY_EVALUATOR,
             UserRole.INDUSTRY_REPRESENTATIVE
     );
@@ -52,9 +53,6 @@ public class PhaseExtensionService {
         if (now.isBefore(phase.getDeadline())) {
             throw new BusinessException("DEADLINE_NOT_EXPIRED", "An extension can be requested only after the phase deadline");
         }
-        if (input.requestedDeadline() != null && !input.requestedDeadline().isAfter(phase.getDeadline())) {
-            throw new BusinessException("INVALID_REQUESTED_DEADLINE", "The requested deadline must be after the current phase deadline");
-        }
         var activeExtension = requests.findFirstByPhaseIdAndRequesterIdAndStatusOrderByExtendedDeadlineDesc(
                 phase.getId(),
                 requester.getId(),
@@ -76,7 +74,6 @@ public class PhaseExtensionService {
         extension.setPhase(phase);
         extension.setRequester(requester);
         extension.setReason(input.reason().trim());
-        extension.setRequestedDeadline(input.requestedDeadline());
         extension.setRequestedAt(now);
         extension.setStatus(ExtensionRequestStatus.PENDING);
         PhaseExtensionRequest saved = requests.save(extension);
@@ -146,7 +143,6 @@ public class PhaseExtensionService {
                 Email: %s
                 Phase: %s
                 Current deadline: %s
-                Requested deadline: %s
                 Reason: %s
 
                 Please review this request in the FYP Grading Platform.
@@ -155,10 +151,16 @@ public class PhaseExtensionService {
                 extension.getRequester().getEmail(),
                 extension.getPhase().getName(),
                 extension.getPhase().getDeadline(),
-                extension.getRequestedDeadline() == null ? "Not specified" : extension.getRequestedDeadline(),
                 extension.getReason()
         );
-        administrators.forEach(admin -> emails.send(admin.getEmail(), subject, body, null));
+        administrators.forEach(admin -> emails.sendToUser(
+                admin,
+                subject,
+                body,
+                "EXTENSION",
+                "WARNING",
+                "extensions"
+        ));
     }
 
     private void notifyRequester(PhaseExtensionRequest extension, boolean approved) {
@@ -170,7 +172,14 @@ public class PhaseExtensionService {
                     .formatted(extension.getPhase().getName(), extension.getExtendedDeadline(), comment(extension))
                 : "Your extension request for phase %s has been rejected.%nAdministrator comment: %s"
                     .formatted(extension.getPhase().getName(), comment(extension));
-        emails.send(extension.getRequester().getEmail(), subject, body, null);
+        emails.sendToUser(
+                extension.getRequester(),
+                subject,
+                body,
+                "EXTENSION",
+                approved ? "INFO" : "WARNING",
+                "extensions"
+        );
     }
 
     private String comment(PhaseExtensionRequest extension) {

@@ -12,7 +12,8 @@ Les acteurs qui se connectent sont :
 | --- | --- | --- |
 | Administrateur | `ADMIN` | comptes, données, phases, import, prolongations, notes et rapports |
 | Superviseur | `SUPERVISOR` | évaluation FYP I et FYP II des projets encadrés |
-| Évaluateur académique | `FACULTY_EVALUATOR` | rapports et soutenances |
+| Évaluateur de rapports | `REPORT_EVALUATOR` | rapports papier Report I et Report II |
+| Évaluateur académique | `FACULTY_EVALUATOR` | soutenances Oral I et Oral II |
 | Représentant industriel | `INDUSTRY_REPRESENTATIVE` | évaluation Demo Day |
 | Coordinateur FYP | `COORDINATOR` | consultation des notes consolidées et rapports |
 
@@ -57,6 +58,7 @@ Ne pas relancer ce reset au milieu de la démonstration.
 | --- | --- | --- |
 | Administrateur | `admin@squ.edu.om` | `Admin@123` |
 | Superviseur | `demo.supervisor@squ.edu.om` | `Test@123` |
+| Évaluateur de rapports | `demo.report@squ.edu.om` | `Test@123` |
 | Évaluateur académique | `demo.faculty@squ.edu.om` | `Test@123` |
 | Représentant industriel | `demo.industry@squ.edu.om` | `Test@123` |
 | Coordinateur | `demo.coordinator@squ.edu.om` | `Test@123` |
@@ -350,24 +352,24 @@ Phrase à dire :
 
 > Chaque saisie est autosauvegardée comme brouillon dans PostgreSQL. Seul le bouton Valider la fiche transforme la soumission en fiche verrouillée et utilisable pour le calcul.
 
-### 5.7 Évaluateur académique : rapport FYP II
+### 5.7 Évaluateur de rapports : Report II
 
 1. Se déconnecter.
-2. Se connecter avec `demo.faculty@squ.edu.om` et `Test@123`.
+2. Se connecter avec `demo.report@squ.edu.om` et `Test@123`.
 3. Ouvrir Évaluations.
 4. Sélectionner `DEMO-CSP-02`.
 5. Sélectionner FYP II - Demo Day Window.
-6. Sélectionner `REPORT_PHASE_II`.
-7. Vérifier que 19 notes sur 20 sont déjà remplies.
-8. Pour Salim, saisir `8` dans Complete the proposed work.
+6. Vérifier que la seule fiche proposée est `Rapport papier · FYP II`.
+7. Vérifier que 9 critères sur 10 sont déjà remplis.
+8. Saisir `8` dans `Complete the proposed work`.
 9. Saisir le commentaire `The report is complete, technically sound and clearly structured.`
 10. Attendre l'autosauvegarde.
 11. Cliquer Valider la fiche.
 12. Montrer la fiche verrouillée et l'historique des évaluations du projet.
 
-Résultat attendu : note de fiche `8.09 / 10`.
+Résultat attendu : note de fiche `8.27 / 10`, calculée par `(C1 + C2 + C3 + 2*C4 + C5...C10) / 11`.
 
-Les autres types académiques réellement gérés sont `REPORT_PHASE_I`, `ORAL_PHASE_I` et `ORAL_PHASE_II`.
+L'évaluateur de rapports ne voit que `REPORT_PHASE_I` et `REPORT_PHASE_II`. Le compte `demo.faculty@squ.edu.om` est réservé aux soutenances `ORAL_PHASE_I` et `ORAL_PHASE_II`.
 
 ### 5.8 Représentant industriel : Demo Day
 
@@ -615,7 +617,7 @@ Pour remettre uniquement le workflow des trois projets préparés à son état i
 
 ### Implémenté et démontrable
 
-- authentification et redirection selon cinq rôles ;
+- authentification et redirection selon six rôles ;
 - sessions séparées, déconnexion, dashboards et menus par rôle ;
 - CRUD utilisateurs, étudiants, évaluateurs, filières, projets, équipes, phases et modèles ;
 - import CSV/XLSX officiel des étudiants avec aperçu et validation ;

@@ -90,7 +90,7 @@ public class DeadlineReminderService {
 
     private String evaluationView(User user) {
         return switch (user.getRole()) {
-            case SUPERVISOR, FACULTY_EVALUATOR, INDUSTRY_REPRESENTATIVE -> "evaluations";
+            case SUPERVISOR, REPORT_EVALUATOR, FACULTY_EVALUATOR, INDUSTRY_REPRESENTATIVE -> "evaluations";
             default -> "dashboard";
         };
     }

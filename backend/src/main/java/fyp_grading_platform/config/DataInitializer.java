@@ -60,11 +60,86 @@ public class DataInitializer {
             for (EvaluationType type : EvaluationType.values()) {
                 if (type == EvaluationType.DEMO_DAY_INDUSTRY) {
                     ensureIndustryGuestForm(forms, criteria);
+                } else if (type == EvaluationType.REPORT_PHASE_I || type == EvaluationType.REPORT_PHASE_II) {
+                    ensureReportForm(type, forms, criteria);
                 } else {
                     ensureDefaultForm(type, forms, criteria);
                 }
             }
         };
+    }
+
+    private void ensureReportForm(
+            EvaluationType type,
+            EvaluationFormTemplateRepository forms,
+            RubricCriterionRepository criteria
+    ) {
+        List<EvaluationFormTemplate> existingForms = forms.findByEvaluationType(type);
+        EvaluationFormTemplate officialForm = existingForms.stream()
+                .filter(EvaluationFormTemplate::isActive)
+                .filter(form -> isOfficialReportRubric(
+                        criteria.findByFormTemplateIdOrderByDisplayOrderAsc(form.getId())))
+                .findFirst()
+                .orElse(null);
+
+        if (officialForm != null) {
+            existingForms.stream()
+                    .filter(EvaluationFormTemplate::isActive)
+                    .filter(form -> !form.getId().equals(officialForm.getId()))
+                    .forEach(form -> {
+                        form.setActive(false);
+                        forms.save(form);
+                    });
+            officialForm.setName(type == EvaluationType.REPORT_PHASE_I
+                    ? "FYP I Paper Report Evaluation"
+                    : "FYP II Paper Report Evaluation");
+            officialForm.setDescription("Official paper report rubric. Ten criteria are scored out of 10; criterion 4 counts twice.");
+            officialForm.setTotalWeight(11);
+            forms.save(officialForm);
+            return;
+        }
+
+        existingForms.stream()
+                .filter(EvaluationFormTemplate::isActive)
+                .forEach(form -> {
+                    form.setActive(false);
+                    forms.save(form);
+                });
+
+        EvaluationFormTemplate form = new EvaluationFormTemplate();
+        form.setName(type == EvaluationType.REPORT_PHASE_I
+                ? "FYP I Paper Report Evaluation"
+                : "FYP II Paper Report Evaluation");
+        form.setEvaluationType(type);
+        form.setPhaseType(type == EvaluationType.REPORT_PHASE_I ? PhaseType.PHASE_I : PhaseType.PHASE_II);
+        form.setDescription("Official paper report rubric. Ten criteria are scored out of 10; criterion 4 counts twice.");
+        form.setTotalWeight(11);
+        form = forms.save(form);
+
+        seedCriterion(criteria, form, "Identify and state a complex engineering problem (1.a)", 10, 1, 1);
+        seedCriterion(criteria, form, "Formulate the complex engineering problem using diagrams, equations or flowcharts (1.b)", 10, 1, 2);
+        seedCriterion(criteria, form, "Specify the design requirements and constraints of the complex engineering problem (2.a)", 10, 1, 3);
+        seedCriterion(criteria, form, "Analyze and produce solutions using alternatives, mathematical formulation, simulations or implementations (1.c)", 10, 2, 4);
+        seedCriterion(criteria, form, "Develop and evaluate possible solutions under realistic constraints and engineering standards (2.b)", 10, 1, 5);
+        seedCriterion(criteria, form, "Select components, build and test the design, and produce the solution meeting the requirements (2.c)", 10, 1, 6);
+        seedCriterion(criteria, form, "Write a technical report with proper formatting and English (3.a)", 10, 1, 7);
+        seedCriterion(criteria, form, "Demonstrate understanding of professional ethics, citations and similarity requirements (4.a)", 10, 1, 8);
+        seedCriterion(criteria, form, "Evaluate professional ethics and global, economic, environmental and societal impacts (4.c)", 10, 1, 9);
+        seedCriterion(criteria, form, "Complete the proposed work", 10, 1, 10);
+    }
+
+    private boolean isOfficialReportRubric(List<RubricCriterion> criteria) {
+        if (criteria.size() != 10) return false;
+        double[] weights = {1, 1, 1, 2, 1, 1, 1, 1, 1, 1};
+        for (int index = 0; index < criteria.size(); index++) {
+            RubricCriterion criterion = criteria.get(index);
+            if (criterion.getDisplayOrder() != index + 1
+                    || Double.compare(criterion.getMaxScore(), 10) != 0
+                    || Double.compare(criterion.getWeight(), weights[index]) != 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void ensureDefaultForm(

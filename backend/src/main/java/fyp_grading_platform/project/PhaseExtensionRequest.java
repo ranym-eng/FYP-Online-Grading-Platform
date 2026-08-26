@@ -23,8 +23,6 @@ public class PhaseExtensionRequest extends BaseEntity {
     @Column(nullable = false, length = 2000)
     private String reason;
 
-    private LocalDateTime requestedDeadline;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ExtensionRequestStatus status = ExtensionRequestStatus.PENDING;

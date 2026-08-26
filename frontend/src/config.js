@@ -1,4 +1,4 @@
-export const ROLES = ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE', 'COORDINATOR']
+export const ROLES = ['ADMIN', 'SUPERVISOR', 'REPORT_EVALUATOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE', 'COORDINATOR']
 export const PHASE_TYPES = ['PHASE_I', 'PHASE_II']
 export const PHASE_STATUS = ['NOT_STARTED', 'OPEN', 'CLOSED', 'ARCHIVED']
 export const EVALUATION_TYPES = ['SUPERVISOR_PHASE_I', 'REPORT_PHASE_I', 'ORAL_PHASE_I', 'SUPERVISOR_PHASE_II', 'REPORT_PHASE_II', 'ORAL_PHASE_II', 'DEMO_DAY_INDUSTRY']
@@ -16,11 +16,17 @@ export const actorTemplates = {
     actions: ['Ouvrir les projets affectés', 'Enregistrer le brouillon', 'Valider la fiche'],
     panels: ['Projets affectés', 'Fiches du superviseur', 'État des validations'],
   },
+  REPORT_EVALUATOR: {
+    title: 'Espace évaluateur de rapports',
+    summary: 'Évaluation des rapports papier Report 1 et Report 2 pour les projets attribués.',
+    actions: ['Ouvrir les rapports attribués', 'Enregistrer le brouillon', 'Valider la fiche'],
+    panels: ['Rapports attribués', 'Report 1 et Report 2', 'Évaluations en attente'],
+  },
   FACULTY_EVALUATOR: {
     title: 'Espace évaluateur académique',
-    summary: 'Évaluation des rapports et soutenances pour FYP I et FYP II.',
-    actions: ['Évaluer le rapport', 'Évaluer la soutenance', 'Consulter les fiches soumises'],
-    panels: ['Fiches de rapport', 'Fiches de soutenance', 'Évaluations en attente'],
+    summary: 'Évaluation des soutenances orales pour FYP I et FYP II.',
+    actions: ['Évaluer la soutenance', 'Enregistrer le brouillon', 'Valider la fiche'],
+    panels: ['Soutenances attribuées', 'FYP I et FYP II', 'Évaluations en attente'],
   },
   INDUSTRY_REPRESENTATIVE: {
     title: 'Espace représentant industriel',
@@ -42,8 +48,8 @@ export const views = [
   { id: 'notifications', label: 'Notifications', roles: ROLES },
   { id: 'imports', label: 'Imports Excel', roles: ['ADMIN'] },
   { id: 'crud', label: 'Gestion des données', roles: ['ADMIN'] },
-  { id: 'evaluations', label: 'Évaluations', roles: ['SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
-  { id: 'extensions', label: 'Prolongations', roles: ['ADMIN', 'SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
+  { id: 'evaluations', label: 'Évaluations', roles: ['SUPERVISOR', 'REPORT_EVALUATOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
+  { id: 'extensions', label: 'Prolongations', roles: ['ADMIN', 'SUPERVISOR', 'REPORT_EVALUATOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
   { id: 'grading', label: 'Notes consolidees', roles: ['ADMIN', 'INDUSTRY_REPRESENTATIVE', 'COORDINATOR'] },
   { id: 'reports', label: 'Rapports', roles: ['ADMIN', 'COORDINATOR'] },
   { id: 'api', label: 'Console API', roles: ['ADMIN'] },
@@ -76,10 +82,10 @@ export const resourceConfigs = {
     ],
   },
   evaluators: {
-    title: 'Evaluators', endpoint: '/api/evaluators', subtitle: 'Supervisor, faculty and industry profiles.',
+    title: 'Evaluators', endpoint: '/api/evaluators', subtitle: 'Supervisor, report, oral and industry profiles.',
     columns: ['user', 'department', 'specialization', 'externalOrganization', 'external'],
     fields: [
-      { name: 'userId', label: 'Evaluator user', type: 'selectData', source: 'users', filterRoles: ['SUPERVISOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'], required: true },
+      { name: 'userId', label: 'Evaluator user', type: 'selectData', source: 'users', filterRoles: ['SUPERVISOR', 'REPORT_EVALUATOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'], required: true },
       { name: 'department', label: 'Department', defaultValue: 'Electrical Engineering' },
       { name: 'specialization', label: 'Specialization' },
       { name: 'externalOrganization', label: 'External organization' },

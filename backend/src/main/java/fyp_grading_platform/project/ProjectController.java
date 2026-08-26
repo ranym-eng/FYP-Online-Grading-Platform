@@ -276,9 +276,9 @@ public class ProjectController {
     private void assertEvaluationRole(UserRole role, EvaluationType type) {
         boolean valid = switch (role) {
             case INDUSTRY_REPRESENTATIVE -> type == EvaluationType.DEMO_DAY_INDUSTRY;
-            case FACULTY_EVALUATOR -> type == EvaluationType.REPORT_PHASE_I
-                    || type == EvaluationType.ORAL_PHASE_I
-                    || type == EvaluationType.REPORT_PHASE_II
+            case REPORT_EVALUATOR -> type == EvaluationType.REPORT_PHASE_I
+                    || type == EvaluationType.REPORT_PHASE_II;
+            case FACULTY_EVALUATOR -> type == EvaluationType.ORAL_PHASE_I
                     || type == EvaluationType.ORAL_PHASE_II;
             case SUPERVISOR -> type == EvaluationType.SUPERVISOR_PHASE_I
                     || type == EvaluationType.SUPERVISOR_PHASE_II;

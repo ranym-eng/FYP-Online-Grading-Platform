@@ -104,7 +104,7 @@
     color="#94A3B8";
     fillcolor="#F8FAFC";
 
-    UserRole [fillcolor="#F1F5F9", label="{<<enum>>\nUserRole|ADMIN\lSUPERVISOR\lFACULTY_EVALUATOR\lINDUSTRY_REPRESENTATIVE\lCOORDINATOR\l}"];
+    UserRole [fillcolor="#F1F5F9", label="{<<enum>>\nUserRole|ADMIN\lSUPERVISOR\lREPORT_EVALUATOR\lFACULTY_EVALUATOR\lINDUSTRY_REPRESENTATIVE\lCOORDINATOR\l}"];
     UserStatus [fillcolor="#F1F5F9", label="{<<enum>>\nUserStatus|ACTIVE\lINACTIVE\lSUSPENDED\l}"];
     PhaseType [fillcolor="#F1F5F9", label="{<<enum>>\nPhaseType|PHASE_I\lPHASE_II\l}"];
     PhaseStatus [fillcolor="#F1F5F9", label="{<<enum>>\nPhaseStatus|NOT_STARTED\lOPEN\lCLOSED\lARCHIVED\l}"];

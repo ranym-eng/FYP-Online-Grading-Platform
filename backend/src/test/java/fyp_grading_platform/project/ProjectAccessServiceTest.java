@@ -82,6 +82,25 @@ class ProjectAccessServiceTest {
         assertEquals("PROJECT_ACCESS_DENIED", exception.getErrorCode());
     }
 
+    @Test
+    void reportEvaluatorSeesOnlyReportAssignments() {
+        User actor = user(UserRole.REPORT_EVALUATOR);
+        EvaluatorProfile profile = profile(actor);
+        Project reportProject = project();
+        Project oralProject = project();
+        when(profiles.findByUserId(actor.getId())).thenReturn(Optional.of(profile));
+        when(evaluatorAssignments.findByEvaluatorIdAndActiveTrue(profile.getId())).thenReturn(List.of(
+                evaluatorAssignment(profile, reportProject, EvaluationType.REPORT_PHASE_II),
+                evaluatorAssignment(profile, oralProject, EvaluationType.ORAL_PHASE_II)
+        ));
+
+        assertEquals(List.of(reportProject), access.visibleProjects(actor));
+        assertEquals(
+                List.of(new ProjectEvaluationAccess(reportProject.getId(), EvaluationType.REPORT_PHASE_II)),
+                access.evaluationAssignments(actor)
+        );
+    }
+
     private User user(UserRole role) {
         User user = new User();
         user.setId(UUID.randomUUID());

@@ -273,12 +273,22 @@ public class EvaluationService {
     }
 
     void assertEvaluationScope(User actor, EvaluationType type, Phase phase) {
-        if (actor.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
-                && type != EvaluationType.DEMO_DAY_INDUSTRY) {
-            throw new BusinessException(
-                    "INDUSTRY_DEMO_DAY_ONLY",
-                    "Industry representatives can evaluate only the Demo Day form"
-            );
+        boolean allowed = switch (actor.getRole()) {
+            case ADMIN -> true;
+            case SUPERVISOR -> type == EvaluationType.SUPERVISOR_PHASE_I
+                    || type == EvaluationType.SUPERVISOR_PHASE_II;
+            case REPORT_EVALUATOR -> type == EvaluationType.REPORT_PHASE_I
+                    || type == EvaluationType.REPORT_PHASE_II;
+            case FACULTY_EVALUATOR -> type == EvaluationType.ORAL_PHASE_I
+                    || type == EvaluationType.ORAL_PHASE_II;
+            case INDUSTRY_REPRESENTATIVE -> type == EvaluationType.DEMO_DAY_INDUSTRY;
+            default -> false;
+        };
+        if (!allowed) {
+            String errorCode = actor.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
+                    ? "INDUSTRY_DEMO_DAY_ONLY"
+                    : "EVALUATION_ROLE_MISMATCH";
+            throw new BusinessException(errorCode, "This evaluation form is not available for your account role");
         }
 
         PhaseType expectedPhase = switch (type) {

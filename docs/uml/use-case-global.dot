@@ -21,14 +21,16 @@
   actor_eval [shape=box, style="rounded,filled", fillcolor="#E2E8F0", label="<<acteur abstrait>>\nEvaluateur"];
   actor_admin [shape=box, style="rounded,filled", fillcolor="#DBEAFE", label="<<acteur>>\nAdministrateur"];
   actor_supervisor [shape=box, style="rounded,filled", fillcolor="#DCFCE7", label="<<acteur>>\nSuperviseur"];
-  actor_faculty [shape=box, style="rounded,filled", fillcolor="#DCFCE7", label="<<acteur>>\nEvaluateur academique"];
+  actor_report [shape=box, style="rounded,filled", fillcolor="#DCFCE7", label="<<acteur>>\nEvaluateur de rapports"];
+  actor_faculty [shape=box, style="rounded,filled", fillcolor="#DCFCE7", label="<<acteur>>\nEvaluateur academique oral"];
   actor_industry [shape=box, style="rounded,filled", fillcolor="#FEF3C7", label="<<acteur>>\nRepresentant industriel"];
   actor_coordinator [shape=box, style="rounded,filled", fillcolor="#EDE9FE", label="<<acteur>>\nCoordinateur FYP"];
   actor_scheduler [shape=box, style="rounded,dashed,filled", fillcolor="#FFFFFF", label="<<systeme externe>>\nPlanificateur"];
   actor_mail [shape=box, style="rounded,dashed,filled", fillcolor="#FFFFFF", label="<<systeme externe>>\nServeur SMTP / Mailpit"];
 
-  { rank=same; actor_admin; actor_supervisor; actor_faculty; actor_industry; actor_coordinator; }
+  { rank=same; actor_admin; actor_supervisor; actor_report; actor_faculty; actor_industry; actor_coordinator; }
   actor_supervisor -> actor_eval [arrowhead=empty, label="generalisation"];
+  actor_report -> actor_eval [arrowhead=empty];
   actor_faculty -> actor_eval [arrowhead=empty];
   actor_industry -> actor_eval [arrowhead=empty];
   actor_eval -> actor_base [arrowhead=empty];
@@ -160,7 +162,7 @@
   actor_eval -> uc_history [dir=none];
   actor_eval -> uc_extension [dir=none];
   actor_supervisor -> uc_supervisor_forms [dir=none];
-  actor_faculty -> uc_report_forms [dir=none];
+  actor_report -> uc_report_forms [dir=none];
   actor_faculty -> uc_oral_forms [dir=none];
   actor_industry -> uc_demo_form [dir=none];
 

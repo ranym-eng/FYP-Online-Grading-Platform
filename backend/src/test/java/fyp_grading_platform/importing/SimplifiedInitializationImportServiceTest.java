@@ -52,7 +52,7 @@ class SimplifiedInitializationImportServiceTest {
         when(tracks.findByCode(anyString())).thenAnswer(invocation -> configuredTracks.stream()
                 .filter(track -> track.getCode().equals(invocation.getArgument(0)))
                 .findFirst());
-        Path template = Path.of("../frontend/public/modele_initialisation_plateforme_fyp.xlsx");
+        Path template = Path.of("../frontend/public/modele_initialisation_plateforme_fyp_v3.xlsx");
         MockMultipartFile workbook = new MockMultipartFile(
                 "file",
                 template.getFileName().toString(),
@@ -63,9 +63,9 @@ class SimplifiedInitializationImportServiceTest {
         InitializationImportReport report = service().preview(workbook);
 
         assertTrue(report.importable(), () -> "Template errors: " + report.errors());
-        assertEquals(7, report.sheets().size());
-        assertEquals(32, report.totalRows());
-        assertEquals(32, report.validRows());
+        assertEquals(8, report.sheets().size());
+        assertEquals(35, report.totalRows());
+        assertEquals(35, report.validRows());
     }
 
     private SimplifiedInitializationImportService service() {

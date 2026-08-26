@@ -70,9 +70,9 @@ const presentationTemplate = {
 
 const reportTemplate = {
   kind: 'report',
-  label: 'Rapport technique',
-  shortFormula: 'Somme pondérée ÷ 11',
-  sections: [{ id: 'group', label: 'Évaluation commune du rapport', target: 'group', criteria: reportCriteria }],
+  label: 'Rapport papier',
+  shortFormula: '(C1 + C2 + C3 + 2×C4 + C5…C10) ÷ 11',
+  sections: [{ id: 'group', label: 'Évaluation du rapport du projet', target: 'group', criteria: reportCriteria }],
 }
 
 const supervisorTemplate = {

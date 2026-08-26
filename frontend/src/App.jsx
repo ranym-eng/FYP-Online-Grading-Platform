@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Bell, Building2, CheckCheck, CheckCircle2, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, RefreshCw, Send, ShieldCheck, Trash2, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { ArrowRight, Bell, Building2, CheckCheck, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, X } from 'lucide-react'
 import squLogo from './assets/Sultan_Qaboos_University_Logo.png'
 import squMark from './assets/sultan-qaboos-university-logo-png_seeklogo-271991.png'
 import { apiRequest, downloadFile, itemName, pretty, unwrapList } from './api.js'
@@ -10,10 +11,10 @@ import { AppSkeleton, CalendarView, ErrorState, GlobalSearch, MetricIcon, Profil
 import './App.css'
 import './design-system.css'
 
-const seedProjectId = '50000000-0000-0000-0000-000000000001'
 const homeViewByRole = {
   ADMIN: 'dashboard',
   SUPERVISOR: 'dashboard',
+  REPORT_EVALUATOR: 'dashboard',
   FACULTY_EVALUATOR: 'dashboard',
   INDUSTRY_REPRESENTATIVE: 'dashboard',
   COORDINATOR: 'dashboard',
@@ -33,6 +34,14 @@ function phaseTypeForEvaluation(evaluationType) {
   return ['SUPERVISOR_PHASE_I', 'REPORT_PHASE_I', 'ORAL_PHASE_I'].includes(evaluationType)
     ? 'PHASE_I'
     : 'PHASE_II'
+}
+
+function evaluationTypesForRole(role) {
+  if (role === 'SUPERVISOR') return ['SUPERVISOR_PHASE_I', 'SUPERVISOR_PHASE_II']
+  if (role === 'REPORT_EVALUATOR') return ['REPORT_PHASE_I', 'REPORT_PHASE_II']
+  if (role === 'FACULTY_EVALUATOR') return ['ORAL_PHASE_I', 'ORAL_PHASE_II']
+  if (role === 'INDUSTRY_REPRESENTATIVE') return ['DEMO_DAY_INDUSTRY']
+  return EVALUATION_TYPES
 }
 
 function initialTheme() {
@@ -131,12 +140,15 @@ function LanguageSwitcher({ language, setLanguage }) {
 }
 
 function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, setTheme }) {
-  const initialInvitationToken = new URL(window.location.href).searchParams.get('industryInvitation') || ''
+  const initialUrl = new URL(window.location.href)
+  const initialInvitationToken = initialUrl.searchParams.get('industryInvitation') || ''
+  const initialResetToken = initialUrl.searchParams.get('resetToken') || ''
   const [busy, setBusy] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [mode, setMode] = useState(() => initialInvitationToken ? 'activate' : 'login')
+  const [mode, setMode] = useState(() => initialInvitationToken ? 'activate' : initialResetToken ? 'reset' : 'login')
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
-  const [recovery, setRecovery] = useState({ email: '', token: '', newPassword: '' })
+  const [recovery, setRecovery] = useState({ email: '', token: initialResetToken, newPassword: '', confirmPassword: '' })
+  const [recoverySent, setRecoverySent] = useState(false)
   const [activation, setActivation] = useState(() => ({ token: initialInvitationToken, newPassword: '', confirmPassword: '' }))
   const [ssoConfig, setSsoConfig] = useState({ enabled: false, loginUrl: null, localInternalLoginEnabled: false })
   const authLinkHandled = useRef(false)
@@ -160,13 +172,14 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
     if (authLinkHandled.current) return
     const url = new URL(window.location.href)
     const invitationToken = url.searchParams.get('industryInvitation')
+    const resetToken = url.searchParams.get('resetToken')
     const ssoCode = url.searchParams.get('ssoCode')
     const ssoError = url.searchParams.get('ssoError')
-    if (!invitationToken && !ssoCode && !ssoError) return
+    if (!invitationToken && !resetToken && !ssoCode && !ssoError) return
     authLinkHandled.current = true
-    ;['industryInvitation', 'ssoCode', 'ssoError'].forEach((name) => url.searchParams.delete(name))
+    ;['industryInvitation', 'resetToken', 'ssoCode', 'ssoError'].forEach((name) => url.searchParams.delete(name))
     window.history.replaceState({}, document.title, url.pathname + url.search + url.hash)
-    if (invitationToken) {
+    if (invitationToken || resetToken) {
       return
     }
     if (ssoError) {
@@ -197,8 +210,8 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
     setBusy(true)
     try {
       await apiRequest('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: recovery.email }) })
-      setMode('reset')
-      notify('Un jeton de réinitialisation a été envoyé. En local, consultez Mailpit.')
+      setRecoverySent(true)
+      notify('Si ce compte est éligible, un lien de réinitialisation vient d’être envoyé.')
     } catch (error) {
       notify(error.message, 'danger')
     } finally {
@@ -208,11 +221,16 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
 
   async function resetPassword(event) {
     event.preventDefault()
+    if (recovery.newPassword !== recovery.confirmPassword) {
+      notify('Les deux mots de passe ne correspondent pas.', 'danger')
+      return
+    }
     setBusy(true)
     try {
       await apiRequest('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: recovery.token, newPassword: recovery.newPassword }) })
       setLoginForm({ email: recovery.email, password: '' })
-      setRecovery({ email: '', token: '', newPassword: '' })
+      setRecovery({ email: '', token: '', newPassword: '', confirmPassword: '' })
+      setRecoverySent(false)
       setMode('login')
       notify('Mot de passe réinitialisé. Vous pouvez vous connecter.')
     } catch (error) {
@@ -250,14 +268,14 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
     window.location.assign(ssoConfig.loginUrl)
   }
 
-  const heading = mode === 'login' ? 'Bienvenue' : mode === 'forgot' ? 'Récupérer le compte' : mode === 'activate' ? 'Activer votre invitation' : 'Nouveau mot de passe'
+  const heading = mode === 'login' ? 'Bienvenue' : mode === 'forgot' ? 'Récupérer le compte' : mode === 'activate' ? 'Activer votre invitation' : 'Créer un nouveau mot de passe'
   const description = mode === 'login'
-    ? 'Utilisez votre identité institutionnelle SQU ou votre accès Industry Guest.'
+    ? ''
     : mode === 'forgot'
       ? 'Saisissez l’adresse du compte importé par l’administration.'
       : mode === 'activate'
         ? 'Choisissez le mot de passe associé à votre invitation temporaire.'
-        : 'Saisissez le jeton reçu par e-mail et choisissez un nouveau mot de passe.'
+        : 'Le lien est valide une seule fois. Choisissez maintenant votre nouveau mot de passe.'
 
   return <main className="auth-screen">
     <section className="auth-visual">
@@ -265,8 +283,6 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
       <div className="auth-copy page-enter">
         <div className="auth-kicker"><ShieldCheck size={17} /><span>Département de génie électrique et informatique</span></div>
         <h1>Final Year<br />Grading</h1>
-        <p>Une plateforme institutionnelle pour orchestrer les projets, les jurys et les évaluations FYP I et FYP II avec précision.</p>
-        <div className="auth-proof"><span><strong>2</strong> phases académiques</span><span><strong>7</strong> grilles officielles</span><span><strong>5</strong> espaces sécurisés</span></div>
       </div>
       <div className="auth-photo-credit"><span>Exposition annuelle des projets FYP</span><strong>Sultan Qaboos University</strong></div>
     </section>
@@ -275,7 +291,7 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
         <div className="auth-panel-tools"><ThemeToggle theme={theme} setTheme={setTheme} compact /><LanguageSwitcher language={language} setLanguage={setLanguage} /></div>
         <div className="brand-badge"><img src={squMark} alt="SQU" /><div><span>Portail académique sécurisé</span><small>College of Engineering</small></div></div>
         <form className="stack-form auth-form" onSubmit={mode === 'login' ? login : mode === 'forgot' ? requestReset : mode === 'activate' ? activateIndustryGuest : resetPassword}>
-          <div className="auth-form-heading"><span className="eyebrow">Accès institutionnel</span><h2>{heading}</h2><p>{description}</p></div>
+          <div className="auth-form-heading"><h2>{heading}</h2>{description && <p>{description}</p>}</div>
           {mode === 'login' && <>
             <button className="sso-login-button" type="button" onClick={startSso} aria-disabled={!ssoConfig.enabled}>
               <Building2 size={20} /><span><strong>Se connecter avec le compte SQU</strong><small>{ssoConfig.enabled ? 'Single Sign-On institutionnel' : 'Disponible après configuration SQU'}</small></span><ArrowRight size={18} />
@@ -284,13 +300,13 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
             <AuthField icon={Mail} label="Adresse e-mail" type="email" value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" />
             <AuthField icon={ShieldCheck} label="Mot de passe" type={showPassword ? 'text' : 'password'} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} />
           </>}
-          {mode === 'forgot' && <AuthField icon={Mail} label="Adresse e-mail" type="email" value={recovery.email} onChange={(email) => setRecovery({ ...recovery, email })} autoComplete="email" />}
-          {mode === 'reset' && <><AuthField icon={ShieldCheck} label="Jeton reçu" type="text" value={recovery.token} onChange={(token) => setRecovery({ ...recovery, token })} autoComplete="one-time-code" /><AuthField icon={ShieldCheck} label="Nouveau mot de passe" type="password" minLength="8" value={recovery.newPassword} onChange={(newPassword) => setRecovery({ ...recovery, newPassword })} autoComplete="new-password" /></>}
+          {mode === 'forgot' && !recoverySent && <><AuthField icon={Mail} label="Adresse e-mail" type="email" value={recovery.email} onChange={(email) => setRecovery({ ...recovery, email })} autoComplete="email" /><div className="auth-context-note"><KeyRound size={16} /><span>Industry Guest ou démonstration locale.</span></div></>}
+          {mode === 'forgot' && recoverySent && <div className="auth-success-state"><span><CheckCircle2 size={22} /></span><div><strong>Consultez votre boîte e-mail</strong><p>Un lien sera envoyé si le compte est éligible.</p></div></div>}
+          {mode === 'reset' && <><AuthField icon={KeyRound} label="Nouveau mot de passe" type="password" minLength="8" value={recovery.newPassword} onChange={(newPassword) => setRecovery({ ...recovery, newPassword })} autoComplete="new-password" /><AuthField icon={ShieldCheck} label="Confirmer le mot de passe" type="password" minLength="8" value={recovery.confirmPassword} onChange={(confirmPassword) => setRecovery({ ...recovery, confirmPassword })} autoComplete="new-password" /></>}
           {mode === 'activate' && <><AuthField icon={KeyRound} label="Nouveau mot de passe" type="password" minLength="8" value={activation.newPassword} onChange={(newPassword) => setActivation({ ...activation, newPassword })} autoComplete="new-password" /><AuthField icon={ShieldCheck} label="Confirmer le mot de passe" type="password" minLength="8" value={activation.confirmPassword} onChange={(confirmPassword) => setActivation({ ...activation, confirmPassword })} autoComplete="new-password" /></>}
-          <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Traitement…</> : <>{mode === 'login' ? 'Se connecter' : mode === 'forgot' ? 'Envoyer le jeton' : mode === 'activate' ? 'Activer et ouvrir mon espace' : 'Changer le mot de passe'}<ArrowRight size={18} /></>}</button>
-          {mode === 'login' ? <button className="auth-link" type="button" onClick={() => { setRecovery((current) => ({ ...current, email: loginForm.email })); setMode('forgot') }}>Mot de passe oublié ?</button> : <button className="auth-link" type="button" onClick={() => setMode('login')}>Retour à la connexion</button>}
-          <div className="auth-security-note"><ShieldCheck size={16} /><span>Session personnelle, accès contrôlé par rôle et traçabilité des actions.</span></div>
-          {mode === 'login' && ssoConfig.localInternalLoginEnabled && <div className="demo-account"><span>Compte de démonstration locale</span><strong>admin@squ.edu.om</strong><code>Admin@123</code></div>}
+          {!(mode === 'forgot' && recoverySent) && <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Traitement…</> : <>{mode === 'login' ? 'Se connecter' : mode === 'forgot' ? 'Envoyer le lien' : mode === 'activate' ? 'Activer et ouvrir mon espace' : 'Enregistrer le mot de passe'}<ArrowRight size={18} /></>}</button>}
+          {mode === 'forgot' && recoverySent && <button className="soft-button auth-submit" type="button" onClick={() => setRecoverySent(false)}>Utiliser une autre adresse</button>}
+          {mode === 'login' ? <button className="auth-link" type="button" onClick={() => { setRecovery((current) => ({ ...current, email: loginForm.email })); setRecoverySent(false); setMode('forgot') }}>Mot de passe oublié ?</button> : <button className="auth-link" type="button" onClick={() => { setRecoverySent(false); setMode('login') }}>Retour à la connexion</button>}
         </form>
       </section>
     </div>
@@ -311,6 +327,9 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed)
   const [sidebarClock, setSidebarClock] = useState(() => Date.now())
   const [profileOpen, setProfileOpen] = useState(false)
+  const [notificationOpen, setNotificationOpen] = useState(false)
+  const [searchTarget, setSearchTarget] = useState(null)
+  const notificationMenuRef = useRef(null)
   const activeRole = normalizeRole(session.role)
   const allowedViews = views.filter((view) => view.roles.includes(activeRole))
   const activeViewLabel = allowedViews.find((view) => view.id === activeView)?.label || 'Espace FYP'
@@ -328,7 +347,30 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
   const loadCore = useCallback(async () => {
     setLoading(true)
     setError('')
-    const endpoints = [['users','/api/users'],['students','/api/students'],['evaluators','/api/evaluators'],['tracks','/api/tracks'],['projects','/api/projects'],['projectAssignments','/api/projects/my-evaluation-assignments'],['teams','/api/teams'],['phases','/api/phases'],['forms','/api/evaluation-forms'],['reports','/api/reports'],['notifications','/api/notifications'],['audit','/api/audit'],['grades','/api/grades/project/' + seedProjectId]]
+    const commonEndpoints = [
+      ['tracks', '/api/tracks'],
+      ['projects', '/api/projects'],
+      ['projectAssignments', '/api/projects/my-evaluation-assignments'],
+      ['teams', '/api/teams'],
+      ['phases', '/api/phases'],
+      ['forms', '/api/evaluation-forms'],
+    ]
+    const evaluatorEndpoints = ['SUPERVISOR', 'REPORT_EVALUATOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'].includes(activeRole)
+      ? [['evaluators', '/api/evaluators/me']]
+      : []
+    const managementEndpoints = activeRole === 'ADMIN'
+      ? [
+          ['users', '/api/users'],
+          ['students', '/api/students'],
+          ['evaluators', '/api/evaluators'],
+          ['reports', '/api/reports'],
+          ['notifications', '/api/notifications'],
+          ['audit', '/api/audit'],
+        ]
+      : activeRole === 'COORDINATOR'
+        ? [['reports', '/api/reports'], ['audit', '/api/audit']]
+        : []
+    const endpoints = [...commonEndpoints, ...evaluatorEndpoints, ...managementEndpoints]
     try {
       const pairs = await Promise.all(endpoints.map(async ([key, path]) => {
         try { return [key, unwrapList(await request(path))] } catch { return [key, []] }
@@ -339,7 +381,7 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
     } finally {
       setLoading(false)
     }
-  }, [request])
+  }, [activeRole, request])
 
   useEffect(() => {
     const timer = window.setTimeout(loadCore, 0)
@@ -377,10 +419,27 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
       window.removeEventListener('keydown', closeOnEscape)
     }
   }, [sidebarOpen])
+  useEffect(() => {
+    if (!notificationOpen) return undefined
+    const closeOutside = (event) => {
+      if (!notificationMenuRef.current?.contains(event.target)) setNotificationOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setNotificationOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOutside)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [notificationOpen])
 
-  function navigate(view) {
+  function navigate(view, target = null) {
+    setSearchTarget(target ? { ...target, nonce: Date.now() } : null)
     setActiveView(view)
     setSidebarOpen(false)
+    setNotificationOpen(false)
   }
 
   let activeContent = <ErrorState notFound message="Le module demandé n’est pas disponible pour cette session." onRetry={() => navigate('dashboard')} />
@@ -388,11 +447,11 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
   if (activeView === 'calendar') activeContent = <CalendarView phases={datasets.phases || []} />
   if (activeView === 'notifications') activeContent = <NotificationCenter notifications={personalNotifications} request={request} reload={loadPersonalNotifications} notify={notify} setActiveView={navigate} allowedViews={allowedViews} />
   if (activeView === 'imports') activeContent = <ImportCenter request={request} notify={notify} reload={loadCore} />
-  if (activeView === 'crud') activeContent = <CrudStudio datasets={datasets} request={request} reload={loadCore} notify={notify} />
-  if (activeView === 'evaluations') activeContent = <EvaluationStudio datasets={datasets} request={request} notify={notify} activeRole={activeRole} session={session} />
+  if (activeView === 'crud') activeContent = <CrudStudio datasets={datasets} request={request} reload={loadCore} notify={notify} searchTarget={searchTarget} />
+  if (activeView === 'evaluations') activeContent = <EvaluationStudio datasets={datasets} request={request} notify={notify} activeRole={activeRole} session={session} initialProjectId={searchTarget?.projectId} />
   if (activeView === 'extensions') activeContent = <ExtensionRequestCenter datasets={datasets} request={request} notify={notify} activeRole={activeRole} />
-  if (activeView === 'grading') activeContent = <GradingCenter datasets={datasets} request={request} reload={loadCore} notify={notify} activeRole={activeRole} token={session.token} />
-  if (activeView === 'reports') activeContent = <ReportCenter datasets={datasets} request={request} reload={loadCore} notify={notify} token={session.token} />
+  if (activeView === 'grading') activeContent = <GradingCenter datasets={datasets} request={request} reload={loadCore} notify={notify} activeRole={activeRole} token={session.token} initialProjectId={searchTarget?.projectId} />
+  if (activeView === 'reports') activeContent = <ReportCenter datasets={datasets} request={request} reload={loadCore} notify={notify} token={session.token} initialProjectId={searchTarget?.projectId} />
   if (activeView === 'api') activeContent = <ApiConsole request={request} notify={notify} />
 
   const initialLoading = loading && Object.keys(datasets).length === 0
@@ -445,20 +504,66 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
         <GlobalSearch allowedViews={allowedViews} datasets={datasets} onNavigate={navigate} />
         <div className="topbar-actions">
           <button type="button" className={'icon-button ' + (loading ? 'is-loading' : '')} onClick={() => { loadCore(); loadPersonalNotifications() }} title="Actualiser" aria-label="Actualiser"><RefreshCw size={18} /></button>
-          <button type="button" className={'notification-button ' + (activeView === 'notifications' ? 'active' : '')} onClick={() => navigate('notifications')} title="Notifications" aria-label="Notifications"><Bell size={19} />{unreadCount > 0 && <span className="notification-badge">{Math.min(99, unreadCount)}</span>}</button>
+          <div className="notification-menu" ref={notificationMenuRef}>
+            <button type="button" className={'notification-button ' + (notificationOpen ? 'active' : '')} onClick={() => setNotificationOpen((current) => !current)} title="Notifications" aria-label="Notifications" aria-expanded={notificationOpen} aria-haspopup="dialog"><Bell size={19} />{unreadCount > 0 && <span className="notification-badge">{Math.min(99, unreadCount)}</span>}</button>
+            {notificationOpen && <NotificationPopover notifications={personalNotifications} request={request} reload={loadPersonalNotifications} notify={notify} onNavigate={navigate} onClose={() => setNotificationOpen(false)} allowedViews={allowedViews} />}
+          </div>
           <ThemeToggle theme={theme} setTheme={setTheme} compact />
           <LanguageSwitcher language={language} setLanguage={setLanguage} />
           <button type="button" className="user-chip" onClick={() => setProfileOpen(true)}><span>{String(session.fullName || session.email || 'S').slice(0, 1).toUpperCase()}</span><div><strong>{session.fullName || 'Utilisateur SQU'}</strong><small>{pretty(activeRole)}</small></div></button>
         </div>
       </header>
       {loading && !initialLoading && <div className="loading-bar"><span /></div>}
-      <section className="workspace-content" key={activeView}>
+      <section className="workspace-content" key={activeView + '-' + (searchTarget?.nonce || 'default')}>
         {initialLoading ? <AppSkeleton /> : error ? <ErrorState message={error} onRetry={loadCore} /> : activeContent}
       </section>
     </main>
     <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} session={session} request={request} notify={notify} theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} onLogout={onLogout} roleLabel={actorTemplates[activeRole]?.title || pretty(activeRole)} />
     {toast && <Toast {...toast} />}
   </div>
+}
+function NotificationPopover({ notifications, request, reload, notify, onNavigate, onClose, allowedViews }) {
+  const allowedViewIds = new Set(allowedViews.map((view) => view.id))
+  const recent = notifications.slice(0, 6)
+  const unreadCount = notifications.filter((item) => !item.readAt).length
+
+  async function markAllRead() {
+    try {
+      await request('/api/notifications/me/read-all', { method: 'PATCH' })
+      await reload()
+    } catch (error) {
+      notify(error.message, 'danger')
+    }
+  }
+
+  async function openItem(notification) {
+    try {
+      if (!notification.readAt) {
+        await request('/api/notifications/' + notification.id + '/read', { method: 'PATCH' })
+        await reload()
+      }
+      const destination = notification.actionView && allowedViewIds.has(notification.actionView)
+        ? notification.actionView
+        : 'notifications'
+      onClose()
+      onNavigate(destination)
+    } catch (error) {
+      notify(error.message, 'danger')
+    }
+  }
+
+  return <section className="notification-popover" role="dialog" aria-label="Notifications récentes">
+    <header><div><h2>Notifications</h2><span>{unreadCount ? unreadCount + ' non lue' + (unreadCount === 1 ? '' : 's') : 'Vous êtes à jour'}</span></div>{unreadCount > 0 && <button type="button" onClick={markAllRead} title="Tout marquer comme lu" aria-label="Tout marquer comme lu"><CheckCheck size={18} /></button>}</header>
+    <div className="notification-preview-list">
+      {!recent.length && <div className="notification-popover-empty"><Bell size={24} /><strong>Aucune notification</strong><span>Les alertes importantes apparaîtront ici.</span></div>}
+      {recent.map((notification) => <button type="button" key={notification.id} className={'notification-preview ' + (notification.readAt ? 'read' : 'unread')} onClick={() => openItem(notification)}>
+        <span className={'notification-preview-icon ' + String(notification.severity || 'INFO').toLowerCase()}><Bell size={17} /></span>
+        <span className="notification-preview-copy"><strong>{notification.subject}</strong><small>{notification.body}</small><time>{formatDateTime(notification.createdAt || notification.sentAt)}</time></span>
+        {!notification.readAt && <i aria-label="Non lue" />}
+      </button>)}
+    </div>
+    <footer><button type="button" onClick={() => onNavigate('notifications')}>Voir toutes les notifications<ArrowRight size={16} /></button></footer>
+  </section>
 }
 function NotificationCenter({ notifications, request, reload, notify, setActiveView, allowedViews }) {
   const allowedViewIds = new Set(allowedViews.map((view) => view.id))
@@ -493,7 +598,7 @@ function NotificationCenter({ notifications, request, reload, notify, setActiveV
 
   return <section className="notification-center">
     <div className="section-head notification-heading">
-      <div><span className="eyebrow">Centre personnel</span><h2>Notifications</h2><p>Alertes d’échéance, décisions de prolongation et messages destinés à votre compte.</p></div>
+      <div><h2>Notifications</h2></div>
       <div className="notification-summary"><strong>{unreadCount}</strong><span>non lue{unreadCount === 1 ? '' : 's'}</span><button type="button" className="soft-button" onClick={markAllRead} disabled={!unreadCount}><CheckCheck size={17} />Tout marquer comme lu</button></div>
     </div>
     {!notifications.length && <EmptyState title="Aucune notification" detail="Vos prochaines alertes apparaîtront ici." />}
@@ -509,21 +614,25 @@ function NotificationCenter({ notifications, request, reload, notify, setActiveV
 function Dashboard({ datasets, request, activeRole, notify, setActiveView, allowedViews }) {
   const [summary, setSummary] = useState(null)
   const [pending, setPending] = useState([])
+  const [detailModal, setDetailModal] = useState(null)
   const allowedViewIds = new Set(allowedViews.map((view) => view.id))
 
   useEffect(() => {
-    Promise.allSettled([request('/api/dashboard/admin/summary'), request('/api/dashboard/admin/pending-evaluations')]).then(([a, b]) => {
+    Promise.allSettled([request('/api/dashboard/me/summary'), request('/api/dashboard/me/pending-evaluations')]).then(([a, b]) => {
       if (a.status === 'fulfilled') setSummary(a.value.data)
       if (b.status === 'fulfilled') setPending(unwrapList(b.value))
     }).catch((error) => notify(error.message, 'danger'))
   }, [notify, request])
 
-  const demoForms = (datasets.forms || []).filter((form) => form.evaluationType === 'DEMO_DAY_INDUSTRY')
+  const activeForms = (datasets.forms || []).filter((form) => form.active !== false)
+  const demoForms = activeForms.filter((form) => form.evaluationType === 'DEMO_DAY_INDUSTRY')
+  const reportForms = activeForms.filter((form) => ['REPORT_PHASE_I', 'REPORT_PHASE_II'].includes(form.evaluationType))
+  const oralForms = activeForms.filter((form) => ['ORAL_PHASE_I', 'ORAL_PHASE_II'].includes(form.evaluationType))
   const dashboard = {
     ADMIN: {
       title: 'Tableau de bord administrateur',
       description: 'Pilotage global de la plateforme: comptes, projets, equipes, phases, evaluations, notes et rapports.',
-      metrics: [['Utilisateurs', summary?.users ?? datasets.users?.length ?? 0], ['Projets', summary?.projects ?? datasets.projects?.length ?? 0], ['evaluations', summary?.evaluations ?? pending.length], ['Rapports', datasets.reports?.length ?? 0]],
+      metrics: [['Utilisateurs', summary?.users ?? datasets.users?.length ?? 0], ['Projets', summary?.projects ?? datasets.projects?.length ?? 0], ['Évaluations', summary?.evaluations ?? pending.length], ['Rapports', summary?.reports ?? datasets.reports?.length ?? 0]],
       actions: [['Gestion des donnees', 'crud'], ['Imports Excel', 'imports'], ['evaluations', 'evaluations'], ['Demandes de prolongation', 'extensions'], ['Notes', 'grading'], ['Rapports', 'reports'], ['Console API', 'api']],
       primaryTitle: 'evaluations en attente', primaryRows: pending.slice(0, 8), primaryColumns: ['evaluationType','status','project','evaluator','updatedAt'],
       secondaryTitle: 'Projets actifs', secondaryRows: datasets.projects || [], secondaryColumns: ['title','academicYear','status','track'],
@@ -531,23 +640,31 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
     SUPERVISOR: {
       title: 'Tableau de bord superviseur',
       description: 'Suivi des projets encadres et saisie des fiches superviseur Phase I et Phase II.',
-      metrics: [['Projets assignes', datasets.projects?.length ?? 0], ['Fiches a remplir', pending.length], ['Templates', datasets.forms?.length ?? 0], ['Deadlines', datasets.phases?.length ?? 0]],
+      metrics: [['Projets assignés', summary?.projects ?? datasets.projects?.length ?? 0], ['Fiches à remplir', summary?.pendingEvaluations ?? pending.length], ['Fiches validées', summary?.submittedEvaluations ?? 0], ['Phases ouvertes', summary?.openPhases ?? 0]],
       actions: [['Ouvrir les evaluations', 'evaluations'], ['Demander une prolongation', 'extensions'], ['Actualiser les deadlines', 'dashboard']],
       primaryTitle: 'Projets assignes', primaryRows: datasets.projects || [], primaryColumns: ['title','academicYear','status','track'],
       secondaryTitle: 'evaluations a traiter', secondaryRows: pending.slice(0, 8), secondaryColumns: ['evaluationType','status','project','evaluator','updatedAt'],
     },
     FACULTY_EVALUATOR: {
       title: 'Tableau de bord evaluateur academique',
-      description: 'evaluation des rapports et soutenances avec brouillon, validation et verrouillage.',
-      metrics: [['Projets assignes', datasets.projects?.length ?? 0], ['Rapports/oraux', pending.length], ['Templates actifs', datasets.forms?.length ?? 0], ['Phases', datasets.phases?.length ?? 0]],
-      actions: [['Evaluer rapport/oral', 'evaluations'], ['Demander une prolongation', 'extensions'], ['Voir les deadlines', 'dashboard']],
-      primaryTitle: 'Formulaires disponibles', primaryRows: datasets.forms || [], primaryColumns: ['name','evaluationType','phaseType','active'],
+      description: 'Evaluation des soutenances orales avec brouillon, validation et verrouillage.',
+      metrics: [['Projets assignés', summary?.projects ?? datasets.projects?.length ?? 0], ['Soutenances à traiter', summary?.pendingEvaluations ?? pending.length], ['Fiches validées', summary?.submittedEvaluations ?? 0], ['Phases ouvertes', summary?.openPhases ?? 0]],
+      actions: [['Evaluer une soutenance', 'evaluations'], ['Demander une prolongation', 'extensions'], ['Voir les deadlines', 'dashboard']],
+      primaryTitle: 'Formulaires de soutenance', primaryRows: oralForms, primaryColumns: ['name','evaluationType','phaseType','active'],
       secondaryTitle: 'evaluations en attente', secondaryRows: pending.slice(0, 8), secondaryColumns: ['evaluationType','status','project','evaluator','updatedAt'],
+    },
+    REPORT_EVALUATOR: {
+      title: 'Tableau de bord évaluateur de rapports',
+      description: 'Notation des rapports papier Report 1 et Report 2 pour les projets attribués.',
+      metrics: [['Projets assignés', summary?.projects ?? datasets.projects?.length ?? 0], ['Rapports à traiter', summary?.pendingEvaluations ?? pending.length], ['Fiches validées', summary?.submittedEvaluations ?? 0], ['Phases ouvertes', summary?.openPhases ?? 0]],
+      actions: [['Évaluer un rapport', 'evaluations'], ['Demander une prolongation', 'extensions'], ['Voir les échéances', 'calendar']],
+      primaryTitle: 'Formulaires de rapport', primaryRows: reportForms, primaryColumns: ['name','evaluationType','phaseType','active'],
+      secondaryTitle: 'Rapports en attente', secondaryRows: pending.slice(0, 8), secondaryColumns: ['evaluationType','status','project','evaluator','updatedAt'],
     },
     INDUSTRY_REPRESENTATIVE: {
       title: 'Tableau de bord representant industriel',
       description: 'evaluation Demo Day: prototype, impact industriel et feedback final.',
-      metrics: [['equipes Demo Day', datasets.teams?.length ?? 0], ['Projets ? Evaluer', datasets.projects?.length ?? 0], ['Fiches Demo', demoForms.length], ['Soumissions', pending.length]],
+      metrics: [['Équipes Demo Day', datasets.teams?.length ?? 0], ['Projets à évaluer', summary?.projects ?? datasets.projects?.length ?? 0], ['Fiches à remplir', summary?.pendingEvaluations ?? pending.length], ['Fiches validées', summary?.submittedEvaluations ?? 0]],
       actions: [['Évaluer Demo Day', 'evaluations'], ['Consulter les notes publiées', 'grading'], ['Demander une prolongation', 'extensions']],
       primaryTitle: 'equipes Demo Day', primaryRows: datasets.teams || [], primaryColumns: ['name','section','academicYear','project'],
       secondaryTitle: 'Formulaires Demo Day', secondaryRows: demoForms, secondaryColumns: ['name','evaluationType','phaseType','active'],
@@ -555,59 +672,70 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
     COORDINATOR: {
       title: 'Tableau de bord coordinateur FYP',
       description: 'Consolidation des rapports, notes finales, notifications et suivi de completion.',
-      metrics: [['Rapports', datasets.reports?.length ?? 0], ['Notes', datasets.grades?.length ?? 0], ['Notifications', datasets.notifications?.length ?? 0], ['Audit logs', datasets.audit?.length ?? 0]],
+      metrics: [['Rapports', summary?.reports ?? datasets.reports?.length ?? 0], ['Notes', summary?.grades ?? datasets.grades?.length ?? 0], ['Évaluations en attente', summary?.pendingEvaluations ?? pending.length], ['Projets', summary?.projects ?? datasets.projects?.length ?? 0]],
       actions: [['Consulter les rapports', 'reports'], ['Voir les notes', 'grading'], ['Suivre la progression', 'dashboard']],
       primaryTitle: 'Rapports recents', primaryRows: datasets.reports || [], primaryColumns: ['project','phase','status','recipientEmail','generatedAt'],
       secondaryTitle: 'Notes consolidees', secondaryRows: datasets.grades || [], secondaryColumns: ['phaseType','weightedScore','finalScore','published'],
     },
   }[activeRole] || {}
 
-  const actions = (dashboard.actions || []).filter(([, view]) => allowedViewIds.has(view))
-  const roleActions = actorTemplates[activeRole]?.actions || []
-  const rolePanels = actorTemplates[activeRole]?.panels || []
+  const actions = (dashboard.actions || []).filter(([, view]) => allowedViewIds.has(view)).slice(0, 5)
   const phases = [...(datasets.phases || [])].sort((left, right) => new Date(left.deadline || 0) - new Date(right.deadline || 0))
   const currentPhase = phases.find((phase) => phase.status === 'OPEN') || phases.find((phase) => new Date(phase.deadline || 0) >= new Date())
-  const maximumMetric = Math.max(1, ...(dashboard.metrics || []).map(([, value]) => Number(value) || 0))
   const todayLabel = new Intl.DateTimeFormat(currentLocale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
+  const openDetails = (kind) => {
+    const primary = kind === 'primary'
+    setDetailModal({
+      title: primary ? dashboard.primaryTitle : dashboard.secondaryTitle,
+      rows: primary ? dashboard.primaryRows || [] : dashboard.secondaryRows || [],
+      columns: primary ? dashboard.primaryColumns || [] : dashboard.secondaryColumns || [],
+    })
+  }
 
   return <section className="dashboard-page page-enter">
-    <header className="dashboard-hero">
-      <div className="dashboard-hero-copy"><span className="eyebrow">{todayLabel}</span><h2>{dashboard.title}</h2><p>{dashboard.description}</p><div className="dashboard-role-tags">{roleActions.slice(0, 3).map((action) => <span key={action}><CheckCircle2 size={14} />{action}</span>)}</div></div>
-      <div className="dashboard-focus"><span>Phase active</span><strong>{currentPhase?.name || 'Aucune phase ouverte'}</strong><small>{currentPhase?.deadline ? 'Échéance · ' + formatDateTime(currentPhase.deadline) : 'Le calendrier sera affiché après configuration.'}</small>{actions[0] && <button type="button" className="primary-action" onClick={() => setActiveView(actions[0][1])}>{actions[0][0]}<ArrowRight size={17} /></button>}</div>
+    <header className="dashboard-compact-header">
+      <div><span>{todayLabel}</span><h2>{dashboard.title}</h2></div>
+      <button type="button" className="active-phase-button" onClick={() => setActiveView('calendar')}>
+        <span className={'phase-dot ' + String(currentPhase?.status || '').toLowerCase()} />
+        <div><small>Phase active</small><strong>{currentPhase?.name || 'Aucune phase'}</strong></div>
+        <ChevronRight size={17} />
+      </button>
     </header>
 
-    <div className="metric-grid">{(dashboard.metrics || []).map(([label, value], index) => <article className={'metric tone-' + (index + 1)} key={label}><div className="metric-top"><span>{label}</span><i><MetricIcon label={label} /></i></div><strong>{value}</strong><div className="metric-track"><span style={{ width: Math.max(4, ((Number(value) || 0) / maximumMetric) * 100) + '%' }} /></div></article>)}</div>
+    <div className="metric-grid">{(dashboard.metrics || []).map(([label, value], index) => <article className={'metric tone-' + (index + 1)} key={label}><div className="metric-top"><span>{label}</span><i><MetricIcon label={label} /></i></div><strong>{value}</strong></article>)}</div>
 
-    <div className="dashboard-columns">
-      <Panel title="Accès rapide" subtitle="Les actions les plus utiles pour votre rôle." accent="green" className="quick-panel"><div className="quick-actions">{actions.map(([label, view]) => <button type="button" key={label} onClick={() => setActiveView(view)}><ViewIcon view={view} /><span>{label}</span><ArrowRight size={16} /></button>)}</div></Panel>
-      <Panel title="Aperçu opérationnel" subtitle="Volumes réels actuellement chargés." accent="blue" className="analytics-panel"><div className="operation-chart">{(dashboard.metrics || []).map(([label, value]) => <div key={label}><span>{label}</span><div><i style={{ width: ((Number(value) || 0) / maximumMetric) * 100 + '%' }} /></div><strong>{value}</strong></div>)}</div></Panel>
-      <Panel title="Prochaines échéances" subtitle="Phases configurées par l’administration." accent="gold" className="deadline-panel"><div className="deadline-list">{phases.slice(0, 4).map((phase) => <button type="button" key={phase.id} onClick={() => setActiveView('calendar')}><span className={'phase-dot ' + String(phase.status || '').toLowerCase()} /><div><strong>{phase.name}</strong><small>{formatDateTime(phase.deadline)}</small></div><StatusPill value={phase.status} /></button>)}{!phases.length && <EmptyState title="Aucune échéance" detail="Les phases planifiées apparaîtront ici." />}</div></Panel>
+    <section className="dashboard-actions" aria-label="Actions rapides">
+      {actions.map(([label, view], index) => <button type="button" className={index === 0 ? 'primary' : ''} key={label} onClick={() => setActiveView(view)}><ViewIcon view={view} /><span>{label}</span><ChevronRight size={16} /></button>)}
+    </section>
+
+    <div className="dashboard-summary-grid">
+      <Panel title={dashboard.primaryTitle} className="dashboard-priority-panel"><div className="dashboard-panel-toolbar"><span>{(dashboard.primaryRows || []).length} élément{(dashboard.primaryRows || []).length === 1 ? '' : 's'}</span><button type="button" onClick={() => openDetails('primary')}>Voir tout<ArrowRight size={15} /></button></div><DataTable rows={(dashboard.primaryRows || []).slice(0, 4)} columns={(dashboard.primaryColumns || []).slice(0, 3)} compact searchable={false} /></Panel>
+      <Panel title="Échéances" accent="gold" className="deadline-panel"><div className="deadline-list">{phases.slice(0, 3).map((phase) => <button type="button" key={phase.id} onClick={() => setActiveView('calendar')}><span className={'phase-dot ' + String(phase.status || '').toLowerCase()} /><div><strong>{phase.name}</strong><small>{formatDateTime(phase.deadline)}</small></div><ChevronRight size={15} /></button>)}{!phases.length && <EmptyState title="Aucune échéance" />}</div><button type="button" className="panel-link" onClick={() => setActiveView('calendar')}>Ouvrir le calendrier<ArrowRight size={15} /></button></Panel>
     </div>
 
-    <section className="dashboard-capabilities"><div><span className="eyebrow">Périmètre autorisé</span><h3>Votre espace de travail</h3><p>{actorTemplates[activeRole]?.summary}</p></div><div className="capability-list">{rolePanels.map((panel) => <span key={panel}><ShieldCheck size={15} />{panel}</span>)}</div></section>
+    {(dashboard.secondaryRows || []).length > 0 && <button type="button" className="dashboard-more-button" onClick={() => openDetails('secondary')}><Eye size={17} />{dashboard.secondaryTitle}<span>{dashboard.secondaryRows.length}</span></button>}
 
-    <Panel title={dashboard.primaryTitle} wide className="dashboard-table"><DataTable rows={dashboard.primaryRows || []} columns={dashboard.primaryColumns || []} compact /></Panel>
-    <Panel title={dashboard.secondaryTitle} wide className="dashboard-table"><DataTable rows={dashboard.secondaryRows || []} columns={dashboard.secondaryColumns || []} compact /></Panel>
+    <DataDialog open={Boolean(detailModal)} title={detailModal?.title} rows={detailModal?.rows || []} columns={detailModal?.columns || []} onClose={() => setDetailModal(null)} />
   </section>
 }
 
-function CrudStudio({ datasets, request, reload, notify }) {
-  const [resourceKey, setResourceKey] = useState('users')
+function CrudStudio({ datasets, request, reload, notify, searchTarget }) {
+  const [resourceKey, setResourceKey] = useState(() => searchTarget?.resourceKey && resourceConfigs[searchTarget.resourceKey] ? searchTarget.resourceKey : 'users')
   const config = resourceConfigs[resourceKey]
-  return <section className="crud-studio"><div className="section-head"><div><h2>CRUD studio</h2><p>Manage every backend resource required by the FYP workflow.</p></div></div><div className="resource-tabs">{Object.entries(resourceConfigs).map(([key, cfg]) => <button key={key} className={resourceKey === key ? 'active' : ''} onClick={() => setResourceKey(key)}>{cfg.title}</button>)}</div><ResourceManager key={resourceKey} resourceKey={resourceKey} config={config} datasets={datasets} request={request} reload={reload} notify={notify} /></section>
+  return <section className="crud-studio"><div className="section-head"><div><h2>Gestion des données</h2></div></div><div className="resource-tabs">{Object.entries(resourceConfigs).map(([key, cfg]) => <button key={key} className={resourceKey === key ? 'active' : ''} onClick={() => setResourceKey(key)}>{cfg.title}</button>)}</div><ResourceManager key={resourceKey} resourceKey={resourceKey} config={config} datasets={datasets} request={request} reload={reload} notify={notify} initialQuery={searchTarget?.resourceKey === resourceKey ? searchTarget.query : ''} /></section>
 }
 
-function ResourceManager({ resourceKey, config, datasets, request, reload, notify }) {
+function ResourceManager({ resourceKey, config, datasets, request, reload, notify, initialQuery }) {
   const [rows, setRows] = useState(datasets[resourceKey] || [])
   const [form, setForm] = useState(() => initialForm(config.fields || []))
   const [editing, setEditing] = useState(null)
-  const [filter, setFilter] = useState('')
+  const [formOpen, setFormOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [busy, setBusy] = useState(false)
   useEffect(() => {
     const timer = window.setTimeout(() => setRows(datasets[resourceKey] || []), 0)
     return () => window.clearTimeout(timer)
   }, [datasets, resourceKey])
-  const filtered = rows.filter((row) => JSON.stringify(row).toLowerCase().includes(filter.toLowerCase()))
 
   function edit(row) {
     const next = initialForm(config.fields || [])
@@ -617,7 +745,13 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
       else if (field.type === 'datetime-local' && row[field.name]) next[field.name] = String(row[field.name]).slice(0, 16)
       else next[field.name] = row[field.name] ?? next[field.name]
     })
-    setEditing(row); setForm(next)
+    setEditing(row); setForm(next); setFormOpen(true)
+  }
+
+  function createNew() {
+    setEditing(null)
+    setForm(initialForm(config.fields || []))
+    setFormOpen(true)
   }
 
   async function submit(event) {
@@ -625,13 +759,13 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
     try {
       const payload = serialize(form, config.fields)
       await request(editing ? config.endpoint + '/' + editing.id : (config.customCreateEndpoint || config.endpoint), { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
-      notify(config.title + ' saved'); setEditing(null); setForm(initialForm(config.fields || [])); await reload(); setRows(unwrapList(await request(config.endpoint)))
+      notify(editing ? 'Modification enregistrée' : 'Élément ajouté'); setEditing(null); setFormOpen(false); setForm(initialForm(config.fields || [])); await reload(); setRows(unwrapList(await request(config.endpoint)))
     } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
   async function remove(row) {
-    if (!window.confirm(translateText('Delete ' + itemName(row) + '?'))) return; setBusy(true)
-    try { await request(config.endpoint + '/' + row.id, { method: 'DELETE' }); notify(config.title + ' deleted'); await reload(); setRows(unwrapList(await request(config.endpoint))) } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
+    setBusy(true)
+    try { await request(config.endpoint + '/' + row.id, { method: 'DELETE' }); notify('Élément supprimé'); setDeleteTarget(null); await reload(); setRows(unwrapList(await request(config.endpoint))) } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
   async function resendIndustryInvitation(row) {
@@ -654,9 +788,13 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
       : null
     : null
 
-  return <div className="manager-grid">
-    <Panel title={config.title} subtitle={config.subtitle} wide><div className="table-toolbar"><input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search records" /><button className="soft-button" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}>Reload</button></div><DataTable rows={filtered} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? remove : null} extraAction={extraAction} /></Panel>
-    {!config.readOnly && <Panel title={editing ? 'Edit record' : 'Create record'} accent="green"><form className="stack-form compact" onSubmit={submit}>{(config.fields || []).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => setForm({ ...form, [field.name]: value })} />)}<button className="primary-action" disabled={busy}>{busy ? 'Saving...' : editing ? 'Update' : 'Create'}</button>{editing && <button type="button" className="ghost-button" onClick={() => { setEditing(null); setForm(initialForm(config.fields || [])) }}>Cancel edit</button>}</form></Panel>}
+  return <div className="resource-manager">
+    <div className="resource-manager-toolbar"><button className="icon-button" title="Actualiser" aria-label="Actualiser" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}><RefreshCw size={17} /></button>{!config.readOnly && <button type="button" className="primary-action" onClick={createNew}><Plus size={17} />Ajouter</button>}</div>
+    <Panel title={config.title} wide><DataTable rows={rows} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? setDeleteTarget : null} extraAction={extraAction} initialQuery={initialQuery} /></Panel>
+    <DialogShell open={formOpen} title={editing ? 'Modifier' : 'Ajouter'} onClose={() => { if (!busy) setFormOpen(false) }}>
+      <form className="stack-form compact dialog-form" onSubmit={submit}>{(config.fields || []).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => setForm({ ...form, [field.name]: value })} />)}<div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setFormOpen(false)} disabled={busy}>Annuler</button><button className="primary-action" disabled={busy}>{busy ? 'Enregistrement…' : editing ? 'Enregistrer' : 'Ajouter'}</button></div></form>
+    </DialogShell>
+    <ConfirmDialog open={Boolean(deleteTarget)} title="Supprimer cet élément ?" message={deleteTarget ? itemName(deleteTarget) : ''} confirmLabel="Supprimer" danger onCancel={() => setDeleteTarget(null)} onConfirm={() => remove(deleteTarget)} />
   </div>
 }
 function ImportCenter({ request, notify, reload }) {
@@ -742,17 +880,13 @@ function ImportCenter({ request, notify, reload }) {
   }
 
   const templateHref = initializationMode
-    ? '/modele_initialisation_plateforme_fyp.xlsx'
+    ? '/modele_initialisation_plateforme_fyp_v3.xlsx'
     : '/modele_import_etudiants_squ.xlsx'
 
   return <section className="import-workspace">
     <div className="section-head">
       <div>
-        <span className="eyebrow">Administration des données</span>
-        <h2>{initializationMode ? 'Initialiser une année FYP' : 'Mettre à jour les étudiants'}</h2>
-        <p>{initializationMode
-          ? 'Chargez les étudiants, identités SSO, invités externes, projets, équipes et affectations. Les comptes internes utiliseront SQU SSO et les Industry Guests recevront une invitation.'
-          : 'Synchronisez ponctuellement le référentiel officiel SQU sans modifier les projets et les affectations.'}</p>
+        <h2>Imports Excel</h2>
       </div>
       <a className="soft-button download-template" href={templateHref} download>Télécharger le modèle Excel</a>
     </div>
@@ -761,13 +895,6 @@ function ImportCenter({ request, notify, reload }) {
       <button className={initializationMode ? 'active' : ''} onClick={() => resetMode('initialization')}>Initialisation annuelle</button>
       <button className={!initializationMode ? 'active' : ''} onClick={() => resetMode('students')}>Mise à jour étudiants</button>
     </div>
-
-    {initializationMode && <section className="import-steps" aria-label="Étapes d’initialisation">
-      <div><span>01</span><strong>Télécharger</strong><small>Utiliser le modèle officiel.</small></div>
-      <div><span>02</span><strong>Compléter</strong><small>Remplir les sept feuilles de données.</small></div>
-      <div><span>03</span><strong>Analyser</strong><small>Corriger toutes les références invalides.</small></div>
-      <div><span>04</span><strong>Importer</strong><small>Valider la transaction complète.</small></div>
-    </section>}
 
     <section className="import-dropzone">
       <div>
@@ -799,7 +926,7 @@ function ImportCenter({ request, notify, reload }) {
 
       {initializationMode
         ? <section className="import-preview">
-            <div className="section-head"><div><h3>Contrôle feuille par feuille</h3><p>Aucune donnée n’est enregistrée pendant cette analyse.</p></div></div>
+            <div className="section-head"><div><h3>Contrôle des feuilles</h3></div></div>
             <div className="table-wrap"><table className="initialization-table"><thead><tr><th>Feuille</th><th>Lignes</th><th>Valides</th><th>Créations</th><th>Mises à jour</th><th>Inchangées</th><th>État</th></tr></thead><tbody>
               {(preview.sheets || []).map((sheet) => <tr key={sheet.sheet}>
                 <td><strong>{sheet.sheet}</strong></td><td>{sheet.totalRows}</td><td>{sheet.validRows}</td><td>{sheet.created || 0}</td><td>{sheet.updated || 0}</td><td>{sheet.unchanged || 0}</td>
@@ -808,14 +935,14 @@ function ImportCenter({ request, notify, reload }) {
             </tbody></table></div>
           </section>
         : <section className="import-preview">
-            <div className="section-head"><div><h3>Aperçu des étudiants</h3><p>{preview.totalRows} lignes détectées dans le fichier officiel.</p></div></div>
+            <div className="section-head"><div><h3>Aperçu des étudiants</h3></div></div>
             <div className="table-wrap"><table><thead><tr>{['stdID', 'Cohorte', 'Nom complet', 'E-mail SQU', 'Action', 'État'].map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>
               {(preview.normalized || []).slice(0, 15).map((row) => <tr key={row.rowNumber}><td>{row.studentNumber}</td><td>{row.cohort}</td><td>{row.fullName}</td><td>{row.email}</td><td>{row.existing ? 'Mise à jour' : 'Création'}</td><td><span className={'validation-state ' + (row.errors?.length ? 'invalid' : 'valid')}>{row.errors?.length ? 'À corriger' : 'Valide'}</span></td></tr>)}
             </tbody></table></div>
           </section>}
 
       <div className="import-actions">
-        <span>{preview.errors.length ? 'Corrigez le classeur puis relancez l’analyse.' : 'Validation terminée. L’import peut être exécuté.'}</span>
+        <span>{preview.errors.length ? 'Corrigez le classeur puis relancez l’analyse.' : 'Prêt à importer.'}</span>
         <button className="primary-action" disabled={busy || preview.errors.length > 0 || preview.totalRows === 0} onClick={importToServer}>
           {busy ? 'Import…' : initializationMode ? 'Initialiser la plateforme' : 'Créer ou mettre à jour les étudiants'}
         </button>
@@ -843,19 +970,23 @@ function formatFileSize(bytes) {
   return (bytes / 1024).toLocaleString(currentLocale(), { maximumFractionDigits: 1 }) + ' Ko'
 }
 
-function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
-  const [draft, setDraft] = useState({ projectId: '', phaseId: '', evaluatorId: '', evaluationType: activeRole === 'ADMIN' ? 'ORAL_PHASE_I' : '', trackCode: 'CSN', generalComment: '' })
+function EvaluationStudio({ datasets, request, notify, activeRole, session, initialProjectId }) {
+  const defaultEvaluationType = activeRole === 'ADMIN'
+    ? 'ORAL_PHASE_I'
+    : evaluationTypesForRole(activeRole)[0] || 'ORAL_PHASE_I'
+  const [draft, setDraft] = useState({ projectId: '', phaseId: '', evaluatorId: '', evaluationType: defaultEvaluationType, trackCode: 'CSN', generalComment: '' })
   const [scoreDrafts, setScoreDrafts] = useState(() => readLocalJson('fyp-score-sheets', {}))
   const [sheetStatuses, setSheetStatuses] = useState(() => readLocalJson('fyp-score-statuses', {}))
   const [submissionIds, setSubmissionIds] = useState({})
   const [projectEvaluations, setProjectEvaluations] = useState([])
   const [showFormula, setShowFormula] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [extensionOpen, setExtensionOpen] = useState(false)
   const [phaseAccess, setPhaseAccess] = useState(null)
   const [saveState, setSaveState] = useState('idle')
   const [lastSavedAt, setLastSavedAt] = useState(null)
   const [currentTime, setCurrentTime] = useState(() => new Date().getTime())
   const [extensionReason, setExtensionReason] = useState('')
-  const [requestedDeadline, setRequestedDeadline] = useState('')
   const [extensionBusy, setExtensionBusy] = useState(false)
   const autoSaveTimer = useRef(null)
   const personalAssignments = useMemo(() => datasets.projectAssignments || [], [datasets.projectAssignments])
@@ -869,10 +1000,12 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
     .filter(Boolean))], [evaluationProjects])
   const trackOptions = activeRole === 'ADMIN' ? ['CSN', 'CSP', 'EIC', 'PSE'] : availableTrackCodes
   const availableEvaluationTypes = useMemo(() => {
-    const roleTypes = activeRole === 'INDUSTRY_REPRESENTATIVE' ? ['DEMO_DAY_INDUSTRY'] : EVALUATION_TYPES
+    const roleTypes = evaluationTypesForRole(activeRole)
     return activeRole === 'ADMIN'
       ? roleTypes
-      : roleTypes.filter((type) => personalAssignments.some((assignment) => assignment.projectId === draft.projectId && assignment.evaluationType === type))
+      : draft.projectId
+        ? roleTypes.filter((type) => personalAssignments.some((assignment) => assignment.projectId === draft.projectId && assignment.evaluationType === type))
+        : roleTypes
   }, [activeRole, draft.projectId, personalAssignments])
   const selectedProject = evaluationProjects.find((project) => project.id === draft.projectId)
   const requiredPhaseType = phaseTypeForEvaluation(draft.evaluationType)
@@ -880,7 +1013,7 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
     if (requiredPhaseType && phase.type !== requiredPhaseType) return false
     return !selectedProject?.academicYear || !phase.academicYear || phase.academicYear === selectedProject.academicYear
   }), [datasets.phases, requiredPhaseType, selectedProject])
-  const template = SCORING_TEMPLATES[draft.evaluationType] || SCORING_TEMPLATES.ORAL_PHASE_I
+  const template = SCORING_TEMPLATES[draft.evaluationType] || SCORING_TEMPLATES[defaultEvaluationType]
   const sheetId = [draft.trackCode, draft.projectId || 'apercu', draft.phaseId || 'phase', draft.evaluatorId || 'evaluator', draft.evaluationType].join(':')
   const activeScores = scoreDrafts[sheetId] || {}
   const status = sheetStatuses[sheetId] || 'DRAFT'
@@ -897,7 +1030,9 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
   const selectedEvaluator = allEvaluators.find((evaluator) => evaluator.id === draft.evaluatorId)
   const evaluatorDisplayName = itemName(
     selectedEvaluator?.user || selectedEvaluator,
-    session.fullName || session.email || (activeRole === 'INDUSTRY_REPRESENTATIVE' ? 'Membre du jury' : 'Évaluateur'),
+    session.fullName || session.email || (activeRole === 'INDUSTRY_REPRESENTATIVE'
+      ? 'Membre du jury'
+      : activeRole === 'REPORT_EVALUATOR' ? 'Évaluateur de rapports' : 'Évaluateur'),
   )
 
   const selectedTeam = (datasets.teams || []).find((team) => {
@@ -925,6 +1060,17 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
     : null
 
   useEffect(() => { localStorage.setItem('fyp-score-sheets', JSON.stringify(scoreDrafts)) }, [scoreDrafts])
+  useEffect(() => {
+    if (!initialProjectId || draft.projectId === initialProjectId) return undefined
+    const project = evaluationProjects.find((item) => item.id === initialProjectId)
+    if (!project) return undefined
+    const timer = window.setTimeout(() => {
+      setPhaseAccess(null)
+      setDraft((current) => ({ ...current, projectId: project.id, phaseId: '', evaluationType: '', trackCode: project.track?.code || project.trackCode || current.trackCode }))
+      request('/api/evaluations/by-project/' + project.id).then((response) => setProjectEvaluations(unwrapList(response))).catch(() => setProjectEvaluations([]))
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [draft.projectId, evaluationProjects, initialProjectId, request])
   useEffect(() => {
     if (activeRole === 'ADMIN' || !draft.projectId) return undefined
     const nextType = availableEvaluationTypes.includes(draft.evaluationType) ? draft.evaluationType : availableEvaluationTypes[0] || ''
@@ -1084,11 +1230,10 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
         body: JSON.stringify({
           phaseId: draft.phaseId,
           reason: extensionReason.trim(),
-          requestedDeadline: requestedDeadline ? new Date(requestedDeadline).toISOString().slice(0, 19) : null,
         }),
       })
       setExtensionReason('')
-      setRequestedDeadline('')
+      setExtensionOpen(false)
       notify('Demande envoyée aux administrateurs')
     } catch (error) { notify(error.message, 'danger') } finally { setExtensionBusy(false) }
   }
@@ -1113,13 +1258,13 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
   }
 
   return <section className="evaluation-workspace">
-    <div className="section-head evaluation-heading"><div><span className="eyebrow">Saisie des évaluations</span><h2>Fiche de notation</h2><p>Chaque modification est enregistrée comme brouillon. Seules les fiches validées sont prises en compte dans la note finale.</p></div><div className="sheet-status-wrap"><div className="sheet-status"><span className={'status-dot ' + status.toLowerCase()} />{locked ? 'Validée' : 'Brouillon'}</div><small className={'save-state ' + saveState}>{saveStateLabel()}</small></div></div>
+    <div className="section-head evaluation-heading"><div><h2>Évaluation</h2></div><div className="sheet-status-wrap"><div className="sheet-status"><span className={'status-dot ' + status.toLowerCase()} />{locked ? 'Validée' : 'Brouillon'}</div><small className={'save-state ' + saveState}>{saveStateLabel()}</small></div></div>
 
     <section className="evaluation-context" aria-label="Contexte de l’évaluation">
       <label className="field"><span>Filière du projet</span><select value={draft.trackCode} disabled={activeRole !== 'ADMIN'} onChange={(event) => setDraft({ ...draft, trackCode: event.target.value })}>{trackOptions.map((track) => <option key={track}>{track}</option>)}</select></label>
       <SelectData label="Projet attribué" value={draft.projectId} data={evaluationProjects} onChange={(projectId) => {
         const project = evaluationProjects.find((item) => item.id === projectId)
-        const roleTypes = activeRole === 'INDUSTRY_REPRESENTATIVE' ? ['DEMO_DAY_INDUSTRY'] : EVALUATION_TYPES
+        const roleTypes = evaluationTypesForRole(activeRole)
         const assignedTypes = activeRole === 'ADMIN'
           ? roleTypes
           : roleTypes.filter((type) => personalAssignments.some((assignment) => assignment.projectId === projectId && assignment.evaluationType === type))
@@ -1161,25 +1306,18 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
       status={status}
     />
 
-    {draft.phaseId && <section className={'deadline-banner ' + (phaseAccess?.allowed ? 'open' : 'closed')}>
-      <div><span className="eyebrow">Fenêtre d’évaluation</span><strong>{phaseAccess?.allowed ? 'Évaluation ouverte' : 'Évaluation verrouillée'}</strong><p>{phaseAccess?.message || 'Vérification de l’échéance…'}</p></div>
-      <div className="deadline-facts"><span>Échéance générale<strong>{formatDateTime(phaseAccess?.phaseDeadline || selectedPhase?.deadline)}</strong></span><span>Échéance effective<strong>{formatDateTime(effectiveDeadline)}</strong></span></div>
-      {deadlineAlert && <div className={'deadline-countdown ' + deadlineAlert}><Bell size={18} /><strong>{deadlineAlert === 'half-day' ? 'Attention: moins de 12 heures restantes' : 'Attention: moins d’un jour restant'}</strong><span>Validez la fiche avant l’échéance pour que les notes soient prises en compte.</span></div>}
-      {evaluationBlocked && !locked && submissionIds[sheetId] && <div className="expired-draft-warning"><strong>Brouillon expiré non comptabilisé</strong><span>La fiche n’a pas été validée avant l’échéance. Ses notes sont conservées pour traçabilité, mais elles ne participent pas au calcul final.</span></div>}
-      {evaluationBlocked && phaseAccess?.reasonCode === 'PHASE_DEADLINE_EXPIRED' && activeRole !== 'ADMIN' && <form className="extension-inline-form" onSubmit={requestExtension}>
-        <label className="field"><span>Motif de la demande</span><textarea required value={extensionReason} onChange={(event) => setExtensionReason(event.target.value)} placeholder="Expliquez la raison du retard" /></label>
-        <label className="field"><span>Nouvelle échéance souhaitée</span><input type="datetime-local" value={requestedDeadline} onChange={(event) => setRequestedDeadline(event.target.value)} /></label>
-        <button className="primary-action" disabled={extensionBusy}>{extensionBusy ? 'Envoi…' : 'Demander une prolongation'}</button>
-      </form>}
+    {draft.phaseId && <section className={'deadline-banner compact ' + (phaseAccess?.allowed ? 'open' : 'closed')}>
+      <div><strong>{phaseAccess?.allowed ? 'Évaluation ouverte' : 'Évaluation verrouillée'}</strong><small>{formatDateTime(effectiveDeadline)}</small></div>
+      {deadlineAlert && <div className={'deadline-countdown ' + deadlineAlert}><Bell size={18} /><strong>{deadlineAlert === 'half-day' ? 'Moins de 12 heures' : 'Moins de 24 heures'}</strong></div>}
+      {evaluationBlocked && !locked && submissionIds[sheetId] && <span className="expired-draft-warning compact">Brouillon non comptabilisé</span>}
+      {evaluationBlocked && phaseAccess?.reasonCode === 'PHASE_DEADLINE_EXPIRED' && activeRole !== 'ADMIN' && <button type="button" className="soft-button" onClick={() => setExtensionOpen(true)}>Demander une prolongation</button>}
     </section>}
 
     <div className="sheet-toolbar">
       <div className="sheet-title"><strong>{template.label}</strong><span>{template.phase} · note sur 10</span></div>
       <div className="completion-meter"><span>{completedCells}/{requiredCells} cellules</span><div><i style={{ width: (requiredCells ? Math.round((completedCells / requiredCells) * 100) : 0) + '%' }} /></div></div>
-      <button className="soft-button" type="button" onClick={() => setShowFormula((value) => !value)}>{showFormula ? 'Masquer le calcul' : 'Afficher le calcul'}</button>
+      <button className="soft-button" type="button" onClick={() => setShowFormula(true)}>Voir le calcul</button>
     </div>
-
-    {showFormula && <FormulaPanel template={template} />}
 
     {requiresStudentTargets && selectedTeam && studentTargets.length === 0 && <EmptyState title="Équipe sans étudiant" detail="Ajoutez les étudiants au projet avant de remplir cette fiche individuelle." />}
 
@@ -1201,7 +1339,11 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session }) {
       <div className="sheet-actions"><button className="ghost-button" type="button" disabled={editingDisabled} onClick={resetSheet}>Réinitialiser</button><button className="soft-button" type="button" disabled={editingDisabled || saveState === 'saving'} onClick={() => saveSheet(false)}>Enregistrer le brouillon</button><button className="primary-action" type="button" disabled={editingDisabled || saveState === 'saving'} onClick={() => saveSheet(true)}>Valider la fiche</button></div>
     </section>
 
-    <section className="submission-history"><div className="section-head"><div><h3>Évaluations déjà enregistrées</h3><p>Les brouillons sont visibles mais seules les fiches verrouillées sont comptabilisées.</p></div></div><DataTable rows={projectEvaluations} columns={['evaluationType','status','totalScore','completedScoreCount','locked','draftSavedAt','submittedAt','evaluator']} compact /></section>
+    <button type="button" className="dashboard-more-button" onClick={() => setHistoryOpen(true)}><Eye size={17} />Historique des évaluations<span>{projectEvaluations.length}</span></button>
+
+    <DialogShell open={showFormula} title="Calcul de la note" onClose={() => setShowFormula(false)}><FormulaPanel template={template} /></DialogShell>
+    <DialogShell open={historyOpen} title="Historique des évaluations" onClose={() => setHistoryOpen(false)} wide><DataTable rows={projectEvaluations} columns={['evaluationType','status','totalScore','completedScoreCount','locked','draftSavedAt','submittedAt','evaluator']} compact /></DialogShell>
+    <DialogShell open={extensionOpen} title="Demander une prolongation" onClose={() => setExtensionOpen(false)}><form className="stack-form compact dialog-form" onSubmit={requestExtension}><label className="field"><span>Motif</span><textarea required value={extensionReason} onChange={(event) => setExtensionReason(event.target.value)} /></label><div className="extension-policy-note"><ShieldCheck size={18} /><span>L’administrateur fixera la nouvelle date.</span></div><div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setExtensionOpen(false)}>Annuler</button><button className="primary-action" disabled={extensionBusy}>{extensionBusy ? 'Envoi…' : 'Envoyer'}</button></div></form></DialogShell>
   </section>
 }
 function readLocalJson(key, fallback) {
@@ -1252,7 +1394,8 @@ function FormulaPanel({ template }) {
 }
 
 function ResultSummary({ template, targets, results }) {
-  return <section className="result-summary"><div className="result-heading"><div><span className="eyebrow">Résultat calculé</span><h3>Note finale</h3></div><span className="formula-chip">{template.shortFormula}</span></div><div className="result-table-wrap"><table className="result-table"><thead><tr><th>{template.kind === 'demo' ? 'Groupe' : 'Étudiant'}</th>{template.kind === 'presentation' && <><th>Partie A</th><th>Contribution A</th><th>Partie B</th><th>Contribution B</th></>}<th>Note /10</th><th>Niveau</th></tr></thead><tbody>{targets.map((target) => { const result = results[target.id] || results.group; const band = performanceBand(result?.finalScore || 0); return <tr key={target.id}><td><strong>{target.label}</strong><small>{target.secondary}</small></td>{template.kind === 'presentation' && <><td>{formatScore(result.individualScore)}</td><td>{formatScore(result.contributionA)} / 3,75</td><td>{formatScore(result.groupScore)}</td><td>{formatScore(result.contributionB)} / 6,25</td></>}<td className="final-score">{formatScore(result?.finalScore)}</td><td><span className={'performance-pill ' + band.tone}>{band.label}</span></td></tr> })}</tbody></table></div></section>
+  const targetLabel = template.kind === 'demo' ? 'Groupe' : template.kind === 'report' ? 'Projet' : 'Étudiant'
+  return <section className="result-summary"><div className="result-heading"><div><span className="eyebrow">Résultat calculé</span><h3>Note finale</h3></div><span className="formula-chip">{template.shortFormula}</span></div><div className="result-table-wrap"><table className="result-table"><thead><tr><th>{targetLabel}</th>{template.kind === 'presentation' && <><th>Partie A</th><th>Contribution A</th><th>Partie B</th><th>Contribution B</th></>}<th>Note /10</th><th>Niveau</th></tr></thead><tbody>{targets.map((target) => { const result = results[target.id] || results.group; const band = performanceBand(result?.finalScore || 0); return <tr key={target.id}><td><strong>{target.label}</strong><small>{target.secondary}</small></td>{template.kind === 'presentation' && <><td>{formatScore(result.individualScore)}</td><td>{formatScore(result.contributionA)} / 3,75</td><td>{formatScore(result.groupScore)}</td><td>{formatScore(result.contributionB)} / 6,25</td></>}<td className="final-score">{formatScore(result?.finalScore)}</td><td><span className={'performance-pill ' + band.tone}>{band.label}</span></td></tr> })}</tbody></table></div></section>
 }
 
 function formatDateTime(value) {
@@ -1270,7 +1413,9 @@ function ExtensionRequestCenter({ datasets, request, notify, activeRole }) {
   const [rows, setRows] = useState([])
   const [filter, setFilter] = useState('')
   const [busy, setBusy] = useState(false)
-  const [form, setForm] = useState({ phaseId: datasets.phases?.[0]?.id || '', reason: '', requestedDeadline: '' })
+  const [requestOpen, setRequestOpen] = useState(false)
+  const [reviewing, setReviewing] = useState(null)
+  const [form, setForm] = useState({ phaseId: datasets.phases?.[0]?.id || '', reason: '' })
   const [decisions, setDecisions] = useState({})
 
   const load = useCallback(async () => {
@@ -1292,10 +1437,10 @@ function ExtensionRequestCenter({ datasets, request, notify, activeRole }) {
         body: JSON.stringify({
           phaseId: form.phaseId,
           reason: form.reason.trim(),
-          requestedDeadline: form.requestedDeadline ? new Date(form.requestedDeadline).toISOString().slice(0, 19) : null,
         }),
       })
-      setForm({ ...form, reason: '', requestedDeadline: '' })
+      setForm({ ...form, reason: '' })
+      setRequestOpen(false)
       notify('Demande envoyée aux administrateurs')
       await load()
     } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
@@ -1317,25 +1462,26 @@ function ExtensionRequestCenter({ datasets, request, notify, activeRole }) {
           adminComment: decision.adminComment || '',
         }),
       })
+      setReviewing(null)
       notify(approved ? 'Prolongation approuvée' : 'Demande rejetée')
       await load()
     } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
-  const action = (row) => row.status === 'PENDING' && isAdmin ? <div className="extension-review-controls">
-    <input type="datetime-local" aria-label="Nouvelle échéance" value={decisions[row.id]?.extendedDeadline || ''} onChange={(event) => updateDecision(row.id, 'extendedDeadline', event.target.value)} />
-    <input aria-label="Commentaire administrateur" placeholder="Commentaire" value={decisions[row.id]?.adminComment || ''} onChange={(event) => updateDecision(row.id, 'adminComment', event.target.value)} />
-    <button className="mini-button" disabled={busy} onClick={() => decide(row, true)}>Approuver</button>
-    <button className="mini-button danger" disabled={busy} onClick={() => decide(row, false)}>Rejeter</button>
-  </div> : null
+  const action = (row) => row.status === 'PENDING' && isAdmin ? <button type="button" className="mini-button icon-text" onClick={() => setReviewing(row)}><Eye size={14} />Examiner</button> : null
 
-  return <section className="page-grid extension-center">
-    <div className="section-head full-span"><div><span className="eyebrow">Gestion des échéances</span><h2>Demandes de prolongation</h2><p>{isAdmin ? 'Examinez les demandes et accordez une échéance personnelle.' : 'Demandez une prolongation lorsqu’une phase d’évaluation est expirée.'}</p></div>{isAdmin && <label className="mini-field"><span>Statut</span><select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="">Tous</option><option value="PENDING">En attente</option><option value="APPROVED">Approuvées</option><option value="REJECTED">Rejetées</option></select></label>}</div>
-    {!isAdmin && <Panel title="Nouvelle demande" accent="gold"><form className="stack-form compact" onSubmit={create}><SelectData label="Phase expirée" value={form.phaseId} data={datasets.phases || []} onChange={(phaseId) => setForm({ ...form, phaseId })} /><Field label="Nouvelle échéance souhaitée" type="datetime-local" value={form.requestedDeadline} onChange={(requestedDeadline) => setForm({ ...form, requestedDeadline })} /><Field label="Motif" textarea value={form.reason} onChange={(reason) => setForm({ ...form, reason })} /><button className="primary-action" disabled={busy || !form.phaseId || !form.reason.trim()}>Envoyer la demande</button></form></Panel>}
-    <Panel title={isAdmin ? 'Demandes reçues' : 'Mes demandes'} wide><DataTable rows={rows} columns={isAdmin ? ['phase','requester','reason','requestedDeadline','status','extendedDeadline','adminComment','requestedAt'] : ['phase','reason','requestedDeadline','status','extendedDeadline','adminComment','requestedAt']} compact extraAction={isAdmin ? action : null} /></Panel>
+  return <section className="extension-center">
+    <div className="section-head"><div><h2>Prolongations</h2></div><div className="section-actions">{isAdmin ? <label className="mini-field"><span>Statut</span><select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="">Tous</option><option value="PENDING">En attente</option><option value="APPROVED">Approuvées</option><option value="REJECTED">Rejetées</option></select></label> : <button type="button" className="primary-action" onClick={() => setRequestOpen(true)}><Plus size={17} />Nouvelle demande</button>}</div></div>
+    <Panel title={isAdmin ? 'Demandes reçues' : 'Mes demandes'} wide><DataTable rows={rows} columns={isAdmin ? ['phase','requester','reason','status','extendedDeadline','requestedAt'] : ['phase','reason','status','extendedDeadline','requestedAt']} compact extraAction={isAdmin ? action : null} /></Panel>
+    <DialogShell open={requestOpen} title="Demander une prolongation" onClose={() => setRequestOpen(false)}>
+      <form className="stack-form compact dialog-form" onSubmit={create}><SelectData label="Phase expirée" value={form.phaseId} data={datasets.phases || []} onChange={(phaseId) => setForm({ ...form, phaseId })} /><Field label="Motif" textarea value={form.reason} onChange={(reason) => setForm({ ...form, reason })} /><div className="extension-policy-note"><ShieldCheck size={18} /><span>L’administrateur fixera la nouvelle date.</span></div><div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setRequestOpen(false)}>Annuler</button><button className="primary-action" disabled={busy || !form.phaseId || !form.reason.trim()}>Envoyer</button></div></form>
+    </DialogShell>
+    <DialogShell open={Boolean(reviewing)} title="Examiner la demande" onClose={() => setReviewing(null)}>
+      {reviewing && <div className="extension-review-dialog"><div className="review-summary"><span>Demandeur<strong>{itemName(reviewing.requester)}</strong></span><span>Phase<strong>{itemName(reviewing.phase)}</strong></span><span className="wide">Motif<strong>{reviewing.reason}</strong></span></div><label className="field"><span>Nouvelle échéance</span><input type="datetime-local" value={decisions[reviewing.id]?.extendedDeadline || ''} onChange={(event) => updateDecision(reviewing.id, 'extendedDeadline', event.target.value)} /></label><Field label="Commentaire" textarea value={decisions[reviewing.id]?.adminComment || ''} onChange={(value) => updateDecision(reviewing.id, 'adminComment', value)} /><div className="dialog-actions three"><button type="button" className="ghost-button" onClick={() => setReviewing(null)}>Annuler</button><button type="button" className="danger-action compact" disabled={busy} onClick={() => decide(reviewing, false)}>Rejeter</button><button type="button" className="primary-action" disabled={busy || !decisions[reviewing.id]?.extendedDeadline} onClick={() => decide(reviewing, true)}>Approuver</button></div></div>}
+    </DialogShell>
   </section>
 }
-function GradingCenter({ datasets, request, reload, notify, activeRole, token }) {
+function GradingCenter({ datasets, request, reload, notify, activeRole, token, initialProjectId }) {
   const canManageGrades = activeRole === 'ADMIN'
   const canExport = activeRole === 'ADMIN' || activeRole === 'COORDINATOR'
   const projects = useMemo(() => datasets.projects || [], [datasets.projects])
@@ -1344,7 +1490,10 @@ function GradingCenter({ datasets, request, reload, notify, activeRole, token })
   const [projectGrades, setProjectGrades] = useState([])
   const [studentGrades, setStudentGrades] = useState([])
   const [busy, setBusy] = useState(false)
-  const effectiveProjectId = projects.some((project) => project.id === projectId) ? projectId : projects[0]?.id || ''
+  const [rulesOpen, setRulesOpen] = useState(false)
+  const effectiveProjectId = projects.some((project) => project.id === projectId)
+    ? projectId
+    : projects.some((project) => project.id === initialProjectId) ? initialProjectId : projects[0]?.id || ''
   const selectedProject = projects.find((project) => project.id === effectiveProjectId)
   const phaseOptions = useMemo(() => (datasets.phases || []).filter((phase) =>
     !selectedProject?.academicYear || !phase.academicYear || phase.academicYear === selectedProject.academicYear
@@ -1418,15 +1567,15 @@ function GradingCenter({ datasets, request, reload, notify, activeRole, token })
   }
 
   return <section className="page-grid grading-center">
-    <div className="section-head full-span"><div><span className="eyebrow">Consolidation officielle</span><h2>{canManageGrades ? 'Calcul et publication des notes' : 'Résultats consolidés'}</h2><p>La moyenne utilise exclusivement les fiches validées et verrouillées. Les brouillons et fiches expirées restent hors calcul.</p></div></div>
-    <Panel title="Périmètre des résultats" accent="green"><div className="form-grid two"><SelectData label="Projet" value={effectiveProjectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={effectivePhaseId} data={phaseOptions} onChange={setPhaseId} /></div><div className="action-row">{canManageGrades && <button className="primary-action" disabled={busy || !effectiveProjectId || !effectivePhaseId} onClick={calculate}>{busy ? 'Calcul…' : 'Calculer / recalculer'}</button>}{canManageGrades && selectedProjectGrade && !selectedProjectGrade.published && <button className="soft-button" disabled={busy} onClick={publish}>Publier la phase</button>}{canExport && <button className="soft-button icon-text" disabled={!effectiveProjectId} onClick={exportProject}><Download size={16} />Exporter le projet</button>}</div></Panel>
-    <Panel title="Règle de consolidation" accent="gold"><p className="muted">Chaque type est d’abord moyenné entre tous les évaluateurs affectés, puis pondéré selon les règles de la phase. Une valeur 0 validée est une note réelle et reste incluse.</p><div className="tag-list">{EVALUATION_TYPES.map((type) => <span key={type}>{SCORING_TEMPLATES[type]?.label || pretty(type)}</span>)}</div></Panel>
+    <div className="section-head full-span"><div><h2>{canManageGrades ? 'Notes et publication' : 'Résultats'}</h2></div><button type="button" className="soft-button" onClick={() => setRulesOpen(true)}>Règles de calcul</button></div>
+    <Panel title="Projet et phase" accent="green" wide><div className="form-grid two"><SelectData label="Projet" value={effectiveProjectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={effectivePhaseId} data={phaseOptions} onChange={setPhaseId} /></div><div className="action-row">{canManageGrades && <button className="primary-action" disabled={busy || !effectiveProjectId || !effectivePhaseId} onClick={calculate}>{busy ? 'Calcul…' : 'Calculer'}</button>}{canManageGrades && selectedProjectGrade && !selectedProjectGrade.published && <button className="soft-button" disabled={busy} onClick={publish}>Publier</button>}{canExport && <button className="soft-button icon-text" disabled={!effectiveProjectId} onClick={exportProject}><Download size={16} />Exporter</button>}</div></Panel>
     <Panel title="Résultats individuels" subtitle={selectedProject ? selectedProject.projectNumber + ' · ' + selectedProject.title : ''} wide>{!projects.length
       ? <EmptyState title="Aucun projet accessible" detail="Les projets apparaissent selon les affectations du compte connecté." />
       : studentGrades.length
         ? <StudentGradeTable rows={studentGrades} />
         : <EmptyState title="Aucun résultat calculé" detail={canManageGrades ? 'Validez toutes les fiches requises, puis lancez le calcul.' : 'Les résultats apparaîtront après calcul et publication.'} />}</Panel>
     {projectGrades.length > 0 && <Panel title="Synthèse du projet par phase" wide><DataTable rows={projectGrades} columns={['phaseType','finalScore','published']} compact /></Panel>}
+    <DialogShell open={rulesOpen} title="Règles de calcul" onClose={() => setRulesOpen(false)}><p className="muted">Seules les fiches validées sont calculées. Les notes des évaluateurs sont moyennées puis pondérées par phase.</p><div className="tag-list">{EVALUATION_TYPES.map((type) => <span key={type}>{SCORING_TEMPLATES[type]?.label || pretty(type)}</span>)}</div></DialogShell>
   </section>
 }
 
@@ -1435,17 +1584,24 @@ function StudentGradeTable({ rows }) {
   return <div className="table-wrap student-grade-table"><table><thead><tr><th>Student ID</th><th>Student name</th><th>Supervisor</th><th>Report</th><th>Presentation</th><th>Demo Day</th><th>Final /10</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><strong>{row.student?.studentNumber || '-'}</strong></td><td>{row.student?.fullName || '-'}</td><td>{score(row.supervisorScore)}</td><td>{score(row.reportScore)}</td><td>{score(row.oralScore)}</td><td>{score(row.demoScore)}</td><td className="final-score">{score(row.finalScore)}</td><td><StatusPill value={row.published ? 'PUBLISHED' : 'INTERNAL'} /></td></tr>)}</tbody></table></div>
 }
 
-function ReportCenter({ datasets, request, reload, notify, token }) {
-  const projects = datasets.projects || []
+function ReportCenter({ datasets, request, reload, notify, token, initialProjectId }) {
+  const projects = useMemo(() => datasets.projects || [], [datasets.projects])
   const phases = datasets.phases || []
   const [projectId, setProjectId] = useState('')
   const [phaseId, setPhaseId] = useState('')
   const [completenessSnapshot, setCompletenessSnapshot] = useState({ phaseId: '', rows: [] })
   const [busy, setBusy] = useState(false)
-  const effectiveProjectId = projects.some((project) => project.id === projectId) ? projectId : projects[0]?.id || ''
+  const [dialog, setDialog] = useState(null)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const effectiveProjectId = projects.some((project) => project.id === projectId)
+    ? projectId
+    : projects.some((project) => project.id === initialProjectId) ? initialProjectId : projects[0]?.id || ''
   const effectivePhaseId = phases.some((phase) => phase.id === phaseId) ? phaseId : phases[0]?.id || ''
   const reports = datasets.reports || []
   const completeness = completenessSnapshot.phaseId === effectivePhaseId ? completenessSnapshot.rows : []
+  const lockedForms = completeness.filter((row) => row.status === 'LOCKED').length
+  const pendingForms = completeness.filter((row) => row.status !== 'LOCKED').length
 
   useEffect(() => {
     if (!effectivePhaseId) return undefined
@@ -1495,12 +1651,36 @@ function ReportCenter({ datasets, request, reload, notify, token }) {
     } catch (error) { notify(error.message, 'danger') }
   }
 
+  async function regenerate(id) {
+    setBusy(true)
+    try {
+      await request('/api/reports/' + id + '/regenerate', { method: 'POST' })
+      await reload()
+      notify('Une nouvelle version du rapport a été générée')
+    } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
+  }
+
+  async function removeReport(id) {
+    setBusy(true)
+    try {
+      await request('/api/reports/' + id, { method: 'DELETE' })
+      await reload()
+      notify('Rapport supprimé de l’archive')
+    } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
+  }
+
+  function confirmAction(title, message, label, action, danger = false) {
+    setDialog({ title, message, label, action, danger })
+  }
+
   return <section className="page-grid report-center">
-    <div className="section-head full-span"><div><span className="eyebrow">Remplacement du script MATLAB</span><h2>Consolidation et exports Excel</h2><p>Contrôlez les fiches manquantes, puis exportez la synthèse finale compatible avec l’ancien processus.</p></div></div>
-    <Panel title="Génération et téléchargement" accent="green"><div className="form-grid two"><SelectData label="Projet" value={effectiveProjectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={effectivePhaseId} data={phases} onChange={setPhaseId} /></div><div className="action-row"><button className="soft-button icon-text" disabled={!effectivePhaseId} onClick={downloadPhase}><FileSpreadsheet size={16} />Final Evaluation Summary</button><button className="soft-button icon-text" disabled={!effectiveProjectId} onClick={downloadProject}><Download size={16} />Export projet</button><button className="primary-action" disabled={busy || !effectiveProjectId} onClick={() => generate(true)}>Archiver le rapport final</button></div></Panel>
-    <Panel title="Contenu de l’export" accent="gold"><p className="muted">Le classeur contient la synthèse historique à 11 colonnes, le détail par étudiant, les notes de chaque évaluateur, les fiches manquantes et la piste d’audit.</p><div className="tag-list"><span>LEGACY_SUMMARY</span><span>FINAL_SUMMARY</span><span>EVALUATOR_DETAILS</span><span>MISSING_FORMS</span><span>AUDIT_TRAIL</span></div></Panel>
+    <div className="section-head full-span"><div><h2>Rapports Excel</h2></div><button type="button" className="soft-button" onClick={() => setInfoOpen(true)}>Contenu du fichier</button></div>
+    <Panel title="Génération et téléchargement" accent="green" wide><div className="form-grid two"><SelectData label="Projet" value={effectiveProjectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={effectivePhaseId} data={phases} onChange={setPhaseId} /></div><div className="report-readiness"><span><strong>{lockedForms}</strong> fiches validées</span><span className={pendingForms ? 'warning' : 'ready'}><strong>{pendingForms}</strong> à compléter</span></div><div className="action-row"><button className="soft-button icon-text" disabled={!effectivePhaseId} onClick={downloadPhase}><FileSpreadsheet size={16} />Synthèse de la phase</button><button className="soft-button icon-text" disabled={!effectiveProjectId} onClick={downloadProject}><Download size={16} />Export du projet</button><button className="soft-button icon-text" disabled={busy || !effectiveProjectId || !effectivePhaseId} onClick={() => confirmAction('Archiver le rapport de phase', 'Une version Excel de la phase sélectionnée sera conservée dans l’archive.', 'Générer la phase', () => generate(false))}><FileSpreadsheet size={16} />Archiver la phase</button><button className="primary-action" disabled={busy || !effectiveProjectId} onClick={() => confirmAction('Archiver le rapport final', 'Le rapport regroupera toutes les phases disponibles de ce projet.', 'Générer le rapport final', () => generate(true))}>Rapport final</button></div></Panel>
     <Panel title="Complétude des évaluations" wide>{completeness.length ? <DataTable rows={completeness} columns={['projectNumber','projectTitle','evaluationType','evaluatorName','evaluatorEmail','status']} compact /> : <EmptyState title="Aucune affectation pour cette phase" detail="Créez les affectations ou choisissez une autre phase." />}</Panel>
-    <Panel title="Archive des rapports" wide>{reports.length ? <DataTable rows={reports} columns={['project','phase','status','recipientEmail','generatedAt','sentAt']} compact extraAction={(row) => row.status !== 'SENT' && <button className="mini-button" onClick={() => send(row.id)}>Envoyer</button>} /> : <EmptyState title="Aucun rapport archivé" detail="Le téléchargement direct reste disponible sans créer d’archive." />}</Panel>
+    <button type="button" className="dashboard-more-button full-span" onClick={() => setArchiveOpen(true)}><FileSpreadsheet size={17} />Archive des rapports<span>{reports.length}</span></button>
+    <DialogShell open={infoOpen} title="Contenu du fichier Excel" onClose={() => setInfoOpen(false)}><div className="tag-list"><span>LEGACY_SUMMARY</span><span>FINAL_SUMMARY</span><span>EVALUATOR_DETAILS</span><span>MISSING_FORMS</span><span>AUDIT_TRAIL</span></div></DialogShell>
+    <DialogShell open={archiveOpen} title="Archive des rapports" onClose={() => setArchiveOpen(false)} wide>{reports.length ? <DataTable rows={reports} columns={['project','phase','status','recipientEmail','generatedAt','sentAt']} compact extraAction={(row) => <div className="row-actions"><button className="mini-button" disabled={busy} onClick={() => confirmAction('Envoyer le rapport', 'Le fichier Excel sera joint au courriel destiné à ' + (row.recipientEmail || 'la coordination') + '.', 'Envoyer', () => send(row.id))}><Send size={14} />Envoyer</button><button className="mini-button" disabled={busy} onClick={() => confirmAction('Créer une nouvelle version', 'Les données actuelles seront recalculées dans un nouveau fichier archivé.', 'Régénérer', () => regenerate(row.id))}><RefreshCw size={14} />Régénérer</button><button className="mini-button danger" disabled={busy} title="Supprimer le rapport" aria-label="Supprimer le rapport" onClick={() => confirmAction('Supprimer ce rapport', 'Cette version archivée sera supprimée de la plateforme.', 'Supprimer', () => removeReport(row.id), true)}><Trash2 size={14} /></button></div>} /> : <EmptyState title="Aucun rapport" />}</DialogShell>
+    <ConfirmDialog open={Boolean(dialog)} title={dialog?.title} message={dialog?.message} confirmLabel={dialog?.label} danger={dialog?.danger} onCancel={() => setDialog(null)} onConfirm={() => { const action = dialog?.action; setDialog(null); action?.() }} />
   </section>
 }
 
@@ -1534,9 +1714,67 @@ function Panel({ title, subtitle, children, accent = 'blue', wide = false, class
   return <section className={'panel accent-' + accent + (wide ? ' wide' : '') + (className ? ' ' + className : '')}><div className="panel-heading"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></div>{children}</section>
 }
 
-function DataTable({ rows = [], columns = [], onEdit, onDelete, compact = false, extraAction }) {
+function DialogShell({ open, title, onClose, children, wide = false }) {
+  useEffect(() => {
+    if (!open) return undefined
+    const previousOverflow = document.body.style.overflow
+    const close = (event) => { if (event.key === 'Escape') onClose() }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', close)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', close)
+    }
+  }, [onClose, open])
+  if (!open) return null
+  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className={'app-dialog ' + (wide ? 'wide' : '')} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} /></button></header><div className="app-dialog-body">{children}</div></section></div>, document.body)
+}
+
+function DataDialog({ open, title, rows, columns, onClose }) {
+  return <DialogShell open={open} title={title || 'Détails'} onClose={onClose} wide><DataTable rows={rows} columns={columns} compact /></DialogShell>
+}
+
+function ConfirmDialog({ open, title, message, confirmLabel, danger, onCancel, onConfirm }) {
+  useEffect(() => {
+    if (!open) return undefined
+    const close = (event) => {
+      if (event.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [onCancel, open])
+  if (!open) return null
+  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message"><button type="button" className="modal-close" onClick={onCancel} aria-label="Fermer"><X size={18} /></button><span className={'confirm-dialog-icon ' + (danger ? 'danger' : '')}>{danger ? <Trash2 size={22} /> : <ShieldCheck size={22} />}</span><h2 id="confirm-title">{title}</h2><p id="confirm-message">{message}</p><div className="confirm-dialog-actions"><button type="button" className="ghost-button" onClick={onCancel}>Annuler</button><button type="button" className={danger ? 'danger-action compact' : 'primary-action'} onClick={onConfirm}>{confirmLabel || 'Confirmer'}</button></div></section></div>, document.body)
+}
+
+function DataTable({ rows = [], columns = [], onEdit, onDelete, compact = false, extraAction, searchable = true, initialQuery = '', pageSize }) {
+  const [query, setQuery] = useState(initialQuery || '')
+  const [page, setPage] = useState(0)
+  const effectivePageSize = pageSize || 8
+  const normalizedQuery = normalizeTableSearch(query)
+  const filteredRows = useMemo(() => normalizedQuery
+    ? rows.filter((row) => normalizeTableSearch(JSON.stringify(row)).includes(normalizedQuery))
+    : rows, [normalizedQuery, rows])
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / effectivePageSize))
+  const currentPage = Math.min(page, pageCount - 1)
+  const visibleRows = filteredRows.slice(currentPage * effectivePageSize, (currentPage + 1) * effectivePageSize)
+
   if (!rows.length) return <EmptyState />
-  return <div className={'table-wrap ' + (compact ? 'compact' : '')}><table><thead><tr>{columns.map((column) => <th key={column}>{pretty(column)}</th>)}{(onEdit || onDelete || extraAction) && <th>Actions</th>}</tr></thead><tbody>{rows.map((row, index) => <tr key={row.id || index}>{columns.map((column) => <td key={column} data-label={pretty(column)}>{renderCell(row[column], column)}</td>)}{(onEdit || onDelete || extraAction) && <td className="row-actions" data-label="Actions">{extraAction?.(row)}{onEdit && <button type="button" className="mini-button icon-text" onClick={() => onEdit(row)} title="Modifier"><Pencil size={14} />Modifier</button>}{onDelete && <button type="button" className="mini-button danger icon-text" onClick={() => onDelete(row)} title="Supprimer"><Trash2 size={14} />Supprimer</button>}</td>}</tr>)}</tbody></table></div>
+  return <div className="data-table-shell">
+    {searchable && <div className="data-table-toolbar"><label><Search size={16} /><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(0) }} placeholder="Rechercher dans le tableau…" aria-label="Rechercher dans le tableau" />{query && <button type="button" onClick={() => { setQuery(''); setPage(0) }} title="Effacer" aria-label="Effacer la recherche"><X size={15} /></button>}</label><span>{filteredRows.length} / {rows.length}</span></div>}
+    {!filteredRows.length ? <EmptyState title="Aucun résultat" detail="Modifiez votre recherche." /> : <div className={'table-wrap ' + (compact ? 'compact' : '')}><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{pretty(column)}</th>)}{(onEdit || onDelete || extraAction) && <th className="actions-column">Actions</th>}</tr></thead><tbody>{visibleRows.map((row, index) => <tr key={row.id || currentPage * effectivePageSize + index}>{columns.map((column) => <td key={column} data-label={pretty(column)} title={cellTitle(row[column])}><div className="cell-content">{renderCell(row[column], column)}</div></td>)}{(onEdit || onDelete || extraAction) && <td className="actions-cell" data-label="Actions"><div className="row-actions">{extraAction?.(row)}{onEdit && <button type="button" className="table-action-button" onClick={() => onEdit(row)} title="Modifier" aria-label={'Modifier ' + itemName(row)}><Pencil size={15} /></button>}{onDelete && <button type="button" className="table-action-button danger" onClick={() => onDelete(row)} title="Supprimer" aria-label={'Supprimer ' + itemName(row)}><Trash2 size={15} /></button>}</div></td>}</tr>)}</tbody></table></div>}
+    {filteredRows.length > effectivePageSize && <footer className="data-table-pagination"><span>{currentPage + 1} / {pageCount}</span><div><button type="button" className="icon-button" disabled={currentPage === 0} onClick={() => setPage(Math.max(0, currentPage - 1))} title="Page précédente" aria-label="Page précédente"><ChevronLeft size={17} /></button><button type="button" className="icon-button" disabled={currentPage >= pageCount - 1} onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))} title="Page suivante" aria-label="Page suivante"><ChevronRight size={17} /></button></div></footer>}
+  </div>
+}
+
+function normalizeTableSearch(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr').trim()
+}
+
+function cellTitle(value) {
+  if (Array.isArray(value)) return value.map((item) => itemName(item?.user || item)).join(', ')
+  if (value && typeof value === 'object') return itemName(value.user || value)
+  return value === null || value === undefined ? '' : String(value)
 }
 
 function renderCell(value, column) {

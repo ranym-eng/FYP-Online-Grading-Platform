@@ -152,7 +152,7 @@ public class ReportController {
             @PathVariable UUID id
     ) {
         requireReportingRole(authorization);
-        reports.deleteById(id);
+        service.delete(id);
         return ApiResponse.ok("Report deleted", null);
     }
 

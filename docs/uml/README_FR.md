@@ -4,13 +4,14 @@ Cette documentation presente le modele fonctionnel et le modele de classes de la
 
 ## Acteurs connectes
 
-Les cinq acteurs connectes sont :
+Les six acteurs connectes sont :
 
 1. Administrateur ;
 2. Superviseur ;
-3. Evaluateur academique ;
-4. Representant industriel ;
-5. Coordinateur FYP.
+3. Evaluateur de rapports ;
+4. Evaluateur academique des soutenances ;
+5. Representant industriel ;
+6. Coordinateur FYP.
 
 Le planificateur et le serveur SMTP sont representes comme des systemes externes, pas comme des utilisateurs humains.
 

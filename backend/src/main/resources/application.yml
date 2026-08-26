@@ -13,7 +13,8 @@ spring:
       hibernate:
         format_sql: true
   flyway:
-    enabled: false
+    enabled: true
+    baseline-on-migrate: true
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -49,6 +50,7 @@ app:
   auth:
     local-internal-login-enabled: ${LOCAL_INTERNAL_LOGIN_ENABLED:false}
     industry-invitation-hours: ${INDUSTRY_INVITATION_HOURS:48}
+    password-reset-minutes: ${PASSWORD_RESET_MINUTES:30}
     sso:
       enabled: ${SQU_SSO_ENABLED:false}
       registration-id: squ

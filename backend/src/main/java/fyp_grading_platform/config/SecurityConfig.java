@@ -55,15 +55,13 @@ public class SecurityConfig {
                                 "/actuator/health"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/api/users/**",
-                                "/api/students/**",
-                                "/api/evaluators/**",
                                 "/api/tracks/**",
                                 "/api/projects/**",
                                 "/api/teams/**",
                                 "/api/phases/**",
                                 "/api/evaluation-forms/**",
-                                "/api/criteria/**"
+                                "/api/criteria/**",
+                                "/api/evaluators/me"
                         ).authenticated()
                         .requestMatchers("/api/users/**", "/api/students/**", "/api/evaluators/**", "/api/import/**")
                         .hasRole("ADMIN")

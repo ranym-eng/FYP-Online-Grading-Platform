@@ -87,7 +87,7 @@ public class ReportingService {
                 report.getRecipientEmail(),
                 "FYP grade report - " + report.getProject().getProjectNumber(),
                 report.getContentSnapshot(),
-                null
+                report.getFilePath()
         );
         if ("SENT".equalsIgnoreCase(notification.getStatus())) {
             report.setStatus(ReportStatus.SENT);
@@ -96,6 +96,23 @@ public class ReportingService {
             report.setStatus(ReportStatus.FAILED);
         }
         return reports.save(report);
+    }
+
+    public void delete(UUID id) {
+        Report report = reports.findById(id)
+                .orElseThrow(() -> new BusinessException("REPORT_NOT_FOUND", "Report not found"));
+        if (report.getFilePath() != null && !report.getFilePath().isBlank()) {
+            Path file = Path.of(report.getFilePath()).toAbsolutePath().normalize();
+            if (!file.startsWith(outputDirectory)) {
+                throw new BusinessException("INVALID_REPORT_PATH", "Invalid report output path");
+            }
+            try {
+                Files.deleteIfExists(file);
+            } catch (IOException exception) {
+                throw new BusinessException("REPORT_DELETE_FAILED", "The archived Excel file could not be deleted");
+            }
+        }
+        reports.delete(report);
     }
 
     private String safe(String value) {

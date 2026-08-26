@@ -28,9 +28,10 @@ INSERT INTO app_users
   (id, created_at, updated_at, email, full_name, password_hash, phone, role, status, university_id)
 VALUES
 ('20000000-0000-0000-0000-000000000001', now(), now(), 'demo.supervisor@squ.edu.om', 'Dr Ahmed Al Balushi', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '+968 9000 0001', 'SUPERVISOR', 'ACTIVE', 'DEMO-SUP-001'),
-('20000000-0000-0000-0000-000000000002', now(), now(), 'demo.faculty@squ.edu.om', 'Dr Fatma Al Hinai', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '+968 9000 0002', 'FACULTY_EVALUATOR', 'ACTIVE', 'DEMO-FAC-001'),
+('20000000-0000-0000-0000-000000000002', now(), now(), 'demo.faculty@squ.edu.om', 'Demo Oral Evaluator', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '+968 9000 0002', 'FACULTY_EVALUATOR', 'ACTIVE', 'DEMO-FAC-001'),
 ('20000000-0000-0000-0000-000000000003', now(), now(), 'demo.industry@squ.edu.om', 'Eng Khalid Al Rawahi', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '+968 9000 0003', 'INDUSTRY_REPRESENTATIVE', 'ACTIVE', 'DEMO-IND-001'),
-('20000000-0000-0000-0000-000000000004', now(), now(), 'demo.coordinator@squ.edu.om', 'Dr Maryam Al Harthy', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '+968 9000 0004', 'COORDINATOR', 'ACTIVE', 'DEMO-COO-001')
+('20000000-0000-0000-0000-000000000004', now(), now(), 'demo.coordinator@squ.edu.om', 'Dr Maryam Al Harthy', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '+968 9000 0004', 'COORDINATOR', 'ACTIVE', 'DEMO-COO-001'),
+('20000000-0000-0000-0000-000000000005', now(), now(), 'demo.report@squ.edu.om', 'Demo Report Evaluator', '$2a$10$IvbPJqjMvSVP0TPRgwJ4C.Cy0lxtUwaIYbOvdo9a3kFpzfrosPj9W', '+968 9000 0005', 'REPORT_EVALUATOR', 'ACTIVE', 'DEMO-REP-001')
 ON CONFLICT (email) DO UPDATE SET
   full_name = excluded.full_name,
   password_hash = excluded.password_hash,
@@ -67,8 +68,14 @@ ON CONFLICT (user_id) DO UPDATE SET department = excluded.department, specializa
 
 INSERT INTO evaluator_profiles
   (id, created_at, updated_at, department, external, external_organization, specialization, user_id)
-SELECT '40000000-0000-0000-0000-000000000002', now(), now(), 'Electrical Engineering', false, null, 'Technical reports and oral defenses', id
+SELECT '40000000-0000-0000-0000-000000000002', now(), now(), 'Electrical Engineering', false, null, 'Oral defenses', id
 FROM app_users WHERE email = 'demo.faculty@squ.edu.om'
+ON CONFLICT (user_id) DO UPDATE SET department = excluded.department, specialization = excluded.specialization, external = false, updated_at = now();
+
+INSERT INTO evaluator_profiles
+  (id, created_at, updated_at, department, external, external_organization, specialization, user_id)
+SELECT '40000000-0000-0000-0000-000000000004', now(), now(), 'Electrical Engineering', false, null, 'Paper report assessment', id
+FROM app_users WHERE email = 'demo.report@squ.edu.om'
 ON CONFLICT (user_id) DO UPDATE SET department = excluded.department, specialization = excluded.specialization, external = false, updated_at = now();
 
 INSERT INTO evaluator_profiles
@@ -142,14 +149,14 @@ ON CONFLICT (id) DO UPDATE SET active = true, project_id = excluded.project_id, 
 WITH assignment_data(id, project_number, evaluator_email, evaluation_type) AS (
   VALUES
   ('81000000-0000-0000-0000-000000000001'::uuid, 'DEMO-PSE-01', 'demo.supervisor@squ.edu.om', 'SUPERVISOR_PHASE_I'),
-  ('81000000-0000-0000-0000-000000000002'::uuid, 'DEMO-PSE-01', 'demo.faculty@squ.edu.om', 'REPORT_PHASE_I'),
+  ('81000000-0000-0000-0000-000000000002'::uuid, 'DEMO-PSE-01', 'demo.report@squ.edu.om', 'REPORT_PHASE_I'),
   ('81000000-0000-0000-0000-000000000003'::uuid, 'DEMO-PSE-01', 'demo.faculty@squ.edu.om', 'ORAL_PHASE_I'),
   ('81000000-0000-0000-0000-000000000004'::uuid, 'DEMO-CSP-02', 'demo.supervisor@squ.edu.om', 'SUPERVISOR_PHASE_II'),
-  ('81000000-0000-0000-0000-000000000005'::uuid, 'DEMO-CSP-02', 'demo.faculty@squ.edu.om', 'REPORT_PHASE_II'),
+  ('81000000-0000-0000-0000-000000000005'::uuid, 'DEMO-CSP-02', 'demo.report@squ.edu.om', 'REPORT_PHASE_II'),
   ('81000000-0000-0000-0000-000000000006'::uuid, 'DEMO-CSP-02', 'demo.faculty@squ.edu.om', 'ORAL_PHASE_II'),
   ('81000000-0000-0000-0000-000000000007'::uuid, 'DEMO-CSP-02', 'demo.industry@squ.edu.om', 'DEMO_DAY_INDUSTRY'),
   ('81000000-0000-0000-0000-000000000008'::uuid, 'DEMO-EIC-03', 'demo.supervisor@squ.edu.om', 'SUPERVISOR_PHASE_II'),
-  ('81000000-0000-0000-0000-000000000009'::uuid, 'DEMO-EIC-03', 'demo.faculty@squ.edu.om', 'REPORT_PHASE_II'),
+  ('81000000-0000-0000-0000-000000000009'::uuid, 'DEMO-EIC-03', 'demo.report@squ.edu.om', 'REPORT_PHASE_II'),
   ('81000000-0000-0000-0000-000000000010'::uuid, 'DEMO-EIC-03', 'demo.faculty@squ.edu.om', 'ORAL_PHASE_II'),
   ('81000000-0000-0000-0000-000000000011'::uuid, 'DEMO-EIC-03', 'demo.industry@squ.edu.om', 'DEMO_DAY_INDUSTRY')
 )
@@ -165,13 +172,13 @@ ON CONFLICT (id) DO UPDATE SET active = true, evaluation_type = excluded.evaluat
 -- 10. Locked prerequisite evaluations. Drafts are inserted separately below.
 WITH locked_data(id, project_number, phase_id, evaluator_email, evaluation_type, total_score, comment, required_count) AS (
   VALUES
-  ('a0000000-0000-0000-0000-000000000002'::uuid, 'DEMO-PSE-01', '70000000-0000-0000-0000-000000000001'::uuid, 'demo.faculty@squ.edu.om', 'REPORT_PHASE_I', 8.20, 'Validated report evaluation for the demo.', 20),
+  ('a0000000-0000-0000-0000-000000000002'::uuid, 'DEMO-PSE-01', '70000000-0000-0000-0000-000000000001'::uuid, 'demo.report@squ.edu.om', 'REPORT_PHASE_I', 8.20, 'Validated report evaluation for the demo.', 10),
   ('a0000000-0000-0000-0000-000000000003'::uuid, 'DEMO-PSE-01', '70000000-0000-0000-0000-000000000001'::uuid, 'demo.faculty@squ.edu.om', 'ORAL_PHASE_I', 8.50, 'Validated oral defense evaluation for the demo.', 11),
   ('a0000000-0000-0000-0000-000000000004'::uuid, 'DEMO-CSP-02', '70000000-0000-0000-0000-000000000002'::uuid, 'demo.supervisor@squ.edu.om', 'SUPERVISOR_PHASE_II', 8.80, 'Validated supervisor evaluation.', 22),
   ('a0000000-0000-0000-0000-000000000006'::uuid, 'DEMO-CSP-02', '70000000-0000-0000-0000-000000000002'::uuid, 'demo.faculty@squ.edu.om', 'ORAL_PHASE_II', 8.40, 'Validated oral defense evaluation.', 11),
   ('a0000000-0000-0000-0000-000000000007'::uuid, 'DEMO-CSP-02', '70000000-0000-0000-0000-000000000002'::uuid, 'demo.industry@squ.edu.om', 'DEMO_DAY_INDUSTRY', 9.10, 'Validated industry Demo Day evaluation.', 5),
   ('a0000000-0000-0000-0000-000000000008'::uuid, 'DEMO-EIC-03', '70000000-0000-0000-0000-000000000002'::uuid, 'demo.supervisor@squ.edu.om', 'SUPERVISOR_PHASE_II', 8.30, 'Validated supervisor evaluation.', 22),
-  ('a0000000-0000-0000-0000-000000000009'::uuid, 'DEMO-EIC-03', '70000000-0000-0000-0000-000000000002'::uuid, 'demo.faculty@squ.edu.om', 'REPORT_PHASE_II', 8.10, 'Validated final report evaluation.', 20),
+  ('a0000000-0000-0000-0000-000000000009'::uuid, 'DEMO-EIC-03', '70000000-0000-0000-0000-000000000002'::uuid, 'demo.report@squ.edu.om', 'REPORT_PHASE_II', 8.10, 'Validated final report evaluation.', 10),
   ('a0000000-0000-0000-0000-000000000010'::uuid, 'DEMO-EIC-03', '70000000-0000-0000-0000-000000000002'::uuid, 'demo.faculty@squ.edu.om', 'ORAL_PHASE_II', 8.60, 'Validated final oral evaluation.', 11)
 )
 INSERT INTO evaluation_submissions
@@ -246,37 +253,27 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO evaluation_submissions
   (id, created_at, updated_at, completed_score_count, draft_saved_at, evaluation_type, general_comment, locked, required_score_count, score_payload, status, total_score, evaluator_id, form_template_id, phase_id, project_id)
 SELECT
-  'a0000000-0000-0000-0000-000000000005', now(), now(), 19, now(), 'REPORT_PHASE_II',
-  'Draft: complete the final work score for Salim, then validate.', false, 20,
+  'a0000000-0000-0000-0000-000000000005', now(), now(), 9, now(), 'REPORT_PHASE_II',
+  'Draft: complete the proposed work score, then validate.', false, 10,
   jsonb_build_object(
-    'individual:identify-problem:30000000-0000-0000-0000-000000000003',8,
-    'individual:formulate-problem:30000000-0000-0000-0000-000000000003',8,
-    'individual:design-requirements:30000000-0000-0000-0000-000000000003',9,
-    'individual:analyze-solutions:30000000-0000-0000-0000-000000000003',8,
-    'individual:develop-solutions:30000000-0000-0000-0000-000000000003',8,
-    'individual:build-test:30000000-0000-0000-0000-000000000003',8,
-    'individual:technical-report:30000000-0000-0000-0000-000000000003',9,
-    'individual:professional-ethics:30000000-0000-0000-0000-000000000003',9,
-    'individual:evaluate-impact:30000000-0000-0000-0000-000000000003',8,
-    'individual:complete-work:30000000-0000-0000-0000-000000000003',8,
-    'individual:identify-problem:30000000-0000-0000-0000-000000000004',7,
-    'individual:formulate-problem:30000000-0000-0000-0000-000000000004',8,
-    'individual:design-requirements:30000000-0000-0000-0000-000000000004',8,
-    'individual:analyze-solutions:30000000-0000-0000-0000-000000000004',8,
-    'individual:develop-solutions:30000000-0000-0000-0000-000000000004',7,
-    'individual:build-test:30000000-0000-0000-0000-000000000004',8,
-    'individual:technical-report:30000000-0000-0000-0000-000000000004',8,
-    'individual:professional-ethics:30000000-0000-0000-0000-000000000004',9,
-    'individual:evaluate-impact:30000000-0000-0000-0000-000000000004',8
+    'group:identify-problem:group',8,
+    'group:formulate-problem:group',8,
+    'group:design-requirements:group',9,
+    'group:analyze-solutions:group',8,
+    'group:develop-solutions:group',8,
+    'group:build-test:group',8,
+    'group:technical-report:group',9,
+    'group:professional-ethics:group',9,
+    'group:evaluate-impact:group',8
   )::text,
-  'DRAFT', 8.09,
-  (SELECT ep.id FROM evaluator_profiles ep JOIN app_users u ON u.id = ep.user_id WHERE u.email = 'demo.faculty@squ.edu.om'),
+  'DRAFT', 7.55,
+  (SELECT ep.id FROM evaluator_profiles ep JOIN app_users u ON u.id = ep.user_id WHERE u.email = 'demo.report@squ.edu.om'),
   (SELECT id FROM evaluation_form_templates WHERE active = true AND evaluation_type = 'REPORT_PHASE_II' ORDER BY created_at LIMIT 1),
   '70000000-0000-0000-0000-000000000002',
   (SELECT id FROM projects WHERE project_number = 'DEMO-CSP-02')
 ON CONFLICT (id) DO UPDATE SET
-  created_at = excluded.created_at, updated_at = now(), completed_score_count = 19, draft_saved_at = now(),
-  general_comment = excluded.general_comment, locked = false, locked_at = null, required_score_count = 20,
+  created_at = excluded.created_at, updated_at = now(), completed_score_count = 9, draft_saved_at = now(),
+  general_comment = excluded.general_comment, locked = false, locked_at = null, required_score_count = 10,
   score_payload = excluded.score_payload, status = 'DRAFT', submitted_at = null, total_score = excluded.total_score,
   evaluator_id = excluded.evaluator_id, form_template_id = excluded.form_template_id, phase_id = excluded.phase_id, project_id = excluded.project_id;
 
@@ -311,7 +308,7 @@ SELECT
   'Your demonstration workspace is ready. Open your assigned workflow from the dashboard.',
   'SYSTEM', 'DEMO_WELCOME:' || u.id, u.email, u.id, now(), 'INFO', 'IN_APP', 'FYP demonstration workspace ready'
 FROM app_users u
-WHERE u.email IN ('demo.supervisor@squ.edu.om', 'demo.faculty@squ.edu.om', 'demo.industry@squ.edu.om', 'demo.coordinator@squ.edu.om')
+WHERE u.email IN ('demo.supervisor@squ.edu.om', 'demo.report@squ.edu.om', 'demo.faculty@squ.edu.om', 'demo.industry@squ.edu.om', 'demo.coordinator@squ.edu.om')
 ON CONFLICT (deduplication_key) DO NOTHING;
 
 -- 13. Initial audit marker.

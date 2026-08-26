@@ -26,7 +26,7 @@ It is designed to:
 
 ### Premium Bilingual Frontend
 
-- Distinct role-aware dashboards for administrators, supervisors, faculty evaluators, industry representatives, and FYP coordinators.
+- Distinct role-aware dashboards for administrators, supervisors, report evaluators, faculty oral evaluators, industry representatives, and FYP coordinators.
 - Responsive workspace for desktop, tablet, and mobile with an off-canvas mobile navigation.
 - SQU-inspired visual identity with a professional academic photograph, carefully balanced institutional colors, and Lucide icons.
 - Consistent light and dark themes saved across sessions.
@@ -38,7 +38,7 @@ It is designed to:
 ### Authentication and Role-Based Access
 
 - No public sign-up: every account must be provisioned from an official university or administrator-controlled source.
-- SQU OpenID Connect single sign-on for administrators, coordinators, supervisors, and faculty evaluators whose institutional identity was imported beforehand.
+- SQU OpenID Connect single sign-on for administrators, coordinators, supervisors, report evaluators, and faculty oral evaluators whose institutional identity was imported beforehand.
 - One-time e-mail invitations for Industry Guests, with a dedicated activation link and an explicit access-expiration date.
 - Industry Guest permissions remain limited to assigned Demo Day projects.
 - Separate sessions and dashboards for each actor.
@@ -47,7 +47,7 @@ It is designed to:
 
 ### Latest Identity and Onboarding Update
 
-- Internal actors (`ADMIN`, `COORDINATOR`, `SUPERVISOR`, and `FACULTY_EVALUATOR`) are provisioned before their first connection and never create their own platform account.
+- Internal actors (`ADMIN`, `COORDINATOR`, `SUPERVISOR`, `REPORT_EVALUATOR`, and `FACULTY_EVALUATOR`) are provisioned before their first connection and never create their own platform account.
 - SQU authentication uses a configurable OpenID Connect authorization-code flow. The returned institutional e-mail must belong to an active imported account before a platform session is issued.
 - Internal passwords are not accepted in the annual Excel import and are managed by the institutional identity provider.
 - Industry Guests are created with `PENDING_INVITATION`, a mandatory future `accessExpiresAt`, and a cryptographically hashed one-time activation token.
@@ -55,6 +55,14 @@ It is designed to:
 - Administrators can send or resend an Industry invitation from account management. Development invitations are visible in Mailpit.
 - Expired Industry accounts are rejected at login and during authenticated API access, even if an older session token still exists.
 - Local password login for internal actors is an explicit demonstration fallback controlled by `LOCAL_INTERNAL_LOGIN_ENABLED`; it must be disabled when SQU SSO is enabled.
+
+### Delivery Hardening Update
+
+- Password recovery is operational: the user enters an e-mail address, receives the same generic confirmation whether or not the address exists, then uses a single-use, hashed, expiring reset link. In production, internal SQU passwords remain managed by the university identity provider.
+- A non-administrator extension request contains only a phase and a reason. The administrator alone approves or rejects the request and chooses the new future deadline.
+- The notification bell opens a compact, Facebook-style summary. Unread items can be marked as read and actionable notifications open the relevant evaluation, extension, phase, or report workspace.
+- Personal dashboards and project lists are scoped to the authenticated actor. Administrative academic directories are protected by both backend authorization and role-specific frontend loading.
+- Generated Excel reports can be downloaded, archived, regenerated, sent as real e-mail attachments, or deleted through confirmed actions. Docker persists generated reports in a dedicated volume.
 
 ### Academic Data Management
 
@@ -67,9 +75,9 @@ It is designed to:
 ### Excel Imports
 
 - Initialize an academic cohort from one validated master workbook.
-- Seven data sheets: `STUDENTS`, `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS`, `FACULTY_EVALUATORS`, `INDUSTRY_GUESTS`, and `PROJECT_ASSIGNMENTS`.
+- Eight data sheets: `STUDENTS`, `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS`, `REPORT_EVALUATORS`, `FACULTY_EVALUATORS`, `INDUSTRY_GUESTS`, and `PROJECT_ASSIGNMENTS`.
 - Preview every row and cross-reference without writing to PostgreSQL, then persist the accepted workbook in one transaction.
-- Link each project to one to five students, one or two supervisors, faculty report/oral evaluators, and Industry Guest evaluators.
+- Link each project to one to five students, one or two supervisors, Report I/II evaluators, Oral I/II faculty evaluators, and Industry Guest evaluators.
 - Create or update records idempotently by SQU student ID, actor e-mail/ID, and project number.
 - Keep a separate official-student update import using `stdID`, `cohort`, `name`, and `Email`.
 - Download the final template from the administrator import screen or from [`docs/templates/modele_initialisation_plateforme_fyp.xlsx`](docs/templates/modele_initialisation_plateforme_fyp.xlsx).
@@ -82,14 +90,15 @@ It is designed to:
 - Open, close, and archive phases.
 - Block evaluation submission when a phase deadline has passed.
 - Send reminders approximately 24 hours and 12 hours before a deadline.
-- Allow evaluators to request an extension.
-- Allow administrators to approve or reject extension requests.
+- Allow non-administrator evaluation actors to request an extension by providing a reason, without proposing a date.
+- Allow administrators to approve or reject requests and exclusively set the revised deadline.
 
 ### Evaluation Workflow
 
 - Supervisor evaluations for FYP I and FYP II.
-- Report evaluations for FYP I and FYP II.
-- Oral presentation evaluations for FYP I and FYP II.
+- Report I and Report II paper evaluations restricted to assigned `REPORT_EVALUATOR` accounts.
+- Official ten-criterion report rubric: every criterion is scored out of 10, criterion 4 counts twice, and the normalized report score is `(C1 + C2 + C3 + 2*C4 + C5...C10) / 11`.
+- Oral I and Oral II presentation evaluations restricted to assigned `FACULTY_EVALUATOR` accounts.
 - Industry representative evaluation for Demo Day.
 - Official Industry Guest sheet with the five criteria and 2/1/4/2/1 weighting supplied by SQU.
 - Official Excel-compatible forms and rubric criteria with server-side validation of every expected score cell.
@@ -97,6 +106,7 @@ It is designed to:
 - Automatic draft saving.
 - Explicit final submission and locking.
 - Drafts that are not submitted before the deadline are excluded from official grading.
+- Locked report scores are included in phase and final consolidation through the administrator-configured grading-rule weights.
 
 ### Grading and Reporting
 
@@ -104,12 +114,13 @@ It is designed to:
 - Track pending, submitted, and locked evaluation sheets.
 - Approve and publish grades for coordinator reporting and official academic records.
 - Generate real phase and final `.xlsx` reports with legacy-compatible and enhanced sheets.
-- Track report generation and send notification e-mails while keeping grade files behind authenticated downloads.
+- Track report generation and send the generated workbook as an e-mail attachment while keeping direct grade-file downloads authenticated.
+- Archive, regenerate, send, download, and delete reports through confirmed user actions.
 - Provide coordinator and administrator views of overall progress.
 
 ### Notifications and Audit
 
-- In-app notification center available to all actors.
+- In-app notification center available to all actors, with a responsive summary popover and contextual navigation.
 - Deadline reminders and extension decision notifications.
 - Development email capture through Mailpit.
 - Audit logs for sensitive administrative actions.
@@ -126,7 +137,8 @@ It is designed to:
 | --- | --- |
 | Administrator | Manages accounts, academic data, projects, teams, phases, assignments, evaluation templates, deadlines, extensions, grades, reports, and audit logs. |
 | Supervisor | Evaluates supervised projects for FYP I and FYP II, saves drafts, submits final forms, and requests deadline extensions. |
-| Faculty Evaluator | Evaluates reports and oral presentations for FYP I and FYP II and follows pending submissions. |
+| Report Evaluator | Evaluates the project paper reports for Report I and Report II using the official ten-criterion rubric. |
+| Faculty Evaluator | Evaluates oral presentations for Oral I and Oral II and follows pending submissions. |
 | Industry Representative | Evaluates prototypes and industry relevance during Demo Day. |
 | FYP Coordinator | Monitors phase progress, consolidated grades, generated reports, exports, and delivery history. |
 
@@ -138,7 +150,7 @@ It is designed to:
 4. Evaluation forms, criteria, grading rules, phases, and deadlines are configured.
 5. Evaluators enter scores and comments, which remain drafts until final submission.
 6. The platform sends approaching-deadline notifications.
-7. Evaluators may request an extension when necessary.
+7. Evaluators may request an extension with a reason; the administrator decides whether to grant it and sets the revised deadline.
 8. Submitted evaluations are locked and included in grade consolidation.
 9. Administrators review, finalize, and publish grades for institutional processing.
 10. Coordinators review consolidated results and generate reports and exports.
@@ -344,6 +356,7 @@ Available variables:
 | `APP_FRONTEND_URL` | `http://localhost:3000` |
 | `LOCAL_INTERNAL_LOGIN_ENABLED` | `true` in the Docker demo; set `false` with SQU SSO |
 | `INDUSTRY_INVITATION_HOURS` | `48` |
+| `PASSWORD_RESET_MINUTES` | `30` |
 | `SQU_SSO_ENABLED` | `false` until OIDC is configured |
 | `SQU_SSO_CLIENT_ID` | Supplied by the SQU identity team |
 | `SQU_SSO_CLIENT_SECRET` | Supplied by the SQU identity team |
@@ -417,10 +430,10 @@ docker compose config
 
 ### Current Verification Status
 
-- Backend: 31 tests passed, with one optional import test skipped.
-- Frontend: ESLint and the production Vite build passed.
+- Backend: 41 tests discovered, 40 passed, no failures, and one optional import test skipped.
+- Frontend: ESLint, the production Vite build, and seven grading/formula tests passed.
 - Docker: PostgreSQL, Spring Boot, React/Nginx, and Mailpit start and report healthy status.
-- Official master workbook: 32 out of 32 populated rows pass the backend preview validation with no errors.
+- Official master workbook: 35 out of 35 populated rows pass the backend preview validation with no errors.
 
 ## Annual Data Initialization
 
@@ -434,7 +447,8 @@ The old per-track EIC, CSN, CSP, and PSE workbooks are replaced by one master-da
 | `ADMINISTRATORS` | Official administrator identity, institutional e-mail, `SQU_SSO` authentication mode, and status |
 | `COORDINATORS` | Official FYP coordinator identities using SQU SSO |
 | `SUPERVISORS` | Official supervisor identities and academic profile fields using SQU SSO |
-| `FACULTY_EVALUATORS` | Official report/oral evaluator identities using SQU SSO |
+| `REPORT_EVALUATORS` | Official Report I/Report II paper evaluator identities using SQU SSO |
+| `FACULTY_EVALUATORS` | Official Oral I/Oral II faculty evaluator identities using SQU SSO |
 | `INDUSTRY_GUESTS` | External identity, organization, future `accessExpiresAt`, and `PENDING_INVITATION` status |
 | `PROJECT_ASSIGNMENTS` | Cohort, track, project, optional student, optional supervisor, and evaluator e-mail lists per row |
 
@@ -445,7 +459,7 @@ Every populated row distributed with the template is fictional. Names are labell
 ### First-run workflow
 
 1. For a local demo, start Docker and sign in as `admin@squ.edu.om` / `Admin@123`. In a real deployment, the provisioned administrator uses **Sign in with SQU account**.
-2. Open **Excel Imports**, download the master template, and complete all seven sheets.
+2. Open **Excel Imports**, download the master template, and complete all eight data sheets.
 3. Run **Analyze without saving**. Fix every reported sheet, row, and field error.
 4. Run **Initialize platform**. The import is atomic and safe to repeat after corrections.
 5. Open **Data Management > Phases**. Create FYP I and FYP II with an `academicYear` exactly matching the imported `cohort`, then set dates, deadlines, and `OPEN` status.
@@ -467,7 +481,8 @@ The export contains `LEGACY_SUMMARY`, `FINAL_SUMMARY`, `EVALUATOR_DETAILS`, `MIS
 
 - Hibernate creates and updates the PostgreSQL schema at startup.
 - Docker database data is persisted in the `postgres_data` volume.
-- Development e-mails, password-reset tokens, reminders, and report-availability notices are captured by Mailpit at http://localhost:8025. Grade workbooks remain authenticated downloads.
+- Generated report workbooks are persisted in the Docker `report_data` volume.
+- Development e-mails, password-reset links, reminders, invitations, extension decisions, and report attachments are captured by Mailpit at http://localhost:8025. Direct grade-workbook downloads remain authenticated.
 - The backend can be configured to use a real SMTP server through environment variables for deployment.
 
 ## Troubleshooting
