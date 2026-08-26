@@ -4,9 +4,13 @@ import fyp_grading_platform.audit.AuditService;
 import fyp_grading_platform.auth.IndustryInvitationService;
 import fyp_grading_platform.auth.OneTimeTokenHasher;
 import fyp_grading_platform.common.EvaluationType;
+import fyp_grading_platform.common.PhaseStatus;
+import fyp_grading_platform.common.PhaseType;
 import fyp_grading_platform.common.UserRole;
 import fyp_grading_platform.common.UserStatus;
 import fyp_grading_platform.common.exception.BusinessException;
+import fyp_grading_platform.project.Phase;
+import fyp_grading_platform.project.PhaseRepository;
 import fyp_grading_platform.project.Project;
 import fyp_grading_platform.project.ProjectEvaluatorAssignment;
 import fyp_grading_platform.project.ProjectEvaluatorAssignmentRepository;
@@ -28,6 +32,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +59,7 @@ public class SimplifiedInitializationImportService {
     private static final long MAX_FILE_BYTES = 15L * 1024 * 1024;
     private static final List<String> SHEETS = List.of(
             "STUDENTS", "ADMINISTRATORS", "COORDINATORS", "SUPERVISORS",
-            "REPORT_EVALUATORS", "FACULTY_EVALUATORS", "INDUSTRY_GUESTS", "PROJECT_ASSIGNMENTS"
+            "REPORT_EVALUATORS", "FACULTY_EVALUATORS", "INDUSTRY_GUESTS", "PHASES", "PROJECT_ASSIGNMENTS"
     );
     private static final Map<String, UserRole> ACTOR_ROLES = Map.of(
             "ADMINISTRATORS", UserRole.ADMIN,
@@ -74,6 +79,7 @@ public class SimplifiedInitializationImportService {
     private final UserRepository users;
     private final EvaluatorProfileRepository evaluatorProfiles;
     private final TrackRepository tracks;
+    private final PhaseRepository phases;
     private final ProjectRepository projects;
     private final TeamRepository teams;
     private final ProjectSupervisorAssignmentRepository supervisorAssignments;
@@ -82,12 +88,15 @@ public class SimplifiedInitializationImportService {
     private final OneTimeTokenHasher tokenHasher;
     private final IndustryInvitationService industryInvitations;
     private final AuditService audit;
+    @Value("${app.auth.local-internal-login-enabled:false}")
+    private boolean localInternalLoginEnabled;
 
     public SimplifiedInitializationImportService(
             StudentProfileRepository students,
             UserRepository users,
             EvaluatorProfileRepository evaluatorProfiles,
             TrackRepository tracks,
+            PhaseRepository phases,
             ProjectRepository projects,
             TeamRepository teams,
             ProjectSupervisorAssignmentRepository supervisorAssignments,
@@ -101,6 +110,7 @@ public class SimplifiedInitializationImportService {
         this.users = users;
         this.evaluatorProfiles = evaluatorProfiles;
         this.tracks = tracks;
+        this.phases = phases;
         this.projects = projects;
         this.teams = teams;
         this.supervisorAssignments = supervisorAssignments;
@@ -136,6 +146,7 @@ public class SimplifiedInitializationImportService {
         ));
         importStudents(parsed.rows("STUDENTS"), counters.get("STUDENTS"));
         Map<String, User> actorsById = importActors(parsed, counters);
+        importPhases(parsed.rows("PHASES"), counters.get("PHASES"));
         importProjectsAndAssignments(parsed.rows("PROJECT_ASSIGNMENTS"), actorsById, counters.get("PROJECT_ASSIGNMENTS"));
         List<InitializationSheetSummary> summaries = SHEETS.stream()
                 .map(sheet -> new InitializationSheetSummary(
@@ -159,6 +170,7 @@ public class SimplifiedInitializationImportService {
         for (Map.Entry<String, UserRole> entry : ACTOR_ROLES.entrySet()) {
             validateActors(parsed.rows(entry.getKey()), entry.getValue(), actorsById, actorsByEmail, errors);
         }
+        validatePhases(parsed.rows("PHASES"), errors);
         validateProjects(parsed.rows("PROJECT_ASSIGNMENTS"), studentsById, actorsById, actorsByEmail, errors);
 
         Set<RowLocation> invalid = errors.stream()
@@ -303,6 +315,39 @@ public class SimplifiedInitializationImportService {
         }
     }
 
+    private void validatePhases(List<RowData> rows, List<InitializationImportError> errors) {
+        Map<String, RowData> phaseKeys = new LinkedHashMap<>();
+        for (RowData row : rows) {
+            for (String field : List.of("phaseType", "phaseName", "academicYear", "startDate", "deadline", "status")) {
+                required(row, field, errors);
+            }
+            PhaseType type = null;
+            try {
+                type = PhaseType.valueOf(upper(row.value("phaseType")));
+            } catch (IllegalArgumentException exception) {
+                error(row, "phaseType", "Phase type must be PHASE_I or PHASE_II", errors);
+            }
+            try {
+                PhaseStatus.valueOf(upper(row.value("status")));
+            } catch (IllegalArgumentException exception) {
+                error(row, "status", "Status must be NOT_STARTED, OPEN, CLOSED or ARCHIVED", errors);
+            }
+            if (type != null && !row.value("academicYear").isBlank()) {
+                duplicate(row, "phaseType", lower(row.value("academicYear")) + ":" + type.name(),
+                        phaseKeys, "A phase type is duplicated for this academic year", errors);
+            }
+            try {
+                LocalDateTime start = parseDateTime(row.value("startDate"));
+                LocalDateTime deadline = parseDateTime(row.value("deadline"));
+                if (start != null && deadline != null && !deadline.isAfter(start)) {
+                    error(row, "deadline", "Deadline must be after the start date", errors);
+                }
+            } catch (IllegalArgumentException exception) {
+                error(row, "startDate", "Use YYYY-MM-DD or YYYY-MM-DDTHH:mm", errors);
+            }
+        }
+    }
+
     private void validateEvaluatorEmails(
             RowData row,
             String field,
@@ -371,7 +416,13 @@ public class SimplifiedInitializationImportService {
                         ? parseAccessExpiresAt(row.value("accessExpiresAt"))
                         : null);
                 if (created) {
-                    user.setPasswordHash(passwordEncoder.encode(tokenHasher.generate()));
+                    String temporaryPassword = row.value("temporaryPassword");
+                    String initialPassword = localInternalLoginEnabled
+                            && entry.getValue() != UserRole.INDUSTRY_REPRESENTATIVE
+                            && temporaryPassword.length() >= 8
+                            ? temporaryPassword
+                            : bcryptSafeGeneratedPassword(tokenHasher.generate());
+                    user.setPasswordHash(passwordEncoder.encode(initialPassword));
                 }
                 user = users.save(user);
                 if (isEvaluator(entry.getValue())) upsertEvaluatorProfile(user, row, entry.getValue());
@@ -384,6 +435,37 @@ public class SimplifiedInitializationImportService {
             }
         }
         return result;
+    }
+
+    static String bcryptSafeGeneratedPassword(String generatedToken) {
+        return generatedToken.substring(0, Math.min(generatedToken.length(), 64));
+    }
+
+    private void importPhases(List<RowData> rows, Counter counter) {
+        for (RowData row : rows) {
+            PhaseType type = PhaseType.valueOf(upper(row.value("phaseType")));
+            String academicYear = row.value("academicYear");
+            Phase phase = phases.findByAcademicYearAndType(academicYear, type).orElse(null);
+            boolean created = phase == null;
+            if (created) phase = new Phase();
+            LocalDateTime startDate = parseDateTime(row.value("startDate"));
+            LocalDateTime deadline = parseDateTime(row.value("deadline"));
+            PhaseStatus status = PhaseStatus.valueOf(upper(row.value("status")));
+            boolean changed = created || phase.getType() != type
+                    || different(phase.getName(), row.value("phaseName"))
+                    || different(phase.getAcademicYear(), academicYear)
+                    || different(phase.getStartDate(), startDate)
+                    || different(phase.getDeadline(), deadline)
+                    || phase.getStatus() != status;
+            phase.setType(type);
+            phase.setName(row.value("phaseName"));
+            phase.setAcademicYear(academicYear);
+            phase.setStartDate(startDate);
+            phase.setDeadline(deadline);
+            phase.setStatus(status);
+            phases.save(phase);
+            counter.record(created, changed);
+        }
     }
 
     private void upsertEvaluatorProfile(User user, RowData row, UserRole role) {
@@ -486,7 +568,9 @@ public class SimplifiedInitializationImportService {
             for (String name : SHEETS) {
                 Sheet sheet = workbook.getSheet(name);
                 if (sheet == null) {
-                    errors.add(new InitializationImportError(name, 0, "sheet", "", "Required sheet is missing"));
+                    if (!"PHASES".equals(name)) {
+                        errors.add(new InitializationImportError(name, 0, "sheet", "", "Required sheet is missing"));
+                    }
                     values.put(name, List.of());
                 } else {
                     values.put(name, readSheet(sheet, name, errors));
@@ -564,6 +648,7 @@ public class SimplifiedInitializationImportService {
             if ("PROJECT_ASSIGNMENTS".equals(sheetName)
                     && values.contains("projectNumber") && values.contains("studentId")) return index;
             if ("STUDENTS".equals(sheetName) && values.contains("studentId") && values.contains("email")) return index;
+            if ("PHASES".equals(sheetName) && values.contains("phaseType") && values.contains("academicYear")) return index;
             if (ACTOR_ROLES.containsKey(sheetName) && values.contains("actorId") && values.contains("email")) return index;
         }
         return -1;
@@ -581,6 +666,7 @@ public class SimplifiedInitializationImportService {
                     : ACTOR_ROLES.containsKey(sheetName) ? "actorName" : "name";
             case "email" -> "email";
             case "cohort" -> "cohort";
+            case "academicyear" -> "academicYear";
             case "trackcode", "track" -> "trackCode";
             case "level" -> "level";
             case "department" -> "department";
@@ -588,7 +674,12 @@ public class SimplifiedInitializationImportService {
             case "organization", "externalorganization" -> "organization";
             case "phone" -> "phone";
             case "accessexpiresat", "accessuntil", "expirydate", "expirationdate" -> "accessExpiresAt";
+            case "temporarypassword", "demopassword", "initialpassword" -> "temporaryPassword";
             case "status" -> "status";
+            case "phasetype" -> "phaseType";
+            case "phasename" -> "phaseName";
+            case "startdate" -> "startDate";
+            case "deadline" -> "deadline";
             case "projectnumber", "project", "projectno" -> "projectNumber";
             case "projecttitle", "title" -> "projectTitle";
             case "projectabstract", "abstract" -> "projectAbstract";
@@ -657,6 +748,10 @@ public class SimplifiedInitializationImportService {
     }
 
     private LocalDateTime parseAccessExpiresAt(String value) {
+        return parseDateTime(value);
+    }
+
+    private LocalDateTime parseDateTime(String value) {
         if (value == null || value.isBlank()) return null;
         try {
             return LocalDateTime.parse(value.trim());

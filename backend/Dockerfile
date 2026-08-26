@@ -8,11 +8,16 @@ RUN --mount=type=cache,target=/root/.m2 \
 
 FROM eclipse-temurin:21-jre-alpine
 
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN apk add --no-cache su-exec \
+    && addgroup -S spring \
+    && adduser -S spring -G spring \
+    && mkdir -p /app/generated \
+    && chown -R spring:spring /app/generated
 WORKDIR /app
 COPY --from=build /workspace/target/fyp-grading-platform-*.jar app.jar
+COPY docker-entrypoint.sh /usr/local/bin/fyp-entrypoint
+RUN chmod 755 /usr/local/bin/fyp-entrypoint
 
-USER spring
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["/usr/local/bin/fyp-entrypoint"]

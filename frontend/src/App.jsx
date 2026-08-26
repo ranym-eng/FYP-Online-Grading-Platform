@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, Bell, Building2, CheckCheck, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, X } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, X } from 'lucide-react'
 import squLogo from './assets/Sultan_Qaboos_University_Logo.png'
 import squMark from './assets/sultan-qaboos-university-logo-png_seeklogo-271991.png'
 import { apiRequest, downloadFile, itemName, pretty, unwrapList } from './api.js'
@@ -47,7 +47,7 @@ function evaluationTypesForRole(role) {
 function initialTheme() {
   const saved = localStorage.getItem('fyp-theme')
   if (saved === 'light' || saved === 'dark') return saved
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return 'light'
 }
 
 function initialSidebarCollapsed() {
@@ -129,7 +129,7 @@ function App() {
     notify('Bienvenue dans votre espace ' + pretty(next.role))
   }
 
-  if (!session) return <AuthScreen onSession={openWorkspace} notify={notify} toast={toast} language={language} setLanguage={setLanguage} theme={theme} setTheme={setTheme} />
+  if (!session) return <AuthScreen onSession={openWorkspace} notify={notify} toast={toast} language={language} setLanguage={setLanguage} />
   return <Shell session={session} activeView={activeView} setActiveView={setActiveView} onLogout={() => setSession(null)} notify={notify} toast={toast} language={language} setLanguage={setLanguage} theme={theme} setTheme={setTheme} />
 }
 
@@ -139,7 +139,7 @@ function LanguageSwitcher({ language, setLanguage }) {
   </div>
 }
 
-function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, setTheme }) {
+function AuthScreen({ onSession, notify, toast, language, setLanguage }) {
   const initialUrl = new URL(window.location.href)
   const initialInvitationToken = initialUrl.searchParams.get('industryInvitation') || ''
   const initialResetToken = initialUrl.searchParams.get('resetToken') || ''
@@ -159,9 +159,6 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
       if (!active) return
       const next = response.data || { enabled: false, loginUrl: null, localInternalLoginEnabled: false }
       setSsoConfig(next)
-      if (next.localInternalLoginEnabled) {
-        setLoginForm((current) => current.email ? current : { email: 'admin@squ.edu.om', password: 'Admin@123' })
-      }
     }).catch(() => {
       if (active) setSsoConfig({ enabled: false, loginUrl: null, localInternalLoginEnabled: false })
     })
@@ -194,6 +191,10 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
 
   async function login(event) {
     event.preventDefault()
+    if (ssoConfig.enabled && !ssoConfig.localInternalLoginEnabled && loginForm.email.toLowerCase().endsWith('@squ.edu.om')) {
+      startSso()
+      return
+    }
     setBusy(true)
     try {
       const result = await apiRequest('/api/auth/login', { method: 'POST', body: JSON.stringify(loginForm) })
@@ -268,9 +269,9 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
     window.location.assign(ssoConfig.loginUrl)
   }
 
-  const heading = mode === 'login' ? 'Bienvenue' : mode === 'forgot' ? 'Récupérer le compte' : mode === 'activate' ? 'Activer votre invitation' : 'Créer un nouveau mot de passe'
+  const heading = mode === 'login' ? 'Connexion' : mode === 'forgot' ? 'Récupérer le compte' : mode === 'activate' ? 'Activer votre invitation' : 'Créer un nouveau mot de passe'
   const description = mode === 'login'
-    ? ''
+    ? 'Accédez à votre espace de travail FYP.'
     : mode === 'forgot'
       ? 'Saisissez l’adresse du compte importé par l’administration.'
       : mode === 'activate'
@@ -279,35 +280,32 @@ function AuthScreen({ onSession, notify, toast, language, setLanguage, theme, se
 
   return <main className="auth-screen">
     <section className="auth-visual">
-      <LogoLockup />
+      <div className="auth-brand-line"><LogoLockup /><LanguageSwitcher language={language} setLanguage={setLanguage} /></div>
       <div className="auth-copy page-enter">
-        <div className="auth-kicker"><ShieldCheck size={17} /><span>Département de génie électrique et informatique</span></div>
-        <h1>Final Year<br />Grading</h1>
+        <div className="auth-kicker"><span>College of Engineering</span><i /></div>
+        <h1>Final Year<br /><em>Grading</em></h1>
+        <p>Une évaluation claire, du premier rapport au résultat final.</p>
       </div>
-      <div className="auth-photo-credit"><span>Exposition annuelle des projets FYP</span><strong>Sultan Qaboos University</strong></div>
+      <div className="auth-stage-line"><span>FYP I</span><i /><span>FYP II</span><i /><span>Demo Day</span></div>
     </section>
     <div className="auth-panel-shell">
       <section className="auth-panel page-enter">
-        <div className="auth-panel-tools"><ThemeToggle theme={theme} setTheme={setTheme} compact /><LanguageSwitcher language={language} setLanguage={setLanguage} /></div>
-        <div className="brand-badge"><img src={squMark} alt="SQU" /><div><span>Portail académique sécurisé</span><small>College of Engineering</small></div></div>
+        <div className="brand-badge"><img src={squMark} alt="SQU" /><div><strong>Sultan Qaboos University</strong><small>Final Year Grading Platform</small></div></div>
         <form className="stack-form auth-form" onSubmit={mode === 'login' ? login : mode === 'forgot' ? requestReset : mode === 'activate' ? activateIndustryGuest : resetPassword}>
           <div className="auth-form-heading"><h2>{heading}</h2>{description && <p>{description}</p>}</div>
           {mode === 'login' && <>
-            <button className="sso-login-button" type="button" onClick={startSso} aria-disabled={!ssoConfig.enabled}>
-              <Building2 size={20} /><span><strong>Se connecter avec le compte SQU</strong><small>{ssoConfig.enabled ? 'Single Sign-On institutionnel' : 'Disponible après configuration SQU'}</small></span><ArrowRight size={18} />
-            </button>
-            <div className="auth-divider"><span>{ssoConfig.localInternalLoginEnabled ? 'Industry Guest ou démonstration locale' : 'Accès Industry Guest'}</span></div>
-            <AuthField icon={Mail} label="Adresse e-mail" type="email" value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" />
-            <AuthField icon={ShieldCheck} label="Mot de passe" type={showPassword ? 'text' : 'password'} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} />
+            <AuthField icon={Mail} label="Adresse e-mail" type="email" required value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" />
+            <AuthField icon={ShieldCheck} label="Mot de passe" type={showPassword ? 'text' : 'password'} required={!ssoConfig.enabled || ssoConfig.localInternalLoginEnabled || !loginForm.email.toLowerCase().endsWith('@squ.edu.om')} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} />
           </>}
-          {mode === 'forgot' && !recoverySent && <><AuthField icon={Mail} label="Adresse e-mail" type="email" value={recovery.email} onChange={(email) => setRecovery({ ...recovery, email })} autoComplete="email" /><div className="auth-context-note"><KeyRound size={16} /><span>Industry Guest ou démonstration locale.</span></div></>}
+          {mode === 'forgot' && !recoverySent && <AuthField icon={Mail} label="Adresse e-mail" type="email" required value={recovery.email} onChange={(email) => setRecovery({ ...recovery, email })} autoComplete="email" />}
           {mode === 'forgot' && recoverySent && <div className="auth-success-state"><span><CheckCircle2 size={22} /></span><div><strong>Consultez votre boîte e-mail</strong><p>Un lien sera envoyé si le compte est éligible.</p></div></div>}
           {mode === 'reset' && <><AuthField icon={KeyRound} label="Nouveau mot de passe" type="password" minLength="8" value={recovery.newPassword} onChange={(newPassword) => setRecovery({ ...recovery, newPassword })} autoComplete="new-password" /><AuthField icon={ShieldCheck} label="Confirmer le mot de passe" type="password" minLength="8" value={recovery.confirmPassword} onChange={(confirmPassword) => setRecovery({ ...recovery, confirmPassword })} autoComplete="new-password" /></>}
           {mode === 'activate' && <><AuthField icon={KeyRound} label="Nouveau mot de passe" type="password" minLength="8" value={activation.newPassword} onChange={(newPassword) => setActivation({ ...activation, newPassword })} autoComplete="new-password" /><AuthField icon={ShieldCheck} label="Confirmer le mot de passe" type="password" minLength="8" value={activation.confirmPassword} onChange={(confirmPassword) => setActivation({ ...activation, confirmPassword })} autoComplete="new-password" /></>}
-          {!(mode === 'forgot' && recoverySent) && <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Traitement…</> : <>{mode === 'login' ? 'Se connecter' : mode === 'forgot' ? 'Envoyer le lien' : mode === 'activate' ? 'Activer et ouvrir mon espace' : 'Enregistrer le mot de passe'}<ArrowRight size={18} /></>}</button>}
+          {!(mode === 'forgot' && recoverySent) && <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Traitement…</> : <>{mode === 'login' ? 'Continuer' : mode === 'forgot' ? 'Envoyer le lien' : mode === 'activate' ? 'Activer et ouvrir mon espace' : 'Enregistrer le mot de passe'}<ArrowRight size={18} /></>}</button>}
           {mode === 'forgot' && recoverySent && <button className="soft-button auth-submit" type="button" onClick={() => setRecoverySent(false)}>Utiliser une autre adresse</button>}
           {mode === 'login' ? <button className="auth-link" type="button" onClick={() => { setRecovery((current) => ({ ...current, email: loginForm.email })); setRecoverySent(false); setMode('forgot') }}>Mot de passe oublié ?</button> : <button className="auth-link" type="button" onClick={() => { setRecoverySent(false); setMode('login') }}>Retour à la connexion</button>}
         </form>
+        <div className="auth-trust"><ShieldCheck size={16} /><span>Accès sécurisé et réservé aux utilisateurs autorisés</span></div>
       </section>
     </div>
     {toast && <Toast {...toast} />}
@@ -443,7 +441,7 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
   }
 
   let activeContent = <ErrorState notFound message="Le module demandé n’est pas disponible pour cette session." onRetry={() => navigate('dashboard')} />
-  if (activeView === 'dashboard') activeContent = <Dashboard datasets={datasets} request={request} activeRole={activeRole} notify={notify} setActiveView={navigate} allowedViews={allowedViews} />
+  if (activeView === 'dashboard') activeContent = <Dashboard datasets={datasets} request={request} activeRole={activeRole} session={session} notify={notify} setActiveView={navigate} allowedViews={allowedViews} />
   if (activeView === 'calendar') activeContent = <CalendarView phases={datasets.phases || []} />
   if (activeView === 'notifications') activeContent = <NotificationCenter notifications={personalNotifications} request={request} reload={loadPersonalNotifications} notify={notify} setActiveView={navigate} allowedViews={allowedViews} />
   if (activeView === 'imports') activeContent = <ImportCenter request={request} notify={notify} reload={loadCore} />
@@ -452,7 +450,6 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
   if (activeView === 'extensions') activeContent = <ExtensionRequestCenter datasets={datasets} request={request} notify={notify} activeRole={activeRole} />
   if (activeView === 'grading') activeContent = <GradingCenter datasets={datasets} request={request} reload={loadCore} notify={notify} activeRole={activeRole} token={session.token} initialProjectId={searchTarget?.projectId} />
   if (activeView === 'reports') activeContent = <ReportCenter datasets={datasets} request={request} reload={loadCore} notify={notify} token={session.token} initialProjectId={searchTarget?.projectId} />
-  if (activeView === 'api') activeContent = <ApiConsole request={request} notify={notify} />
 
   const initialLoading = loading && Object.keys(datasets).length === 0
   const sidebarSections = [
@@ -477,7 +474,7 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, la
       </div>
       <div className="sidebar-context">
         <span className="sidebar-role-avatar" aria-hidden="true">{roleInitial}</span>
-        <div><span className="sidebar-kicker"><i />Espace actif</span><strong>{actorTemplates[activeRole]?.title}</strong><small>{actorTemplates[activeRole]?.summary}</small></div>
+        <div><span className="sidebar-kicker"><i />Espace actif</span><strong>{actorTemplates[activeRole]?.title}</strong></div>
       </div>
       <div className={'sidebar-phase ' + (openPhase ? 'is-open' : 'is-idle')} title={openPhase?.name || 'Aucune phase ouverte'}>
         <span className="sidebar-phase-dot" aria-hidden="true" />
@@ -558,7 +555,7 @@ function NotificationPopover({ notifications, request, reload, notify, onNavigat
       {!recent.length && <div className="notification-popover-empty"><Bell size={24} /><strong>Aucune notification</strong><span>Les alertes importantes apparaîtront ici.</span></div>}
       {recent.map((notification) => <button type="button" key={notification.id} className={'notification-preview ' + (notification.readAt ? 'read' : 'unread')} onClick={() => openItem(notification)}>
         <span className={'notification-preview-icon ' + String(notification.severity || 'INFO').toLowerCase()}><Bell size={17} /></span>
-        <span className="notification-preview-copy"><strong>{notification.subject}</strong><small>{notification.body}</small><time>{formatDateTime(notification.createdAt || notification.sentAt)}</time></span>
+        <span className="notification-preview-copy"><strong>{notification.subject}</strong><small>{notificationDisplayBody(notification)}</small><time>{formatDateTime(notification.createdAt || notification.sentAt)}</time></span>
         {!notification.readAt && <i aria-label="Non lue" />}
       </button>)}
     </div>
@@ -605,16 +602,29 @@ function NotificationCenter({ notifications, request, reload, notify, setActiveV
     <div className="notification-list">
       {notifications.map((notification) => <article key={notification.id} className={'notification-item ' + (notification.readAt ? 'read ' : 'unread ') + (notification.severity || 'INFO').toLowerCase()}>
         <div className="notification-symbol"><Bell size={19} /></div>
-        <div className="notification-copy"><div className="notification-meta"><span>{pretty(notification.category || 'NOTIFICATION')}</span><time>{formatDateTime(notification.createdAt || notification.sentAt)}</time></div><h3>{notification.subject}</h3><p>{notification.body}</p></div>
+        <div className="notification-copy"><div className="notification-meta"><span>{pretty(notification.category || 'NOTIFICATION')}</span><time>{formatDateTime(notification.createdAt || notification.sentAt)}</time></div><h3>{notification.subject}</h3><p>{notificationDisplayBody(notification)}</p></div>
         <div className="notification-actions">{!notification.readAt && <button type="button" className="icon-button" title="Marquer comme lue" aria-label="Marquer comme lue" onClick={() => markRead(notification)}><MailOpen size={18} /></button>}{notification.actionView && allowedViewIds.has(notification.actionView) && <button type="button" className="mini-button" onClick={() => openNotification(notification)}>Ouvrir</button>}</div>
       </article>)}
     </div>
   </section>
 }
-function Dashboard({ datasets, request, activeRole, notify, setActiveView, allowedViews }) {
+
+function notificationDisplayBody(notification) {
+  const body = String(notification?.body || '')
+  if (/industryInvitation=/i.test(body)) {
+    return 'Votre invitation Industry Guest est prête. Consultez votre e-mail pour activer votre accès temporaire.'
+  }
+  if (/resetToken=/i.test(body)) {
+    return 'Une réinitialisation de mot de passe a été demandée. Consultez votre e-mail pour continuer.'
+  }
+  return body
+}
+
+function Dashboard({ datasets, request, activeRole, session, notify, setActiveView, allowedViews }) {
   const [summary, setSummary] = useState(null)
   const [pending, setPending] = useState([])
   const [detailModal, setDetailModal] = useState(null)
+  const [dashboardNow] = useState(() => Date.now())
   const allowedViewIds = new Set(allowedViews.map((view) => view.id))
 
   useEffect(() => {
@@ -633,7 +643,7 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
       title: 'Tableau de bord administrateur',
       description: 'Pilotage global de la plateforme: comptes, projets, equipes, phases, evaluations, notes et rapports.',
       metrics: [['Utilisateurs', summary?.users ?? datasets.users?.length ?? 0], ['Projets', summary?.projects ?? datasets.projects?.length ?? 0], ['Évaluations', summary?.evaluations ?? pending.length], ['Rapports', summary?.reports ?? datasets.reports?.length ?? 0]],
-      actions: [['Gestion des donnees', 'crud'], ['Imports Excel', 'imports'], ['evaluations', 'evaluations'], ['Demandes de prolongation', 'extensions'], ['Notes', 'grading'], ['Rapports', 'reports'], ['Console API', 'api']],
+      actions: [['Importer les données', 'imports'], ['Gérer les données', 'crud'], ['Demandes de prolongation', 'extensions'], ['Notes', 'grading'], ['Rapports', 'reports']],
       primaryTitle: 'evaluations en attente', primaryRows: pending.slice(0, 8), primaryColumns: ['evaluationType','status','project','evaluator','updatedAt'],
       secondaryTitle: 'Projets actifs', secondaryRows: datasets.projects || [], secondaryColumns: ['title','academicYear','status','track'],
     },
@@ -641,7 +651,7 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
       title: 'Tableau de bord superviseur',
       description: 'Suivi des projets encadres et saisie des fiches superviseur Phase I et Phase II.',
       metrics: [['Projets assignés', summary?.projects ?? datasets.projects?.length ?? 0], ['Fiches à remplir', summary?.pendingEvaluations ?? pending.length], ['Fiches validées', summary?.submittedEvaluations ?? 0], ['Phases ouvertes', summary?.openPhases ?? 0]],
-      actions: [['Ouvrir les evaluations', 'evaluations'], ['Demander une prolongation', 'extensions'], ['Actualiser les deadlines', 'dashboard']],
+      actions: [['Ouvrir les évaluations', 'evaluations'], ['Demander une prolongation', 'extensions'], ['Voir les échéances', 'calendar']],
       primaryTitle: 'Projets assignes', primaryRows: datasets.projects || [], primaryColumns: ['title','academicYear','status','track'],
       secondaryTitle: 'evaluations a traiter', secondaryRows: pending.slice(0, 8), secondaryColumns: ['evaluationType','status','project','evaluator','updatedAt'],
     },
@@ -649,7 +659,7 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
       title: 'Tableau de bord evaluateur academique',
       description: 'Evaluation des soutenances orales avec brouillon, validation et verrouillage.',
       metrics: [['Projets assignés', summary?.projects ?? datasets.projects?.length ?? 0], ['Soutenances à traiter', summary?.pendingEvaluations ?? pending.length], ['Fiches validées', summary?.submittedEvaluations ?? 0], ['Phases ouvertes', summary?.openPhases ?? 0]],
-      actions: [['Evaluer une soutenance', 'evaluations'], ['Demander une prolongation', 'extensions'], ['Voir les deadlines', 'dashboard']],
+      actions: [['Évaluer une soutenance', 'evaluations'], ['Demander une prolongation', 'extensions'], ['Voir les échéances', 'calendar']],
       primaryTitle: 'Formulaires de soutenance', primaryRows: oralForms, primaryColumns: ['name','evaluationType','phaseType','active'],
       secondaryTitle: 'evaluations en attente', secondaryRows: pending.slice(0, 8), secondaryColumns: ['evaluationType','status','project','evaluator','updatedAt'],
     },
@@ -673,7 +683,7 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
       title: 'Tableau de bord coordinateur FYP',
       description: 'Consolidation des rapports, notes finales, notifications et suivi de completion.',
       metrics: [['Rapports', summary?.reports ?? datasets.reports?.length ?? 0], ['Notes', summary?.grades ?? datasets.grades?.length ?? 0], ['Évaluations en attente', summary?.pendingEvaluations ?? pending.length], ['Projets', summary?.projects ?? datasets.projects?.length ?? 0]],
-      actions: [['Consulter les rapports', 'reports'], ['Voir les notes', 'grading'], ['Suivre la progression', 'dashboard']],
+      actions: [['Consulter les rapports', 'reports'], ['Voir les notes', 'grading'], ['Voir les échéances', 'calendar']],
       primaryTitle: 'Rapports recents', primaryRows: datasets.reports || [], primaryColumns: ['project','phase','status','recipientEmail','generatedAt'],
       secondaryTitle: 'Notes consolidees', secondaryRows: datasets.grades || [], secondaryColumns: ['phaseType','weightedScore','finalScore','published'],
     },
@@ -683,6 +693,10 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
   const phases = [...(datasets.phases || [])].sort((left, right) => new Date(left.deadline || 0) - new Date(right.deadline || 0))
   const currentPhase = phases.find((phase) => phase.status === 'OPEN') || phases.find((phase) => new Date(phase.deadline || 0) >= new Date())
   const todayLabel = new Intl.DateTimeFormat(currentLocale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
+  const firstName = String(session?.fullName || '').trim().split(/\s+/)[0] || 'Bienvenue'
+  const phaseStart = currentPhase?.startDate ? new Date(currentPhase.startDate).getTime() : 0
+  const phaseEnd = currentPhase?.deadline ? new Date(currentPhase.deadline).getTime() : 0
+  const phaseProgress = phaseEnd > phaseStart ? Math.max(0, Math.min(100, ((dashboardNow - phaseStart) / (phaseEnd - phaseStart)) * 100)) : 0
   const openDetails = (kind) => {
     const primary = kind === 'primary'
     setDetailModal({
@@ -693,12 +707,13 @@ function Dashboard({ datasets, request, activeRole, notify, setActiveView, allow
   }
 
   return <section className="dashboard-page page-enter">
-    <header className="dashboard-compact-header">
-      <div><span>{todayLabel}</span><h2>{dashboard.title}</h2></div>
+    <header className="dashboard-compact-header dashboard-command-header">
+      <div className="dashboard-welcome"><span>{todayLabel}</span><h2>Bonjour, {firstName}</h2><p>{dashboard.title}</p></div>
       <button type="button" className="active-phase-button" onClick={() => setActiveView('calendar')}>
         <span className={'phase-dot ' + String(currentPhase?.status || '').toLowerCase()} />
         <div><small>Phase active</small><strong>{currentPhase?.name || 'Aucune phase'}</strong></div>
         <ChevronRight size={17} />
+        <span className="phase-progress" aria-hidden="true"><i style={{ width: `${phaseProgress}%` }} /></span>
       </button>
     </header>
 
@@ -880,7 +895,7 @@ function ImportCenter({ request, notify, reload }) {
   }
 
   const templateHref = initializationMode
-    ? '/modele_initialisation_plateforme_fyp_v3.xlsx'
+    ? '/FYP_FULL_DEMO_DATA.xlsx'
     : '/modele_import_etudiants_squ.xlsx'
 
   return <section className="import-workspace">
@@ -982,6 +997,7 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session, init
   const [showFormula, setShowFormula] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [extensionOpen, setExtensionOpen] = useState(false)
+  const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false)
   const [phaseAccess, setPhaseAccess] = useState(null)
   const [saveState, setSaveState] = useState('idle')
   const [lastSavedAt, setLastSavedAt] = useState(null)
@@ -1336,7 +1352,13 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session, init
 
     <section className="sheet-footer">
       <label className="field comment-field"><span>Commentaire général</span><textarea value={draft.generalComment} disabled={editingDisabled} onChange={(event) => { const generalComment = event.target.value; setDraft({ ...draft, generalComment }); queueAutoSave(activeScores, generalComment) }} /></label>
-      <div className="sheet-actions"><button className="ghost-button" type="button" disabled={editingDisabled} onClick={resetSheet}>Réinitialiser</button><button className="soft-button" type="button" disabled={editingDisabled || saveState === 'saving'} onClick={() => saveSheet(false)}>Enregistrer le brouillon</button><button className="primary-action" type="button" disabled={editingDisabled || saveState === 'saving'} onClick={() => saveSheet(true)}>Valider la fiche</button></div>
+      <div className="sheet-actions"><button className="ghost-button" type="button" disabled={editingDisabled} onClick={resetSheet}>Réinitialiser</button><button className="soft-button" type="button" disabled={editingDisabled || saveState === 'saving'} onClick={() => saveSheet(false)}>Enregistrer le brouillon</button><button className="primary-action" type="button" disabled={editingDisabled || saveState === 'saving'} onClick={() => {
+        if (completedCells < requiredCells) {
+          notify('Toutes les notes doivent être renseignées avant validation.', 'danger')
+          return
+        }
+        setSubmitConfirmOpen(true)
+      }}>Valider la fiche</button></div>
     </section>
 
     <button type="button" className="dashboard-more-button" onClick={() => setHistoryOpen(true)}><Eye size={17} />Historique des évaluations<span>{projectEvaluations.length}</span></button>
@@ -1344,6 +1366,10 @@ function EvaluationStudio({ datasets, request, notify, activeRole, session, init
     <DialogShell open={showFormula} title="Calcul de la note" onClose={() => setShowFormula(false)}><FormulaPanel template={template} /></DialogShell>
     <DialogShell open={historyOpen} title="Historique des évaluations" onClose={() => setHistoryOpen(false)} wide><DataTable rows={projectEvaluations} columns={['evaluationType','status','totalScore','completedScoreCount','locked','draftSavedAt','submittedAt','evaluator']} compact /></DialogShell>
     <DialogShell open={extensionOpen} title="Demander une prolongation" onClose={() => setExtensionOpen(false)}><form className="stack-form compact dialog-form" onSubmit={requestExtension}><label className="field"><span>Motif</span><textarea required value={extensionReason} onChange={(event) => setExtensionReason(event.target.value)} /></label><div className="extension-policy-note"><ShieldCheck size={18} /><span>L’administrateur fixera la nouvelle date.</span></div><div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setExtensionOpen(false)}>Annuler</button><button className="primary-action" disabled={extensionBusy}>{extensionBusy ? 'Envoi…' : 'Envoyer'}</button></div></form></DialogShell>
+    <ConfirmDialog open={submitConfirmOpen} title="Valider définitivement cette fiche ?" message="Après validation, les notes seront verrouillées et prises en compte dans les calculs. Cette action ne pourra pas être annulée par l’évaluateur." confirmLabel="Valider et verrouiller" onCancel={() => setSubmitConfirmOpen(false)} onConfirm={async () => {
+      setSubmitConfirmOpen(false)
+      await saveSheet(true)
+    }} />
   </section>
 }
 function readLocalJson(key, fallback) {
@@ -1491,6 +1517,7 @@ function GradingCenter({ datasets, request, reload, notify, activeRole, token, i
   const [studentGrades, setStudentGrades] = useState([])
   const [busy, setBusy] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false)
   const effectiveProjectId = projects.some((project) => project.id === projectId)
     ? projectId
     : projects.some((project) => project.id === initialProjectId) ? initialProjectId : projects[0]?.id || ''
@@ -1568,7 +1595,7 @@ function GradingCenter({ datasets, request, reload, notify, activeRole, token, i
 
   return <section className="page-grid grading-center">
     <div className="section-head full-span"><div><h2>{canManageGrades ? 'Notes et publication' : 'Résultats'}</h2></div><button type="button" className="soft-button" onClick={() => setRulesOpen(true)}>Règles de calcul</button></div>
-    <Panel title="Projet et phase" accent="green" wide><div className="form-grid two"><SelectData label="Projet" value={effectiveProjectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={effectivePhaseId} data={phaseOptions} onChange={setPhaseId} /></div><div className="action-row">{canManageGrades && <button className="primary-action" disabled={busy || !effectiveProjectId || !effectivePhaseId} onClick={calculate}>{busy ? 'Calcul…' : 'Calculer'}</button>}{canManageGrades && selectedProjectGrade && !selectedProjectGrade.published && <button className="soft-button" disabled={busy} onClick={publish}>Publier</button>}{canExport && <button className="soft-button icon-text" disabled={!effectiveProjectId} onClick={exportProject}><Download size={16} />Exporter</button>}</div></Panel>
+    <Panel title="Projet et phase" accent="green" wide><div className="form-grid two"><SelectData label="Projet" value={effectiveProjectId} data={projects} onChange={setProjectId} /><SelectData label="Phase" value={effectivePhaseId} data={phaseOptions} onChange={setPhaseId} /></div><div className="action-row">{canManageGrades && <button className="primary-action" disabled={busy || !effectiveProjectId || !effectivePhaseId} onClick={calculate}>{busy ? 'Calcul…' : 'Calculer'}</button>}{canManageGrades && selectedProjectGrade && !selectedProjectGrade.published && <button className="soft-button" disabled={busy} onClick={() => setPublishConfirmOpen(true)}>Publier</button>}{canExport && <button className="soft-button icon-text" disabled={!effectiveProjectId} onClick={exportProject}><Download size={16} />Exporter</button>}</div></Panel>
     <Panel title="Résultats individuels" subtitle={selectedProject ? selectedProject.projectNumber + ' · ' + selectedProject.title : ''} wide>{!projects.length
       ? <EmptyState title="Aucun projet accessible" detail="Les projets apparaissent selon les affectations du compte connecté." />
       : studentGrades.length
@@ -1576,6 +1603,10 @@ function GradingCenter({ datasets, request, reload, notify, activeRole, token, i
         : <EmptyState title="Aucun résultat calculé" detail={canManageGrades ? 'Validez toutes les fiches requises, puis lancez le calcul.' : 'Les résultats apparaîtront après calcul et publication.'} />}</Panel>
     {projectGrades.length > 0 && <Panel title="Synthèse du projet par phase" wide><DataTable rows={projectGrades} columns={['phaseType','finalScore','published']} compact /></Panel>}
     <DialogShell open={rulesOpen} title="Règles de calcul" onClose={() => setRulesOpen(false)}><p className="muted">Seules les fiches validées sont calculées. Les notes des évaluateurs sont moyennées puis pondérées par phase.</p><div className="tag-list">{EVALUATION_TYPES.map((type) => <span key={type}>{SCORING_TEMPLATES[type]?.label || pretty(type)}</span>)}</div></DialogShell>
+    <ConfirmDialog open={publishConfirmOpen} title="Publier les résultats ?" message="Les notes de cette phase deviendront visibles dans les espaces autorisés. Vérifiez les résultats avant de continuer." confirmLabel="Publier les notes" onCancel={() => setPublishConfirmOpen(false)} onConfirm={async () => {
+      setPublishConfirmOpen(false)
+      await publish()
+    }} />
   </section>
 }
 
@@ -1684,11 +1715,6 @@ function ReportCenter({ datasets, request, reload, notify, token, initialProject
   </section>
 }
 
-function ApiConsole({ request, notify }) {
-  const [method, setMethod] = useState('GET'), [path, setPath] = useState('/api/tracks'), [body, setBody] = useState(''), [result, setResult] = useState('')
-  async function run() { try { const res = await request(path, { method, ...(method !== 'GET' && body ? { body } : {}) }); setResult(JSON.stringify(res, null, 2)); notify('API request completed') } catch (error) { setResult(error.message); notify(error.message, 'danger') } }
-  return <section className="page-grid"><div className="section-head full-span"><div><h2>API console</h2><p>Test Spring Boot endpoints from inside the React app.</p></div></div><Panel title="Request builder" accent="green"><div className="form-grid two"><label className="field"><span>Method</span><select value={method} onChange={(e) => setMethod(e.target.value)}>{['GET','POST','PUT','PATCH','DELETE'].map((m) => <option key={m}>{m}</option>)}</select></label><Field label="Path" value={path} onChange={setPath} /></div><textarea className="csv-box" value={body} onChange={(e) => setBody(e.target.value)} placeholder='{"code":"NEW","name":"New Track"}' /><button className="primary-action" onClick={run}>Run request</button></Panel><Panel title="Response" wide><pre className="response-box">{result || 'Response will appear here.'}</pre></Panel></section>
-}
 function DynamicField({ field, value, onChange, datasets }) {
   if (field.type === 'select') return <label className="field"><span>{field.label}</span><select value={value ?? ''} onChange={(e) => onChange(e.target.value)}><option value="">Select</option>{field.options.map((o) => <option key={o} value={o}>{pretty(o)}</option>)}</select></label>
   if (field.type === 'selectData') {

@@ -75,13 +75,13 @@ It is designed to:
 ### Excel Imports
 
 - Initialize an academic cohort from one validated master workbook.
-- Eight data sheets: `STUDENTS`, `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS`, `REPORT_EVALUATORS`, `FACULTY_EVALUATORS`, `INDUSTRY_GUESTS`, and `PROJECT_ASSIGNMENTS`.
+- Nine data sheets: `STUDENTS`, `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS`, `REPORT_EVALUATORS`, `FACULTY_EVALUATORS`, `INDUSTRY_GUESTS`, `PHASES`, and `PROJECT_ASSIGNMENTS`.
 - Preview every row and cross-reference without writing to PostgreSQL, then persist the accepted workbook in one transaction.
 - Link each project to one to five students, one or two supervisors, Report I/II evaluators, Oral I/II faculty evaluators, and Industry Guest evaluators.
 - Create or update records idempotently by SQU student ID, actor e-mail/ID, and project number.
 - Keep a separate official-student update import using `stdID`, `cohort`, `name`, and `Email`.
 - Download the final template from the administrator import screen or from [`docs/templates/modele_initialisation_plateforme_fyp.xlsx`](docs/templates/modele_initialisation_plateforme_fyp.xlsx).
-- Configure FYP I/FYP II phases and deadlines in the application after the master data import.
+- Import FYP I/FYP II phases and deadlines with the same atomic master-data transaction, then adjust them in the application when required.
 
 ### Phase and Deadline Management
 
@@ -430,10 +430,19 @@ docker compose config
 
 ### Current Verification Status
 
-- Backend: 41 tests discovered, 40 passed, no failures, and one optional import test skipped.
+- Backend: 43 tests discovered, 42 passed, no failures, and one optional import test skipped.
 - Frontend: ESLint, the production Vite build, and seven grading/formula tests passed.
 - Docker: PostgreSQL, Spring Boot, React/Nginx, and Mailpit start and report healthy status.
-- Official master workbook: 35 out of 35 populated rows pass the backend preview validation with no errors.
+- Full demonstration workbook: 85 out of 85 populated import rows pass backend preview validation with no errors.
+- Real workflow: Supervisor, Report I, and Oral I forms for `EIC-01` were locked, consolidated to a phase score of `8.19`, published, archived, and exported as a valid Excel workbook.
+
+## Demonstration Package
+
+- Full fictional dataset: [`outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx`](outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx).
+- Copy downloadable from the administrator import screen: [`frontend/public/FYP_FULL_DEMO_DATA.xlsx`](frontend/public/FYP_FULL_DEMO_DATA.xlsx).
+- Complete French jury walkthrough: [`docs/GUIDE_DEMO_COMPLET_FR.md`](docs/GUIDE_DEMO_COMPLET_FR.md).
+
+The workbook covers 26 student records, 8 projects, 24 internal actors, 5 Industry Guests, 4 phases, teams of one to five students, projects with one or two supervisors, and Report, Oral, Supervisor, and Demo Day assignments. Every identity and project is fictional.
 
 ## Annual Data Initialization
 
@@ -450,19 +459,20 @@ The old per-track EIC, CSN, CSP, and PSE workbooks are replaced by one master-da
 | `REPORT_EVALUATORS` | Official Report I/Report II paper evaluator identities using SQU SSO |
 | `FACULTY_EVALUATORS` | Official Oral I/Oral II faculty evaluator identities using SQU SSO |
 | `INDUSTRY_GUESTS` | External identity, organization, future `accessExpiresAt`, and `PENDING_INVITATION` status |
+| `PHASES` | FYP I/FYP II academic year, start date, deadline, sequence, and lifecycle status |
 | `PROJECT_ASSIGNMENTS` | Cohort, track, project, optional student, optional supervisor, and evaluator e-mail lists per row |
 
-Every populated row distributed with the template is fictional. Names are labelled `Example`, actor identifiers use `DEMO`, internal actor e-mails use fictional `@squ.edu.om` addresses to satisfy SSO validation, Industry Guest e-mails use the reserved `example.com` domain, and student identifiers use the `99000001...` example series with the required SQU student e-mail syntax. Replace or delete all example rows before importing real university data. The examples cover all four tracks, one and two supervisors, one to five students, a supervisor-only continuation row, single and multiple faculty evaluators, and one or two Industry Guests.
+Every populated row distributed with the demonstration workbook is fictional. Names are labelled `Demo`, actor identifiers use `DEMO`, internal actor e-mails use fictional `@squ.edu.om` addresses to satisfy SSO validation, and Industry Guest e-mails use the reserved `example.com` domain. Replace or delete all demonstration rows before importing real university data. The examples cover all four tracks, one and two supervisors, one to five students, a supervisor-only continuation row, single and multiple evaluators, and one or two Industry Guests.
 
 `PROJECT_ASSIGNMENTS` repeats the same `projectNumber` on every row belonging to a project. A row may contain one student, one supervisor, or both. A project must have 1-5 distinct students and 1-2 distinct supervisors. For a project with one student and two supervisors, add a second project row with `studentId` and `studentName` left blank; never duplicate a student ID. Other project metadata may be filled only on the first row. Multiple evaluator e-mails in an assignment cell are separated with commas or semicolons.
 
 ### First-run workflow
 
 1. For a local demo, start Docker and sign in as `admin@squ.edu.om` / `Admin@123`. In a real deployment, the provisioned administrator uses **Sign in with SQU account**.
-2. Open **Excel Imports**, download the master template, and complete all eight data sheets.
+2. Open **Excel Imports**, download the master template, and complete all nine data sheets.
 3. Run **Analyze without saving**. Fix every reported sheet, row, and field error.
 4. Run **Initialize platform**. The import is atomic and safe to repeat after corrections.
-5. Open **Data Management > Phases**. Create FYP I and FYP II with an `academicYear` exactly matching the imported `cohort`, then set dates, deadlines, and `OPEN` status.
+5. Open **Data Management > Phases**. Verify the imported FYP I/FYP II dates and statuses, then adjust or open them when the official calendar is approved.
 6. Internal actors sign in through SQU SSO; the platform matches their institutional e-mail and redirects them according to the imported role.
 7. Each imported Industry Guest receives a one-time e-mail link, chooses a password, and can access only assigned Demo Day projects until `accessExpiresAt`.
 8. Evaluators see only assigned projects and forms. Scores auto-save as drafts and count only after **Validate form**.

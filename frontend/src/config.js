@@ -52,7 +52,6 @@ export const views = [
   { id: 'extensions', label: 'Prolongations', roles: ['ADMIN', 'SUPERVISOR', 'REPORT_EVALUATOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE'] },
   { id: 'grading', label: 'Notes consolidees', roles: ['ADMIN', 'INDUSTRY_REPRESENTATIVE', 'COORDINATOR'] },
   { id: 'reports', label: 'Rapports', roles: ['ADMIN', 'COORDINATOR'] },
-  { id: 'api', label: 'Console API', roles: ['ADMIN'] },
 ]
 
 export const resourceConfigs = {

@@ -71,6 +71,7 @@ public class TokenService {
             if (parts.length != 3) throw invalidToken();
             byte[] expectedSignature = sign(parts[0] + "." + parts[1]);
             byte[] providedSignature = DECODER.decode(parts[2]);
+            if (!ENCODER.encodeToString(providedSignature).equals(parts[2])) throw invalidToken();
             if (!MessageDigest.isEqual(expectedSignature, providedSignature)) throw invalidToken();
 
             Map<String, Object> header = decodeJson(parts[0]);

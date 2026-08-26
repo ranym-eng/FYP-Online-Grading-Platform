@@ -6,6 +6,7 @@ import fyp_grading_platform.auth.OneTimeTokenHasher;
 import fyp_grading_platform.project.ProjectEvaluatorAssignmentRepository;
 import fyp_grading_platform.project.ProjectRepository;
 import fyp_grading_platform.project.ProjectSupervisorAssignmentRepository;
+import fyp_grading_platform.project.PhaseRepository;
 import fyp_grading_platform.project.TeamRepository;
 import fyp_grading_platform.project.Track;
 import fyp_grading_platform.project.TrackRepository;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.nio.file.Files;
@@ -24,6 +26,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -34,6 +37,7 @@ class SimplifiedInitializationImportServiceTest {
     @Mock UserRepository users;
     @Mock EvaluatorProfileRepository evaluatorProfiles;
     @Mock TrackRepository tracks;
+    @Mock PhaseRepository phases;
     @Mock ProjectRepository projects;
     @Mock TeamRepository teams;
     @Mock ProjectSupervisorAssignmentRepository supervisors;
@@ -63,9 +67,43 @@ class SimplifiedInitializationImportServiceTest {
         InitializationImportReport report = service().preview(workbook);
 
         assertTrue(report.importable(), () -> "Template errors: " + report.errors());
-        assertEquals(8, report.sheets().size());
+        assertEquals(9, report.sheets().size());
         assertEquals(35, report.totalRows());
         assertEquals(35, report.validRows());
+    }
+
+    @Test
+    void fullDeliveryDatasetPassesPreviewValidation() throws Exception {
+        List<Track> configuredTracks = List.of(
+                track("EIC"), track("PSE"), track("CSP"), track("CSN")
+        );
+        when(tracks.findAll()).thenReturn(configuredTracks);
+        when(tracks.findByCode(anyString())).thenAnswer(invocation -> configuredTracks.stream()
+                .filter(track -> track.getCode().equals(invocation.getArgument(0)))
+                .findFirst());
+        Path template = Path.of("../frontend/public/FYP_FULL_DEMO_DATA.xlsx");
+        MockMultipartFile workbook = new MockMultipartFile(
+                "file",
+                template.getFileName().toString(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Files.readAllBytes(template)
+        );
+
+        InitializationImportReport report = service().preview(workbook);
+
+        assertTrue(report.importable(), () -> "Template errors: " + report.errors());
+        assertEquals(9, report.sheets().size());
+        assertEquals(85, report.totalRows());
+        assertEquals(85, report.validRows());
+    }
+
+    @Test
+    void generatedImportPasswordAlwaysFitsBcryptLimit() {
+        String generatedToken = "a".repeat(100);
+        String password = SimplifiedInitializationImportService.bcryptSafeGeneratedPassword(generatedToken);
+
+        assertEquals(64, password.length());
+        assertDoesNotThrow(() -> new BCryptPasswordEncoder().encode(password));
     }
 
     private SimplifiedInitializationImportService service() {
@@ -74,6 +112,7 @@ class SimplifiedInitializationImportServiceTest {
                 users,
                 evaluatorProfiles,
                 tracks,
+                phases,
                 projects,
                 teams,
                 supervisors,

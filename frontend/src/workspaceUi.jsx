@@ -16,7 +16,6 @@ import {
   Settings2,
   ShieldCheck,
   Sun,
-  TerminalSquare,
   Upload,
   UserRound,
   UsersRound,
@@ -33,7 +32,6 @@ const VIEW_ICONS = {
   extensions: RefreshCw,
   grading: ChartNoAxesColumnIncreasing,
   reports: FileText,
-  api: TerminalSquare,
   calendar: CalendarDays,
 }
 
@@ -151,7 +149,6 @@ const VIEW_SEARCH_ALIASES = {
   extensions: ['prolongation', 'extension', 'échéance'],
   grading: ['note', 'grade', 'résultat', 'consolidation'],
   reports: ['rapport', 'report', 'export', 'matlab'],
-  api: ['api', 'swagger', 'console'],
 }
 
 const SEARCHABLE_DATASETS = [

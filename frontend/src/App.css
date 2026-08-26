@@ -54,7 +54,6 @@ button:disabled { cursor: wait; opacity: .68; }
 .logo-lockup.compact span { color: var(--muted); font-size: 13px; }
 .brand-badge { display: inline-flex; align-items: center; gap: 10px; color: var(--green); font-weight: 700; margin-bottom: 28px; }
 .brand-badge img { width: 42px; height: 42px; object-fit: contain; }
-.auth-panel-tools { display: flex; justify-content: flex-end; margin-bottom: 18px; }
 .language-switcher { display: inline-grid; grid-template-columns: repeat(2, 38px); gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
 .language-switcher button { width: 38px; min-height: 34px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 900; }
 .language-switcher button.active { background: var(--surface); color: var(--green); box-shadow: 0 4px 12px rgba(17,106,84,.14); }
