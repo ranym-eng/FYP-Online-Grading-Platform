@@ -70,9 +70,15 @@ export function unwrapList(payload) {
 export function pretty(value) {
   if (value === null || value === undefined || value === '') return '-'
   return String(value)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replaceAll('_', ' ')
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase())
+    .replace(/\bId\b/g, 'ID')
+    .replace(/\bFyp\b/g, 'FYP')
+    .replace(/\bUuid\b/g, 'UUID')
+    .replace(/\bIi\b/g, 'II')
+    .replace(/\bIii\b/g, 'III')
 }
 
 export function itemName(item, fallback = 'Untitled') {

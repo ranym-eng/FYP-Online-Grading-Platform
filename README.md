@@ -1,392 +1,486 @@
 # FYP Online Grading Platform
 
-A bilingual web platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It supports the complete academic workflow for FYP I and FYP II, from student-record imports and evaluator onboarding to project allocation, deadline-controlled evaluations, grade consolidation, publication, reporting, notifications, and audit tracking.
+An English-language platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It replaces the former workflow based on separate Excel evaluation sheets and MATLAB consolidation with one secure, traceable, role-based application.
 
-The repository is a production-oriented monorepo containing a React frontend, a Spring Boot backend, PostgreSQL persistence, an email testing service, and a Docker Compose environment.
+The platform covers the complete FYP I and FYP II process: annual data initialization, project and team management, evaluator assignments, deadline-controlled assessments, grade calculation, publication, Excel reporting, e-mail delivery, notifications, and audit history.
 
-## Project Purpose
+## Live Demo
 
-Final Year Project assessment involves several actors, evaluation forms, deadlines, and grading rules. This platform centralizes those processes in one role-based system.
+- [Watch the recorded platform demonstration](https://drive.google.com/drive/folders/1B_Ol1Y009Wlx2m7iUEEaDi6phGjrKZO8?usp=drive_link)
+- [Download the fictional demonstration workbook](outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx)
+- [Download the clean initialization template](outputs/template-refresh/FYP_PLATFORM_INITIALIZATION_TEMPLATE.xlsx)
 
+## What the Platform Replaces
 
-It is designed to:
+Before this platform, each academic evaluator completed a multi-sheet Excel workbook. The university then used a MATLAB program to read those files, average the submitted marks, apply the official assessment weights, and generate `Final_Evaluation_Summary.xlsx`.
 
-- provide a dedicated dashboard for every actor;
-- manage students, evaluators, tracks, projects, teams, and academic phases;
-- import student and evaluator data from Excel files;
-- assign supervisors and evaluators to projects;
-- configure FYP I, FYP II, report, oral, and Demo Day evaluation forms;
-- save evaluation work as a draft until the evaluator formally submits it;
-- prevent late or unsubmitted drafts from affecting final grades;
-- notify users before deadlines and allow extension requests;
-- consolidate, publish, export, and report final grades;
-- keep an audit trail of sensitive operations.
+The application now performs the same academic workflow centrally:
 
-## Main Features
+1. The administrator imports the official academic data once.
+2. Each evaluator receives only the projects and forms assigned to that account.
+3. Scores are saved as drafts while the evaluator is working.
+4. A form contributes to grading only after final validation and locking.
+5. The backend averages multiple locked evaluator submissions and applies the configured weights.
+6. The administrator reviews, calculates, and publishes the results.
+7. The platform generates downloadable Excel summaries and can send them by e-mail.
 
-### Premium Bilingual Frontend
+This removes manual file collection, duplicated spreadsheets, MATLAB execution, uncontrolled formula changes, and the risk of including unfinished forms.
 
-- Distinct role-aware dashboards for administrators, supervisors, report evaluators, faculty oral evaluators, industry representatives, and FYP coordinators.
-- Responsive workspace for desktop, tablet, and mobile with an off-canvas mobile navigation.
-- SQU-inspired visual identity with a professional academic photograph, carefully balanced institutional colors, and Lucide icons.
-- Consistent light and dark themes saved across sessions.
-- French and English interface switching across authentication, navigation, dashboards, forms, messages, and dynamic content.
-- Global search with contextual navigation suggestions.
-- Animated metrics, deadline progress, loading skeletons, empty states, error recovery, confirmations, notifications, and accessible drawers and modals.
-- Existing routes, REST calls, permissions, and grading workflows preserved.
-- Detailed implementation guide: [Premium frontend redesign](docs/REFONTE_FRONTEND_PREMIUM_FR.md).
-### Authentication and Role-Based Access
+## Actors and Access Rules
 
-- No public sign-up: every account must be provisioned from an official university or administrator-controlled source.
-- SQU OpenID Connect single sign-on for administrators, coordinators, supervisors, report evaluators, and faculty oral evaluators whose institutional identity was imported beforehand.
-- One-time e-mail invitations for Industry Guests, with a dedicated activation link and an explicit access-expiration date.
-- Industry Guest permissions remain limited to assigned Demo Day projects.
-- Separate sessions and dashboards for each actor.
-- Role-based navigation and API authorization.
-- Automatic redirection to the correct workspace after login.
+Students are academic records used for teams and individual grades. They are not platform users and do not have accounts or dashboards.
 
-### Latest Identity and Onboarding Update
+| Actor | Main responsibilities and restrictions |
+| --- | --- |
+| Administrator | Initializes annual data, manages all academic records, assignments, phases, deadlines, forms, criteria, grading rules, extensions, grades, reports, notifications, and audit logs. |
+| Supervisor | Sees only supervised projects; completes the individual Supervisor FYP I and FYP II forms; saves drafts; validates final forms; requests an extension after an expired deadline. |
+| Report Evaluator | Sees only assigned projects; evaluates the written Report I and Report II using the official paper-report rubric. |
+| Faculty Evaluator | Sees only assigned projects; evaluates Oral I and Oral II presentations using individual and group criteria. |
+| Industry Representative | Receives an invitation-based, time-limited account; sees only assigned Demo Day projects; can complete only the Industry Demo Day form. |
+| FYP Coordinator | Monitors progress and published grades and accesses authorized reports and exports without receiving administrative data-management permissions. |
 
-- Internal actors (`ADMIN`, `COORDINATOR`, `SUPERVISOR`, `REPORT_EVALUATOR`, and `FACULTY_EVALUATOR`) are provisioned before their first connection and never create their own platform account.
-- SQU authentication uses a configurable OpenID Connect authorization-code flow. The returned institutional e-mail must belong to an active imported account before a platform session is issued.
-- Internal passwords are not accepted in the annual Excel import and are managed by the institutional identity provider.
-- Industry Guests are created with `PENDING_INVITATION`, a mandatory future `accessExpiresAt`, and a cryptographically hashed one-time activation token.
-- The invitation link expires after the configured invitation window. After activation, the guest can sign in only until the account access-expiration date.
-- Administrators can send or resend an Industry invitation from account management. Development invitations are visible in Mailpit.
-- Expired Industry accounts are rejected at login and during authenticated API access, even if an older session token still exists.
-- Local password login for internal actors is an explicit demonstration fallback controlled by `LOCAL_INTERNAL_LOGIN_ENABLED`; it must be disabled when SQU SSO is enabled.
+There is no public sign-up page. Internal users must be provisioned from official university data before their first connection. Production authentication is designed for SQU OpenID Connect single sign-on. Local password login remains available only as a configurable demonstration fallback.
 
-### Delivery Hardening Update
+## Detailed Features
 
-- Password recovery is operational: the user enters an e-mail address, receives the same generic confirmation whether or not the address exists, then uses a single-use, hashed, expiring reset link. In production, internal SQU passwords remain managed by the university identity provider.
-- A non-administrator extension request contains only a phase and a reason. The administrator alone approves or rejects the request and chooses the new future deadline.
-- The notification bell opens a compact, Facebook-style summary. Unread items can be marked as read and actionable notifications open the relevant evaluation, extension, phase, or report workspace.
-- Personal dashboards and project lists are scoped to the authenticated actor. Administrative academic directories are protected by both backend authorization and role-specific frontend loading.
-- Generated Excel reports can be downloaded, archived, regenerated, sent as real e-mail attachments, or deleted through confirmed actions. Docker persists generated reports in a dedicated volume.
+### Authentication and Account Provisioning
+
+- Role-based authentication and automatic redirection to the correct dashboard.
+- Separate session, navigation, project scope, and permissions for every actor.
+- No self-registration for internal university actors.
+- Configurable SQU OpenID Connect authorization-code flow.
+- Imported internal e-mail addresses must match the identity returned by SQU SSO.
+- One-time Industry Guest invitation links with hashed tokens and configurable expiration.
+- Mandatory Industry Guest access-expiration date and Demo Day-only authorization.
+- Secure logout, session validation, token refresh, and password change.
+- Functional forgot-password workflow with a generic anti-enumeration response, single-use token, expiration, reset form, and e-mail delivery.
+- Backend authorization prevents users from opening unassigned projects even if an API URL is entered manually.
+
+### Annual Excel Initialization
+
+The administrator can initialize a cohort from one master workbook instead of manually creating every record.
+
+The workbook contains nine sheets:
+
+| Sheet | Imported data |
+| --- | --- |
+| `STUDENTS` | Student ID, name, e-mail, cohort, track, and level. |
+| `ADMINISTRATORS` | Official administrator identities and account status. |
+| `COORDINATORS` | FYP coordinator identities. |
+| `SUPERVISORS` | Supervisor identities and academic profile data. |
+| `REPORT_EVALUATORS` | Written-report evaluator identities. |
+| `FACULTY_EVALUATORS` | Oral-presentation evaluator identities. |
+| `INDUSTRY_GUESTS` | Guest identity, organization, invitation state, and access-expiration date. |
+| `PHASES` | Academic phase, cohort/year, opening date, deadline, sequence, and status. |
+| `PROJECT_ASSIGNMENTS` | Projects, tracks, students, supervisors, report evaluators, oral evaluators, and Industry Guests. |
+
+Import behavior:
+
+- preview and validate the complete workbook without writing to PostgreSQL;
+- report errors by sheet, row, and field;
+- validate references between students, actors, tracks, projects, and phases;
+- initialize accepted data in one transaction;
+- support idempotent updates using stable student IDs, actor identifiers/e-mails, and project numbers;
+- keep one to five students per project;
+- keep one or two supervisors per project;
+- accept multiple assigned evaluators separated by commas or semicolons;
+- provide a separate student-update import for official database extracts;
+- preserve students as academic records without creating student login accounts.
+
+The clean workbook contains only a few fictional examples to explain the required structure. The full demo workbook contains fictional data covering all roles, tracks, team sizes, assignment combinations, phases, and evaluation types.
 
 ### Academic Data Management
 
-- CRUD operations for user accounts, independent student records, evaluator profiles, tracks, projects, teams, phases, evaluation forms, rubric criteria, grades, notifications, and reports.
-- Project-to-team allocation.
-- Student-record membership management for project teams, without creating student accounts.
-- Supervisor and evaluator assignments.
-- Filtering and search across administrative resources.
+The administrator has searchable, paginated management views and confirmed create, read, update, and delete operations for:
 
-### Excel Imports
+- users and role assignments;
+- students and cohorts;
+- tracks: EIC, CSN, CSP, and PSE;
+- projects and project metadata;
+- teams and student membership;
+- supervisor assignments;
+- report, oral, and Industry evaluator assignments;
+- FYP phases and deadlines;
+- evaluation-form templates and rubric criteria;
+- grading rules;
+- notifications, generated reports, and audit records.
 
-- Initialize an academic cohort from one validated master workbook.
-- Nine data sheets: `STUDENTS`, `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS`, `REPORT_EVALUATORS`, `FACULTY_EVALUATORS`, `INDUSTRY_GUESTS`, `PHASES`, and `PROJECT_ASSIGNMENTS`.
-- Preview every row and cross-reference without writing to PostgreSQL, then persist the accepted workbook in one transaction.
-- Link each project to one to five students, one or two supervisors, Report I/II evaluators, Oral I/II faculty evaluators, and Industry Guest evaluators.
-- Create or update records idempotently by SQU student ID, actor e-mail/ID, and project number.
-- Keep a separate official-student update import using `stdID`, `cohort`, `name`, and `Email`.
-- Download the final template from the administrator import screen or from [`docs/templates/modele_initialisation_plateforme_fyp.xlsx`](docs/templates/modele_initialisation_plateforme_fyp.xlsx).
-- Import FYP I/FYP II phases and deadlines with the same atomic master-data transaction, then adjust them in the application when required.
+Destructive operations use confirmation dialogs. Tables include compact actions, search, filters, responsive layouts, loading states, empty states, and error feedback.
 
 ### Phase and Deadline Management
 
-- Manage FYP I and FYP II phases.
-- Configure academic year, start date, deadline, duration, and status.
-- Open, close, and archive phases.
-- Block evaluation submission when a phase deadline has passed.
-- Send reminders approximately 24 hours and 12 hours before a deadline.
-- Allow non-administrator evaluation actors to request an extension by providing a reason, without proposing a date.
-- Allow administrators to approve or reject requests and exclusively set the revised deadline.
+- Create, edit, open, close, archive, filter, and inspect FYP I and FYP II phases.
+- Configure the phase name, type, cohort/academic year, sequence, start date, deadline, and status.
+- Edit deadlines from the administrator calendar.
+- Reject final evaluation submission when the phase is closed or its deadline has expired.
+- Keep unfinished drafts excluded after expiration.
+- Generate 24-hour and 12-hour deadline reminders.
+- Allow an evaluator to request an extension by selecting the phase and writing a reason.
+- Prevent non-administrators from choosing their own extension date.
+- Allow only the administrator to approve or reject a request and set the new personal deadline.
+- Notify the requester in the application and by e-mail after the decision.
 
-### Evaluation Workflow
+### Evaluation Forms
 
-- Supervisor evaluations for FYP I and FYP II.
-- Report I and Report II paper evaluations restricted to assigned `REPORT_EVALUATOR` accounts.
-- Official ten-criterion report rubric: every criterion is scored out of 10, criterion 4 counts twice, and the normalized report score is `(C1 + C2 + C3 + 2*C4 + C5...C10) / 11`.
-- Oral I and Oral II presentation evaluations restricted to assigned `FACULTY_EVALUATOR` accounts.
-- Industry representative evaluation for Demo Day.
-- Official Industry Guest sheet with the five criteria and 2/1/4/2/1 weighting supplied by SQU.
-- Official Excel-compatible forms and rubric criteria with server-side validation of every expected score cell.
-- Individual and team scoring support.
-- Automatic draft saving.
-- Explicit final submission and locking.
-- Drafts that are not submitted before the deadline are excluded from official grading.
-- Locked report scores are included in phase and final consolidation through the administrator-configured grading-rule weights.
+The score-entry interface deliberately follows the familiar structure of the former Excel sheets while adding validation, draft handling, status information, and secure submission.
 
-### Grading and Reporting
+Supported assessment types:
 
-- Consolidate evaluation results using grading rules.
-- Track pending, submitted, and locked evaluation sheets.
-- Approve and publish grades for coordinator reporting and official academic records.
-- Generate real phase and final `.xlsx` reports with legacy-compatible and enhanced sheets.
-- Track report generation and send the generated workbook as an e-mail attachment while keeping direct grade-file downloads authenticated.
-- Archive, regenerate, send, download, and delete reports through confirmed user actions.
-- Provide coordinator and administrator views of overall progress.
+- Supervisor FYP I;
+- Report FYP I;
+- Oral Presentation FYP I;
+- Supervisor FYP II;
+- Report FYP II;
+- Oral Presentation FYP II;
+- Industry Demo Day.
 
-### Notifications and Audit
+Evaluation behavior:
 
-- In-app notification center available to all actors, with a responsive summary popover and contextual navigation.
-- Deadline reminders and extension decision notifications.
-- Development email capture through Mailpit.
-- Audit logs for sensitive administrative actions.
+- evaluators see only projects assigned to them;
+- each actor sees only the assessment types authorized for that role;
+- Industry Guests cannot select or modify FYP I, supervisor, report, or oral forms;
+- score cells are validated against the criterion maximum;
+- required criteria must be complete before final validation;
+- comments and overall remarks can be saved with the form;
+- changes are created or updated as a draft;
+- drafts never contribute to official results;
+- final validation requires confirmation;
+- validated submissions are locked against later editing;
+- only locked submissions are eligible for consolidation.
 
-### API Documentation
+### Official Scoring Logic
 
-- Interactive OpenAPI documentation through Swagger UI.
-- REST endpoints grouped by functional module.
-- Standard API response structure and centralized error handling.
+- Supervisor assessments are calculated per student.
+- Report assessments are calculated at project level using ten criteria scored out of 10. Criterion 4 has double weight, so the normalized report score is `(C1 + C2 + C3 + 2*C4 + C5 + ... + C10) / 11`.
+- Oral presentation assessments combine the individual and group cells defined by the active rubric.
+- Industry Demo Day uses the official five-criterion weighting `2 / 1 / 4 / 2 / 1`.
+- When several evaluators submit the same assessment type, their locked results are averaged.
+- Valid zero marks are retained; missing values are not silently treated as zero.
+- The phase calculation applies administrator-configured percentages for every evaluation type.
+- The default FYP I weights are Supervisor 40%, Report 35%, and Oral 25%.
+- The default FYP II weights are Supervisor 30%, Report 25%, Oral 25%, and Industry Demo Day 20%.
+- Recalculation is available before publication when an authorized locked input changes.
+- Published student grades remain available for authorized reporting and traceability.
 
-## User Roles
+### Grade Consolidation and MATLAB Replacement
 
-| Role | Main responsibilities |
-| --- | --- |
-| Administrator | Manages accounts, academic data, projects, teams, phases, assignments, evaluation templates, deadlines, extensions, grades, reports, and audit logs. |
-| Supervisor | Evaluates supervised projects for FYP I and FYP II, saves drafts, submits final forms, and requests deadline extensions. |
-| Report Evaluator | Evaluates the project paper reports for Report I and Report II using the official ten-criterion rubric. |
-| Faculty Evaluator | Evaluates oral presentations for Oral I and Oral II and follows pending submissions. |
-| Industry Representative | Evaluates prototypes and industry relevance during Demo Day. |
-| FYP Coordinator | Monitors phase progress, consolidated grades, generated reports, exports, and delivery history. |
+The Spring Boot grading engine replaces the former MATLAB aggregation process. It reads normalized scores from PostgreSQL instead of evaluator workbooks, checks that submissions are locked, groups marks by project, student, phase, and evaluator type, averages repeated evaluator contributions, applies the configured rules, and stores the calculated grade.
 
-## Typical Workflow
+Administrators can:
 
-1. The administrator imports official academic records, internal SQU identities, and Industry Guest invitations from Excel.
-2. Tracks, projects, teams, and student memberships are configured.
-3. Supervisors and evaluators are assigned to projects.
-4. Evaluation forms, criteria, grading rules, phases, and deadlines are configured.
-5. Evaluators enter scores and comments, which remain drafts until final submission.
-6. The platform sends approaching-deadline notifications.
-7. Evaluators may request an extension with a reason; the administrator decides whether to grant it and sets the revised deadline.
-8. Submitted evaluations are locked and included in grade consolidation.
-9. Administrators review, finalize, and publish grades for institutional processing.
-10. Coordinators review consolidated results and generate reports and exports.
+- inspect completion and missing-form status;
+- calculate or recalculate a project phase;
+- compare project and student-level results;
+- publish approved grades;
+- verify that drafts and expired unvalidated forms are excluded;
+- export phase, project, and final summaries.
+
+### Reports and Excel Exports
+
+- Generate project-phase reports and final project reports.
+- Check phase completeness before official reporting.
+- Archive generated reports with status and generation history.
+- Download, regenerate, e-mail, or delete a generated report through confirmed actions.
+- Persist generated workbooks in a dedicated Docker volume.
+- Export a MATLAB-compatible final summary plus enhanced traceability sheets.
+
+The final workbook can contain:
+
+- `LEGACY_SUMMARY` for compatibility with the former process;
+- `FINAL_SUMMARY` for consolidated student results;
+- `EVALUATOR_DETAILS` for locked evaluator contributions;
+- `MISSING_FORMS` for incomplete assessment tracking;
+- `AUDIT_TRAIL` for sensitive workflow events.
+
+### Notifications, E-mail, and Audit
+
+- Notification bell available in every actor dashboard.
+- Compact notification popover with unread count, summary, timestamps, and read status.
+- Contextual navigation from a notification to the relevant evaluation, phase, extension, or report.
+- In-app and SMTP notifications for Industry invitations, password resets, approaching deadlines, extension decisions, and generated reports.
+- Retry support for failed notification delivery.
+- Audit history for sensitive administrative and grading actions.
+
+Mailpit is included only for local development. It is an SMTP-compatible inbox that captures messages without sending them to real users. Production uses the same Spring Mail code with the university SMTP server or SendGrid SMTP by changing environment variables; no backend code change is required.
+
+### User Interface
+
+- English-only interface across login, dashboards, forms, tables, messages, and notifications.
+- Dedicated dashboard and actions for every actor.
+- Responsive desktop, tablet, and mobile navigation.
+- Light theme by default in the authenticated workspace and a dark institutional login experience.
+- Global navigation search and contextual shortcuts.
+- Accessible dialogs, confirmation popups, form validation, skeleton loaders, loading indicators, empty states, error states, and success feedback.
+- SQU visual identity and university favicon.
+
+## End-to-End Academic Workflow
+
+1. Start the platform and sign in with the provisioned administrator account.
+2. Download or prepare the annual initialization workbook.
+3. Upload it to **Excel Imports** and run **Analyze without saving**.
+4. Correct every validation error, then run **Initialize platform**.
+5. Review users, students, projects, teams, assignments, phases, deadlines, forms, and grading rules.
+6. Send Industry Guest invitations and verify e-mail delivery.
+7. Open the required academic phases.
+8. Supervisors, Report Evaluators, Faculty Evaluators, and Industry Guests sign in and see only their assigned work.
+9. Evaluators enter marks. Their work remains a draft until they choose **Validate form**.
+10. The platform locks validated forms and sends deadline reminders for pending work.
+11. An evaluator blocked by an expired deadline can request an extension; the administrator decides and sets the personal deadline.
+12. The administrator verifies completeness and calculates FYP I or FYP II results.
+13. The administrator reviews and publishes the grades.
+14. The administrator or coordinator generates, downloads, archives, and sends the official Excel reports.
+15. Audit and notification history provide traceability for the delivered process.
 
 ## Technology Stack
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 19, Vite, JavaScript, CSS, Lucide icons |
-| Frontend production server | Nginx |
-| Backend | Spring Boot 3.5, Java 21 LTS, Maven |
-| Persistence | Spring Data JPA, Hibernate, PostgreSQL 18 |
+| Frontend | React 19, Vite 8, JavaScript, CSS, Lucide icons |
+| Frontend server | Nginx with SPA routing and `/api` reverse proxy |
+| Backend | Spring Boot 3.5.16, Java 21 LTS, Maven |
+| Security | Spring Security, BCrypt, token sessions, OAuth2/OIDC client |
+| Persistence | Spring Data JPA, Hibernate, Flyway, PostgreSQL 18 |
+| Excel processing | Apache POI |
 | API documentation | Springdoc OpenAPI and Swagger UI |
-| Email testing | Mailpit |
+| E-mail | Spring Mail over SMTP; Mailpit locally, SQU SMTP or SendGrid in production |
 | Deployment | Docker and Docker Compose |
-| Testing | JUnit, Mockito, Testcontainers, ESLint, Vite build |
-
-## Repository Structure
-
-```text
-.
-|-- backend/                 Spring Boot application
-|   |-- src/main/java/      Backend modules and REST APIs
-|   |-- src/test/java/      Unit and integration tests
-|   |-- Dockerfile          Java 21 multi-stage image
-|   `-- pom.xml             Maven configuration
-|-- frontend/                React application
-|   |-- src/                Dashboards, forms, API client, and translations
-|   |-- public/             Public assets and Excel import template
-|   |-- Dockerfile          Node build and Nginx runtime image
-|   `-- nginx.conf          SPA and /api reverse proxy
-|-- compose.yaml             Complete local environment
-|-- .env.example             Environment variable template
-`-- README.md                Main project documentation
-```
+| Testing | JUnit, Mockito, Spring Security Test, Testcontainers, ESLint, grading verification scripts |
 
 ## Architecture
+
+This repository is a monorepo. The backend is a modular Spring Boot application organized by business domain, and Docker Compose runs four cooperating services:
 
 ```text
 Browser
    |
    v
-Nginx / React frontend
+React application served by Nginx
    |
-   | /api
+   | /api reverse proxy
    v
-Spring Boot REST API
-   |               |
-   v               v
-PostgreSQL       Mailpit
+Spring Boot REST API --------> SMTP / Mailpit
+   |
+   v
+PostgreSQL
 ```
 
-Nginx forwards `/api` requests to Spring Boot. The browser therefore communicates with a single origin in the Docker environment, avoiding hard-coded backend URLs and CORS issues.
+The Docker services are:
 
-The backend is organized into domain modules for authentication, users, projects, evaluations, grading, notifications, reporting, dashboards, and auditing.
+- `frontend`: React production build served by Nginx;
+- `backend`: Spring Boot REST API and grading engine;
+- `postgres`: persistent academic and workflow data;
+- `mailpit`: local SMTP capture and e-mail inspection.
 
-## UML Documentation
+The backend modules cover authentication, users, imports, projects, teams, phases, evaluations, grading, notifications, reporting, dashboards, and auditing.
 
-The complete UML documentation is available in [`docs/uml`](docs/uml/README_FR.md):
+## Repository Structure
 
-- [global use-case diagram (SVG)](docs/uml/use-case-global.svg);
-- [global class diagram (SVG)](docs/uml/class-diagram-global.svg);
-- [two-page UML document (PDF)](docs/uml/fyp-uml-diagrams.pdf);
-- editable Graphviz and PlantUML source files.
-
-### Diagram Previews
-
-#### Global Use Case Diagram
-
-<p align="center">
-  <a href="docs/uml/use-case-global.svg">
-    <img src="./docs/uml/readme-use-case-diagram.png" alt="Global Use Case Diagram" width="100%">
-  </a>
-</p>
-
-#### Global Class Diagram
-
-<p align="center">
-  <a href="docs/uml/class-diagram-global.svg">
-    <img src="./docs/uml/readme-class-diagram.png" alt="Global Class Diagram" width="100%">
-  </a>
-</p>
+```text
+.
+|-- backend/                 Spring Boot application and tests
+|-- frontend/                React application, assets, and public templates
+|-- docs/                    UML, demo, import, and implementation documents
+|-- outputs/                 Demonstration workbooks and generated media
+|-- scripts/                 Verification and media-generation scripts
+|-- compose.yaml             Complete local Docker environment
+|-- .env.example             Development and production variable examples
+`-- README.md                Final project documentation
+```
 
 ## Quick Start with Docker
 
 ### Prerequisites
 
-Install:
+- Git
+- Docker Desktop with the Docker engine running
+- Docker Compose, included with Docker Desktop
 
-- Git;
-- Docker Desktop with Docker Compose.
+Java, Node.js, Maven, and PostgreSQL do not need to be installed on the host when Docker is used.
 
-### Installation
+### 1. Clone and enter the repository
 
-```bash
+```powershell
 git clone https://github.com/ranym-eng/FYP-Online-Grading-Platform.git
-cd FYP-Online-Grading-Platform
+Set-Location "FYP-Online-Grading-Platform"
+```
+
+When the repository already exists at the project path:
+
+```powershell
+Set-Location "D:\Desktop\sultan qaboos\FYP-Online-Grading-Platform"
+```
+
+In PowerShell, do not use `cd /d`; that syntax belongs to Command Prompt.
+
+### 2. Start all services
+
+```powershell
 docker compose up --build -d
 ```
 
-The first startup can take several minutes while Docker downloads the base images and builds both applications.
+The first build can take several minutes because Docker downloads the Java, Node.js, Nginx, PostgreSQL, and Mailpit images.
 
-Check the service status:
+### 3. Verify service health
 
-```bash
+```powershell
 docker compose ps
 ```
 
-All four services should eventually report a running or healthy status.
+The frontend, backend, PostgreSQL, and Mailpit containers should be running. PostgreSQL and the backend should report `healthy` after startup.
 
-## Service URLs
+### 4. Open the application
 
 | Service | URL |
 | --- | --- |
-| React application | http://localhost:3000 |
-| Spring Boot API | http://localhost:8080 |
+| Platform | http://localhost:3000 |
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Backend health | http://localhost:8080/actuator/health |
-| Mailpit web interface | http://localhost:8025 |
-| PostgreSQL from the host | localhost:5433 |
+| Mailpit inbox | http://localhost:8025 |
+| PostgreSQL from the host | `localhost:5433` |
 
-## Default Development Account
-
-An administrator account is created automatically:
+### 5. Sign in for a local demonstration
 
 ```text
-Email:    admin@squ.edu.om
+E-mail:   admin@squ.edu.om
 Password: Admin@123
 ```
 
-These credentials and local password login are intended only for local demonstrations. Production must use SQU SSO for internal actors by setting `LOCAL_INTERNAL_LOGIN_ENABLED=false` and configuring the OIDC variables below.
+The administrator and local password login are demonstration defaults. They must not be used unchanged in a shared or production deployment.
 
-## Docker Commands
+### 6. Import demonstration data
 
-Show service status:
+1. Open **Excel Imports** from the administrator workspace.
+2. Select **Full demo dataset** or upload [`FYP_FULL_DEMO_DATA.xlsx`](outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx).
+3. Choose **Analyze without saving**.
+4. Review the sheet and row validation result.
+5. Choose **Initialize platform** only when the preview contains no blocking errors.
+6. Review the imported users, students, projects, teams, phases, and assignments.
+7. Open Mailpit to inspect generated Industry Guest invitations.
 
-```bash
+The demonstration data is fictional and intended only for testing and presentations.
+
+## Useful Docker Commands
+
+```powershell
+# Show container status
 docker compose ps
-```
 
-Follow all logs:
-
-```bash
+# Follow all logs
 docker compose logs -f
-```
 
-Follow only the backend logs:
-
-```bash
+# Follow backend logs only
 docker compose logs -f backend
-```
 
-Rebuild after source changes:
-
-```bash
+# Rebuild after source-code changes
 docker compose up --build -d
-```
 
-Stop the services while keeping PostgreSQL data:
-
-```bash
+# Stop containers and keep database/report data
 docker compose down
-```
 
-Stop the services and permanently remove the Docker database:
-
-```bash
+# Stop containers and delete all Docker database/report volumes
 docker compose down -v
 ```
 
-The `-v` option permanently deletes the Docker PostgreSQL volume.
+`docker compose down -v` permanently removes the Docker-managed PostgreSQL and report volumes. Use it only when a completely empty local environment is required.
 
-## Environment Configuration
+## Port Configuration
 
-The application can run without a `.env` file because development defaults are defined in `compose.yaml`.
-
-To customize credentials or ports on Windows PowerShell:
+Copy the environment template before changing ports or credentials:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-On macOS or Linux:
+Important defaults:
 
-```bash
-cp .env.example .env
-```
-
-Available variables:
-
-| Variable | Default value |
+| Variable | Default |
 | --- | --- |
+| `FRONTEND_PORT` | `3000` |
+| `BACKEND_PORT` | `8080` |
+| `POSTGRES_PORT` | `5433` |
+| `MAILPIT_UI_PORT` | `8025` |
+| `MAILPIT_SMTP_PORT` | `1025` |
 | `POSTGRES_DB` | `fyp_grading_platform` |
 | `POSTGRES_USER` | `postgres` |
 | `POSTGRES_PASSWORD` | `root` |
-| `POSTGRES_PORT` | `5433` |
-| `BACKEND_PORT` | `8080` |
-| `FRONTEND_PORT` | `3000` |
-| `MAILPIT_SMTP_PORT` | `1025` |
-| `MAILPIT_UI_PORT` | `8025` |
-| `MAIL_FROM` | `no-reply@squ.edu.om` |
-| `APP_TOKEN_SECRET` | Ephemeral when empty; set 32+ private characters for stable deployments |
-| `APP_FRONTEND_URL` | `http://localhost:3000` |
-| `LOCAL_INTERNAL_LOGIN_ENABLED` | `true` in the Docker demo; set `false` with SQU SSO |
-| `INDUSTRY_INVITATION_HOURS` | `48` |
-| `PASSWORD_RESET_MINUTES` | `30` |
-| `SQU_SSO_ENABLED` | `false` until OIDC is configured |
-| `SQU_SSO_CLIENT_ID` | Supplied by the SQU identity team |
-| `SQU_SSO_CLIENT_SECRET` | Supplied by the SQU identity team |
-| `SQU_SSO_ISSUER_URI` | SQU OpenID Connect issuer URI |
-| `SQU_SSO_EMAIL_CLAIM` | `email` |
-| `SQU_SSO_ALLOWED_DOMAIN` | `squ.edu.om` |
 
-When SSO is enabled, register the public callback URL with the SQU identity provider. For the default Docker setup it is `http://localhost:3000/login/oauth2/code/squ`; production must use the corresponding HTTPS application origin. The institutional e-mail returned by SSO must exactly match a previously imported internal actor.
+If port 3000 is already used, edit `.env`:
 
-PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local PostgreSQL installation on `5432`. Inside Docker, Spring Boot connects to the PostgreSQL service on the standard port `5432`.
+```text
+FRONTEND_PORT=3010
+APP_FRONTEND_URL=http://localhost:3010
+```
 
-Never commit a real `.env` file or production credentials. The `.env` file is excluded by `.gitignore`.
+Then recreate the containers:
+
+```powershell
+docker compose up --build -d
+```
+
+Open `http://localhost:3010` instead of port 3000.
+
+PostgreSQL uses host port 5433 by default to avoid conflict with a locally installed PostgreSQL server on port 5432. Inside Docker, the backend still connects to the `postgres` service on port 5432.
+
+## E-mail Configuration
+
+### Local demonstration
+
+Docker configures Spring Mail to send messages to Mailpit:
+
+```text
+MAIL_HOST=mailpit
+MAIL_PORT=1025
+```
+
+Open http://localhost:8025 to test Industry invitations, password reset links, deadline reminders, extension decisions, and report attachments.
+
+### Production SMTP or SendGrid
+
+Replace the local values in the deployment environment:
+
+```text
+MAIL_HOST=smtp.example.edu
+MAIL_PORT=587
+MAIL_USERNAME=<smtp-user>
+MAIL_PASSWORD=<smtp-password>
+MAIL_FROM=no-reply@squ.edu.om
+MAIL_SMTP_AUTH=true
+MAIL_STARTTLS_ENABLE=true
+MAIL_STARTTLS_REQUIRED=true
+```
+
+For SendGrid SMTP, use `smtp.sendgrid.net`, port `587`, username `apikey`, and the SendGrid API key as the password.
+
+## SQU Single Sign-On Configuration
+
+Obtain the OIDC values from the SQU identity-management team, then configure:
+
+```text
+LOCAL_INTERNAL_LOGIN_ENABLED=false
+SQU_SSO_ENABLED=true
+SQU_SSO_CLIENT_ID=<client-id>
+SQU_SSO_CLIENT_SECRET=<client-secret>
+SQU_SSO_ISSUER_URI=<issuer-uri>
+SQU_SSO_SCOPES=openid,profile,email
+SQU_SSO_EMAIL_CLAIM=email
+SQU_SSO_ALLOWED_DOMAIN=squ.edu.om
+APP_FRONTEND_URL=https://<public-platform-domain>
+```
+
+Register the production HTTPS callback URL with the identity provider. An internal user must already exist in the platform with the same institutional e-mail and an active role.
 
 ## Running without Docker
 
 ### Backend
 
-Requirements:
-
-- Java 21;
-- PostgreSQL;
-- a database named `fyp_grading_platform`.
-
-Windows PowerShell:
+Requirements: Java 21, PostgreSQL, and a database named `fyp_grading_platform`.
 
 ```powershell
-cd backend
+Set-Location backend
 $env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/fyp_grading_platform"
 $env:SPRING_DATASOURCE_USERNAME="postgres"
 $env:SPRING_DATASOURCE_PASSWORD="root"
+$env:LOCAL_INTERNAL_LOGIN_ENABLED="true"
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -395,139 +489,146 @@ $env:SPRING_DATASOURCE_PASSWORD="root"
 Requirement: Node.js 22 or later.
 
 ```powershell
-cd frontend
+Set-Location frontend
 npm ci
 npm run dev
 ```
 
-During local development, Vite proxies `/api` requests to `http://localhost:8080`.
+Vite serves the development interface and proxies `/api` requests to `http://localhost:8080`.
 
-## Tests and Quality Checks
+## API and Swagger Testing
 
-Backend:
+1. Start the backend or the complete Docker environment.
+2. Open http://localhost:8080/swagger-ui.html.
+3. Authenticate through `POST /api/auth/login` in local demonstration mode.
+4. Use the returned token with the Swagger **Authorize** action.
+5. Test only endpoints permitted for that account role.
+
+Important API groups include:
+
+- `/api/auth`
+- `/api/import/initialization`
+- `/api/users`, `/api/students`, and `/api/evaluators`
+- `/api/tracks`, `/api/projects`, `/api/teams`, and `/api/phases`
+- `/api/evaluation-forms`, `/api/criteria`, and `/api/evaluations`
+- `/api/phase-extension-requests`
+- `/api/grades`
+- `/api/reports`
+- `/api/notifications`
+- `/api/dashboard`
+- `/api/audit`
+
+## Tests and Verification
+
+Backend tests:
 
 ```powershell
-cd backend
+Set-Location backend
 .\mvnw.cmd test
 ```
 
-Frontend:
+Frontend checks:
 
 ```powershell
-cd frontend
+Set-Location frontend
 npm ci
+npm run test
 npm run lint
 npm run build
 ```
 
-Testcontainers-based integration tests require Docker to be running.
+Docker configuration validation:
 
-Validate the Docker Compose configuration:
-
-```bash
+```powershell
 docker compose config
 ```
 
-### Current Verification Status
+Testcontainers-based backend integration tests require Docker Desktop to be running.
 
-- Backend: 43 tests discovered, 42 passed, no failures, and one optional import test skipped.
-- Frontend: ESLint, the production Vite build, and seven grading/formula tests passed.
-- Docker: PostgreSQL, Spring Boot, React/Nginx, and Mailpit start and report healthy status.
-- Full demonstration workbook: 85 out of 85 populated import rows pass backend preview validation with no errors.
-- Real workflow: Supervisor, Report I, and Oral I forms for `EIC-01` were locked, consolidated to a phase score of `8.19`, published, archived, and exported as a valid Excel workbook.
+## UML Documentation
 
-## Demonstration Package
+### Global Use Case Diagram
 
-- Full fictional dataset: [`outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx`](outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx).
-- Copy downloadable from the administrator import screen: [`frontend/public/FYP_FULL_DEMO_DATA.xlsx`](frontend/public/FYP_FULL_DEMO_DATA.xlsx).
-- Complete French jury walkthrough: [`docs/GUIDE_DEMO_COMPLET_FR.md`](docs/GUIDE_DEMO_COMPLET_FR.md).
+<p align="center">
+  <a href="docs/uml/use-case-global.svg">
+    <img src="./docs/uml/readme-use-case-diagram.png" alt="Global Use Case Diagram" width="100%">
+  </a>
+</p>
 
-The workbook covers 26 student records, 8 projects, 24 internal actors, 5 Industry Guests, 4 phases, teams of one to five students, projects with one or two supervisors, and Report, Oral, Supervisor, and Demo Day assignments. Every identity and project is fictional.
+### Global Class Diagram
 
-## Annual Data Initialization
+<p align="center">
+  <a href="docs/uml/class-diagram-global.svg">
+    <img src="./docs/uml/readme-class-diagram.png" alt="Global Class Diagram" width="100%">
+  </a>
+</p>
 
-The old per-track EIC, CSN, CSP, and PSE workbooks are replaced by one master-data import. The grading sheets themselves are not imported: evaluators complete their assigned forms directly in the platform.
+Additional UML artifacts:
 
-### Required workbook sheets
-
-| Sheet | Required purpose |
-| --- | --- |
-| `STUDENTS` | `studentId`, `studentName`, `email`, `cohort`, `trackCode`, and `level` |
-| `ADMINISTRATORS` | Official administrator identity, institutional e-mail, `SQU_SSO` authentication mode, and status |
-| `COORDINATORS` | Official FYP coordinator identities using SQU SSO |
-| `SUPERVISORS` | Official supervisor identities and academic profile fields using SQU SSO |
-| `REPORT_EVALUATORS` | Official Report I/Report II paper evaluator identities using SQU SSO |
-| `FACULTY_EVALUATORS` | Official Oral I/Oral II faculty evaluator identities using SQU SSO |
-| `INDUSTRY_GUESTS` | External identity, organization, future `accessExpiresAt`, and `PENDING_INVITATION` status |
-| `PHASES` | FYP I/FYP II academic year, start date, deadline, sequence, and lifecycle status |
-| `PROJECT_ASSIGNMENTS` | Cohort, track, project, optional student, optional supervisor, and evaluator e-mail lists per row |
-
-Every populated row distributed with the demonstration workbook is fictional. Names are labelled `Demo`, actor identifiers use `DEMO`, internal actor e-mails use fictional `@squ.edu.om` addresses to satisfy SSO validation, and Industry Guest e-mails use the reserved `example.com` domain. Replace or delete all demonstration rows before importing real university data. The examples cover all four tracks, one and two supervisors, one to five students, a supervisor-only continuation row, single and multiple evaluators, and one or two Industry Guests.
-
-`PROJECT_ASSIGNMENTS` repeats the same `projectNumber` on every row belonging to a project. A row may contain one student, one supervisor, or both. A project must have 1-5 distinct students and 1-2 distinct supervisors. For a project with one student and two supervisors, add a second project row with `studentId` and `studentName` left blank; never duplicate a student ID. Other project metadata may be filled only on the first row. Multiple evaluator e-mails in an assignment cell are separated with commas or semicolons.
-
-### First-run workflow
-
-1. For a local demo, start Docker and sign in as `admin@squ.edu.om` / `Admin@123`. In a real deployment, the provisioned administrator uses **Sign in with SQU account**.
-2. Open **Excel Imports**, download the master template, and complete all nine data sheets.
-3. Run **Analyze without saving**. Fix every reported sheet, row, and field error.
-4. Run **Initialize platform**. The import is atomic and safe to repeat after corrections.
-5. Open **Data Management > Phases**. Verify the imported FYP I/FYP II dates and statuses, then adjust or open them when the official calendar is approved.
-6. Internal actors sign in through SQU SSO; the platform matches their institutional e-mail and redirects them according to the imported role.
-7. Each imported Industry Guest receives a one-time e-mail link, chooses a password, and can access only assigned Demo Day projects until `accessExpiresAt`.
-8. Evaluators see only assigned projects and forms. Scores auto-save as drafts and count only after **Validate form**.
-9. The administrator calculates and publishes student results after all required forms are locked.
-10. The administrator or coordinator downloads `Final_Evaluation_Summary.xlsx` from **Reports**.
-
-The export contains `LEGACY_SUMMARY`, `FINAL_SUMMARY`, `EVALUATOR_DETAILS`, `MISSING_FORMS`, and `AUDIT_TRAIL`. Presentation uses the official individual/group formula, report is project-level, supervisor scoring is individual, Demo Day uses `2/1/4/2/1`, multiple locked evaluators are averaged, valid zero scores are retained, and drafts are excluded.
-
-- Preview endpoint: `POST /api/import/initialization/preview`
-- Transactional import endpoint: `POST /api/import/initialization`
-- Phase export: `GET /api/reports/export/phase/{phaseId}`
-- Project export: `GET /api/reports/export/project/{projectId}`
-- Detailed administrator guide (French): [`docs/IMPORT_INITIAL_ADMIN_FR.md`](docs/IMPORT_INITIAL_ADMIN_FR.md)
-
-## Data and Email Handling
-
-- Hibernate creates and updates the PostgreSQL schema at startup.
-- Docker database data is persisted in the `postgres_data` volume.
-- Generated report workbooks are persisted in the Docker `report_data` volume.
-- Development e-mails, password-reset links, reminders, invitations, extension decisions, and report attachments are captured by Mailpit at http://localhost:8025. Direct grade-workbook downloads remain authenticated.
-- The backend can be configured to use a real SMTP server through environment variables for deployment.
+- [Use-case diagram SVG](docs/uml/use-case-global.svg)
+- [Class diagram SVG](docs/uml/class-diagram-global.svg)
+- [Combined UML PDF](docs/uml/fyp-uml-diagrams.pdf)
+- Editable Graphviz and PlantUML sources in [`docs/uml`](docs/uml)
 
 ## Troubleshooting
 
-### A port is already in use
+### Docker cannot connect to its engine
 
-Create a `.env` file, change the conflicting port, and restart:
+Start Docker Desktop and wait until the Linux container engine reports that it is running. Then repeat `docker compose up --build -d`.
 
-```bash
+### Docker cannot find the Compose file
+
+Run the command from the repository root, where `compose.yaml` is located:
+
+```powershell
+Set-Location "D:\Desktop\sultan qaboos\FYP-Online-Grading-Platform"
+docker compose config
+```
+
+### A port is already allocated
+
+Change the relevant value in `.env`, then run:
+
+```powershell
 docker compose up --build -d
 ```
 
-### The backend cannot connect to PostgreSQL
+To inspect a Windows port:
 
-Check container health and backend logs:
+```powershell
+Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
+```
 
-```bash
+### Backend or database is unhealthy
+
+```powershell
 docker compose ps
 docker compose logs backend
 docker compose logs postgres
 ```
 
-### Start with an empty Docker database
+### Start again with an empty Docker database
 
-```bash
+```powershell
 docker compose down -v
 docker compose up --build -d
 ```
 
-### Validate the generated Compose configuration
+## Security and Production Checklist
 
-```bash
-docker compose config
-```
+Before deployment outside a local demonstration environment:
 
-## Security Notice
+- replace all default database and administrator credentials;
+- set a private `APP_TOKEN_SECRET` of at least 32 random characters;
+- disable local internal login and enable reviewed SQU SSO settings;
+- use HTTPS for the platform, OAuth callback, invitations, and password-reset links;
+- configure the university SMTP service or SendGrid with secrets outside Git;
+- restrict PostgreSQL and management endpoints from public access;
+- back up the PostgreSQL and generated-report volumes;
+- review role assignments, grading rules, phase deadlines, and evaluator allocations;
+- remove demonstration records before importing official university data;
+- never commit `.env`, SMTP passwords, API keys, or production database credentials.
 
-The default database password and administrator account are development defaults. A real deployment must use strong secrets, HTTPS, restricted network access, secure SMTP credentials, regular backups, and a reviewed production authentication strategy.
+## License and Institutional Use
+
+This repository is an academic project for the Sultan Qaboos University FYP grading workflow. Deployment, branding, identity integration, and production use must be reviewed and approved by the university.

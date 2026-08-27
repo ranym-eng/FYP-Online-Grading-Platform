@@ -1,92 +1,92 @@
 const presentationIndividual = [
   {
     id: 'present-information',
-    label: 'Présenter les informations techniques à un public général, de manière claire, logique et facile à suivre',
+    label: 'Present technical information to a general audience clearly, logically and in an easy-to-follow manner',
     outcome: '3.c',
     weight: 1,
   },
   {
     id: 'answer-questions',
-    label: 'Répondre efficacement aux questions et commentaires liés aux solutions techniques du projet',
-    outcome: 'Questions et réponses',
+    label: 'Respond effectively to questions and comments about the project technical solutions',
+    outcome: 'Questions and answers',
     weight: 4,
   },
 ]
 
 const presentationGroup = [
-  { id: 'technical-presentation', label: 'Produire une présentation technique de qualité: diapositives, contenu technique et anglais', outcome: '3.b', weight: 1 },
-  { id: 'identify-problem', label: 'Identifier et énoncer un problème d’ingénierie complexe', outcome: '1.a', weight: 1 },
-  { id: 'formulate-problem', label: 'Formuler le problème complexe à l’aide de diagrammes, équations ou organigrammes', outcome: '1.b', weight: 1 },
-  { id: 'design-requirements', label: 'Spécifier les exigences et contraintes de conception', outcome: '2.a', weight: 1 },
-  { id: 'analyze-solutions', label: 'Analyser et produire des solutions: alternatives, simulation ou réalisation', outcome: '1.c', weight: 2 },
-  { id: 'evaluate-ethics-impact', label: 'Évaluer les solutions selon l’éthique et leurs impacts économiques, environnementaux et sociétaux', outcome: '4.c', weight: 1.5 },
-  { id: 'complete-work', label: 'Achever le travail proposé', outcome: 'Réalisation', weight: 2 },
+  { id: 'technical-presentation', label: 'Produce a quality technical presentation: slides, technical content and English', outcome: '3.b', weight: 1 },
+  { id: 'identify-problem', label: 'Identify and state a complex engineering problem', outcome: '1.a', weight: 1 },
+  { id: 'formulate-problem', label: 'Formulate the complex problem using diagrams, equations or flowcharts', outcome: '1.b', weight: 1 },
+  { id: 'design-requirements', label: 'Specify design requirements and constraints', outcome: '2.a', weight: 1 },
+  { id: 'analyze-solutions', label: 'Analyze and produce solutions: alternatives, simulation or implementation', outcome: '1.c', weight: 2 },
+  { id: 'evaluate-ethics-impact', label: 'Evaluate solutions according to ethics and their economic, environmental and societal impacts', outcome: '4.c', weight: 1.5 },
+  { id: 'complete-work', label: 'Complete the proposed work', outcome: 'Implementation', weight: 2 },
 ]
 
 const reportCriteria = [
-  { id: 'identify-problem', label: 'Identifier et énoncer un problème d’ingénierie complexe', outcome: '1.a', weight: 1 },
-  { id: 'formulate-problem', label: 'Formuler le problème à l’aide de diagrammes, équations ou organigrammes', outcome: '1.b', weight: 1 },
-  { id: 'design-requirements', label: 'Spécifier les exigences et contraintes de conception', outcome: '2.a', weight: 1 },
-  { id: 'analyze-solutions', label: 'Analyser et produire des solutions au problème complexe', outcome: '1.c', weight: 2 },
-  { id: 'develop-solutions', label: 'Développer et évaluer les solutions possibles sous contraintes réalistes', outcome: '2.b', weight: 1 },
-  { id: 'build-test', label: 'Sélectionner les composants, construire et tester la solution', outcome: '2.c', weight: 1 },
-  { id: 'technical-report', label: 'Rédiger un rapport technique conforme aux consignes de forme et de langue', outcome: '3.a', weight: 1 },
-  { id: 'professional-ethics', label: 'Démontrer la maîtrise du code d’éthique: citations, similarité et intégrité', outcome: '4.a', weight: 1 },
-  { id: 'evaluate-impact', label: 'Évaluer les impacts globaux, économiques, environnementaux et sociétaux', outcome: '4.c', weight: 1 },
-  { id: 'complete-work', label: 'Achever le travail proposé', outcome: 'Réalisation', weight: 1 },
+  { id: 'identify-problem', label: 'Identify and state a complex engineering problem', outcome: '1.a', weight: 1 },
+  { id: 'formulate-problem', label: 'Formulate the problem using diagrams, equations or flowcharts', outcome: '1.b', weight: 1 },
+  { id: 'design-requirements', label: 'Specify design requirements and constraints', outcome: '2.a', weight: 1 },
+  { id: 'analyze-solutions', label: 'Analyze and produce solutions to the complex problem', outcome: '1.c', weight: 2 },
+  { id: 'develop-solutions', label: 'Develop and evaluate possible solutions under realistic constraints', outcome: '2.b', weight: 1 },
+  { id: 'build-test', label: 'Select components, build and test the solution', outcome: '2.c', weight: 1 },
+  { id: 'technical-report', label: 'Write a technical report that follows formatting and language requirements', outcome: '3.a', weight: 1 },
+  { id: 'professional-ethics', label: 'Demonstrate command of the code of ethics: citations, similarity and integrity', outcome: '4.a', weight: 1 },
+  { id: 'evaluate-impact', label: 'Evaluate global, economic, environmental and societal impacts', outcome: '4.c', weight: 1 },
+  { id: 'complete-work', label: 'Complete the proposed work', outcome: 'Implementation', weight: 1 },
 ]
 
 const supervisorCriteria = [
-  { id: 'analyze-solutions', label: 'Analyser et produire des solutions au problème complexe', outcome: '1.c', weight: 1 },
-  { id: 'build-test', label: 'Sélectionner les composants, construire et tester la solution', outcome: '2.c', weight: 1 },
-  { id: 'professional-responsibility', label: 'Respecter les responsabilités professionnelles: réunions, ponctualité et délais', outcome: '4.b', weight: 1 },
-  { id: 'plan-objectives', label: 'Définir les objectifs du projet et préparer un plan de réalisation', outcome: '5.a', weight: 1 },
-  { id: 'assigned-tasks', label: 'Réaliser les tâches attribuées pour atteindre les objectifs', outcome: '5.b', weight: 1 },
-  { id: 'team-leadership', label: 'Conduire l’équipe vers la réalisation de l’objectif du projet', outcome: '5.c', weight: 1 },
-  { id: 'acquire-information', label: 'Acquérir des informations nouvelles et pertinentes pour le projet', outcome: '7.a', weight: 1 },
-  { id: 'learning-strategies', label: 'Utiliser des stratégies de recherche et d’apprentissage adaptées', outcome: '7.b', weight: 1 },
-  { id: 'apply-knowledge', label: 'Appliquer les nouvelles connaissances acquises', outcome: '7.c', weight: 1 },
-  { id: 'technical-questions', label: 'Répondre aux questions techniques et ouvertes pendant les réunions et répétitions', outcome: 'Questions et réponses', weight: 1 },
-  { id: 'proposal-deadline', label: 'Rédiger et remettre la proposition étendue dans les délais', outcome: 'Livrable', weight: 1 },
+  { id: 'analyze-solutions', label: 'Analyze and produce solutions to the complex problem', outcome: '1.c', weight: 1 },
+  { id: 'build-test', label: 'Select components, build and test the solution', outcome: '2.c', weight: 1 },
+  { id: 'professional-responsibility', label: 'Meet professional responsibilities: meetings, punctuality and deadlines', outcome: '4.b', weight: 1 },
+  { id: 'plan-objectives', label: 'Define project objectives and prepare an implementation plan', outcome: '5.a', weight: 1 },
+  { id: 'assigned-tasks', label: 'Complete assigned tasks to achieve the objectives', outcome: '5.b', weight: 1 },
+  { id: 'team-leadership', label: 'Lead the team toward achieving the project objective', outcome: '5.c', weight: 1 },
+  { id: 'acquire-information', label: 'Acquire new and relevant information for the project', outcome: '7.a', weight: 1 },
+  { id: 'learning-strategies', label: 'Use appropriate research and learning strategies', outcome: '7.b', weight: 1 },
+  { id: 'apply-knowledge', label: 'Apply newly acquired knowledge', outcome: '7.c', weight: 1 },
+  { id: 'technical-questions', label: 'Answer technical and open questions during meetings and rehearsals', outcome: 'Questions and answers', weight: 1 },
+  { id: 'proposal-deadline', label: 'Write and submit the extended proposal on time', outcome: 'Deliverable', weight: 1 },
 ]
 
 const demoCriteria = [
-  { id: 'prototype', label: 'Sélectionner les composants, construire et tester le prototype du projet', outcome: '1.c', weight: 2 },
-  { id: 'present-prototype', label: 'Présenter le prototype de manière claire, logique et facile à suivre', outcome: '3.c', weight: 1 },
-  { id: 'answer-questions', label: 'Répondre efficacement aux questions et commentaires', outcome: 'Questions et réponses', weight: 4 },
-  { id: 'complete-work', label: 'Achever le travail proposé', outcome: 'Réalisation', weight: 2 },
-  { id: 'poster', label: 'Produire une affiche de qualité: conception, contenu technique et anglais', outcome: 'Affiche', weight: 1 },
+  { id: 'prototype', label: 'Select components, build and test the project prototype', outcome: '1.c', weight: 2 },
+  { id: 'present-prototype', label: 'Present the prototype clearly, logically and in an easy-to-follow manner', outcome: '3.c', weight: 1 },
+  { id: 'answer-questions', label: 'Respond effectively to questions and comments', outcome: 'Questions and answers', weight: 4 },
+  { id: 'complete-work', label: 'Complete the proposed work', outcome: 'Implementation', weight: 2 },
+  { id: 'poster', label: 'Produce a quality poster: design, technical content and English', outcome: 'Poster', weight: 1 },
 ]
 
 const presentationTemplate = {
   kind: 'presentation',
-  label: 'Présentation orale',
-  shortFormula: 'Partie A × 15/40 + Partie B × 25/40',
+  label: 'Oral presentation',
+  shortFormula: 'Part A × 15/40 + Part B × 25/40',
   sections: [
-    { id: 'individual', label: 'Partie A · Évaluation individuelle', target: 'student', criteria: presentationIndividual },
-    { id: 'group', label: 'Partie B · Évaluation du projet', target: 'group', criteria: presentationGroup },
+    { id: 'individual', label: 'Part A · Individual evaluation', target: 'student', criteria: presentationIndividual },
+    { id: 'group', label: 'Part B · Project evaluation', target: 'group', criteria: presentationGroup },
   ],
 }
 
 const reportTemplate = {
   kind: 'report',
-  label: 'Rapport papier',
+  label: 'Paper report',
   shortFormula: '(C1 + C2 + C3 + 2×C4 + C5…C10) ÷ 11',
-  sections: [{ id: 'group', label: 'Évaluation du rapport du projet', target: 'group', criteria: reportCriteria }],
+  sections: [{ id: 'group', label: 'Project report evaluation', target: 'group', criteria: reportCriteria }],
 }
 
 const supervisorTemplate = {
   kind: 'supervisor',
-  label: 'Évaluation du superviseur',
-  shortFormula: 'Somme des 11 critères ÷ 11',
-  sections: [{ id: 'individual', label: 'Suivi individuel', target: 'student', criteria: supervisorCriteria }],
+  label: 'Supervisor evaluation',
+  shortFormula: 'Sum of the 11 criteria ÷ 11',
+  sections: [{ id: 'individual', label: 'Individual monitoring', target: 'student', criteria: supervisorCriteria }],
 }
 
 const demoTemplate = {
   kind: 'demo',
   label: 'Demo Day',
   shortFormula: '(2×C1 + C2 + 4×C3 + 2×C4 + C5) ÷ 10',
-  sections: [{ id: 'group', label: 'Évaluation du groupe', target: 'group', criteria: demoCriteria }],
+  sections: [{ id: 'group', label: 'Group evaluation', target: 'group', criteria: demoCriteria }],
 }
 
 export const SCORING_TEMPLATES = {
@@ -140,8 +140,8 @@ export function calculateTemplate(template, scores, targetIds) {
 }
 
 export function performanceBand(score) {
-  if (score >= 8) return { label: 'Très bien', tone: 'excellent' }
-  if (score >= 6) return { label: 'Bien', tone: 'good' }
-  if (score >= 5) return { label: 'Satisfaisant', tone: 'satisfactory' }
-  return { label: 'À améliorer', tone: 'weak' }
+  if (score >= 8) return { label: 'Very good', tone: 'excellent' }
+  if (score >= 6) return { label: 'Good', tone: 'good' }
+  if (score >= 5) return { label: 'Satisfactory', tone: 'satisfactory' }
+  return { label: 'Needs improvement', tone: 'weak' }
 }

@@ -57,4 +57,4 @@ reportScores[scoreKey('group', 'analyze-solutions', 'group')] = 10
 const reportResult = calculateTemplate(report, reportScores, ['s1']).group
 assert.equal(reportResult.finalScore, 65 / 11)
 
-console.log('7 modèles vérifiés; formules de présentation, rapport et Industry Guest vérifiées.')
+console.log('7 grading models verified; presentation, report and Industry Guest formulas passed.')

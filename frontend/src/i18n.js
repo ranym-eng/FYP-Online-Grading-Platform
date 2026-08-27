@@ -637,7 +637,7 @@ const exactByLanguage = {
   fr: new Map(translations.map(([fr, en]) => [en.toLocaleLowerCase('en'), fr])),
 }
 
-let activeLanguage = 'fr'
+let activeLanguage = 'en'
 
 function translateDynamic(text, language) {
   const rules = language === 'en'
@@ -712,21 +712,20 @@ export function translateText(value, language = activeLanguage) {
 }
 
 export function getInitialLanguage() {
-  const saved = localStorage.getItem(LANGUAGE_KEY)
-  const language = saved === 'fr' || saved === 'en' ? saved : (navigator.language?.toLowerCase().startsWith('fr') ? 'fr' : 'en')
-  activeLanguage = language
-  return language
+  activeLanguage = 'en'
+  localStorage.setItem(LANGUAGE_KEY, 'en')
+  return 'en'
 }
 
-export function setLanguagePreference(language) {
-  activeLanguage = language
-  localStorage.setItem(LANGUAGE_KEY, language)
-  document.documentElement.lang = language
-  document.title = language === 'fr' ? 'Plateforme de notation FYP | SQU' : 'FYP Grading Platform | SQU'
+export function setLanguagePreference() {
+  activeLanguage = 'en'
+  localStorage.setItem(LANGUAGE_KEY, 'en')
+  document.documentElement.lang = 'en'
+  document.title = 'FYP Grading Platform | SQU'
 }
 
 export function currentLocale() {
-  return activeLanguage === 'fr' ? 'fr-FR' : 'en-GB'
+  return 'en-GB'
 }
 
 export function useAutoTranslate(language) {
