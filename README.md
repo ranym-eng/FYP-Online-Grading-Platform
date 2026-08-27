@@ -1,12 +1,12 @@
 # FYP Online Grading Platform
 
-An English-language platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It replaces the former workflow based on separate Excel evaluation sheets and MATLAB consolidation with one secure, traceable, role-based application.
+A platform for managing and grading Final Year Projects (FYP) at Sultan Qaboos University. It replaces the former workflow based on separate Excel evaluation sheets and MATLAB consolidation with one secure, traceable, role-based application.
 
 The platform covers the complete FYP I and FYP II process: annual data initialization, project and team management, evaluator assignments, deadline-controlled assessments, grade calculation, publication, Excel reporting, e-mail delivery, notifications, and audit history.
 
 ## Live Demo
 
-- [Watch the recorded platform demonstration](https://drive.google.com/drive/folders/1B_Ol1Y009Wlx2m7iUEEaDi6phGjrKZO8?usp=drive_link)
+- [Watch the recorded platform demonstration](https://drive.google.com/file/d/1EmcknRu2H6jg8D8RO5O9LL1t7mJ2P7XL/view?usp=sharing)
 - [Download the fictional demonstration workbook](outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx)
 - [Download the clean initialization template](outputs/template-refresh/FYP_PLATFORM_INITIALIZATION_TEMPLATE.xlsx)
 
