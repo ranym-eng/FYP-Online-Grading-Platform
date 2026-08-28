@@ -88,6 +88,11 @@ function serialize(form, fields = []) {
   return data
 }
 
+function fieldIsVisible(field, form) {
+  if (!field.visibleWhen) return true
+  return form[field.visibleWhen.field] === field.visibleWhen.equals
+}
+
 function App() {
   const [session, setSession] = useState(readStoredSession)
   const [activeView, setActiveView] = useState(() => homeViewForRole(session?.role))
@@ -772,10 +777,19 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
     setFormOpen(true)
   }
 
+  function updateField(field, value) {
+    const next = { ...form, [field.name]: value }
+    ;(config.fields || []).forEach((candidate) => {
+      if (!fieldIsVisible(candidate, next)) next[candidate.name] = candidate.type === 'checkbox' ? false : ''
+    })
+    setForm(next)
+  }
+
   async function submit(event) {
     event.preventDefault(); if (config.readOnly) return; setBusy(true)
     try {
-      const payload = serialize(form, config.fields)
+      const visibleFields = (config.fields || []).filter((field) => fieldIsVisible(field, form))
+      const payload = serialize(form, visibleFields)
       await request(editing ? config.endpoint + '/' + editing.id : (config.customCreateEndpoint || config.endpoint), { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
       notify(editing ? 'Changes saved' : 'Record added'); setEditing(null); setFormOpen(false); setForm(initialForm(config.fields || [])); await reload(); setRows(unwrapList(await request(config.endpoint)))
     } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
@@ -810,7 +824,7 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
     <div className="resource-manager-toolbar"><button className="icon-button" title="Reload" aria-label="Reload" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}><RefreshCw size={17} /></button>{!config.readOnly && <button type="button" className="primary-action" onClick={createNew}><Plus size={17} />Add</button>}</div>
     <Panel title={config.title} wide><DataTable rows={rows} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? setDeleteTarget : null} extraAction={extraAction} initialQuery={initialQuery} /></Panel>
     <DialogShell open={formOpen} title={editing ? 'Edit' : 'Add'} onClose={() => { if (!busy) setFormOpen(false) }}>
-      <form className="stack-form compact dialog-form" onSubmit={submit}>{(config.fields || []).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => setForm({ ...form, [field.name]: value })} />)}<div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setFormOpen(false)} disabled={busy}>Cancel</button><button className="primary-action" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save' : 'Add'}</button></div></form>
+      <form className="stack-form compact dialog-form" onSubmit={submit}>{(config.fields || []).filter((field) => fieldIsVisible(field, form)).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => updateField(field, value)} />)}<div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setFormOpen(false)} disabled={busy}>Cancel</button><button className="primary-action" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save' : 'Add'}</button></div></form>
     </DialogShell>
     <ConfirmDialog open={Boolean(deleteTarget)} title="Delete this record?" message={deleteTarget ? itemName(deleteTarget) : ''} confirmLabel="Delete" danger onCancel={() => setDeleteTarget(null)} onConfirm={() => remove(deleteTarget)} />
   </div>

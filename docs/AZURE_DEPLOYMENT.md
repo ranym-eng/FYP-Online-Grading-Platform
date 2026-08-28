@@ -35,6 +35,21 @@ official SQU domain when the application moves to the university server.
 
 Do not expose ports 5432, 8080, 8025, or 1025.
 
+### Inspect captured demonstration emails
+
+Mailpit remains internal on the production VM. To inspect invitation, password-reset,
+extension, and report messages without exposing port `8025`, create an SSH tunnel from
+PowerShell:
+
+```powershell
+$vm = "fyp-squ-ranym-89baa6.spaincentral.cloudapp.azure.com"
+$mailpitIp = (ssh azureuser@$vm 'cd /opt/fyp-platform && docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" $(docker compose --env-file .env.production -f compose.production.yaml ps -q mailpit)').Trim()
+ssh -N -L "8025:$($mailpitIp):8025" azureuser@$vm
+```
+
+Keep that terminal open and browse to `http://localhost:8025`. Mailpit is only a
+demonstration SMTP capture service; replace it with SQU SMTP or SendGrid for delivery.
+
 ## Initial deployment
 
 1. Create the Azure VM and assign an Azure-managed DNS label.

@@ -64,7 +64,12 @@ export const resourceConfigs = {
       { name: 'email', label: 'Email', type: 'email', required: true },
       { name: 'phone', label: 'Phone' },
       { name: 'role', label: 'Role', type: 'select', options: ROLES, required: true },
-      { name: 'accessExpiresAt', label: 'Industry Guest expiration', type: 'datetime-local' },
+      {
+        name: 'accessExpiresAt',
+        label: 'Industry Guest expiration',
+        type: 'datetime-local',
+        visibleWhen: { field: 'role', equals: 'INDUSTRY_REPRESENTATIVE' },
+      },
     ],
   },
   students: {
