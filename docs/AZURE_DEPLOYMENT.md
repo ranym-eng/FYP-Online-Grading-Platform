@@ -15,6 +15,18 @@ expires to avoid interruption or future charges.
 - PostgreSQL, backend, and Mailpit have no public host ports.
 - Named Docker volumes retain database, reports, and certificates.
 
+## Current demonstration environment
+
+- Public URL: `https://squ-fyp-grading.68-221-71-117.sslip.io`
+- Azure resource group: `rg-fyp-grading-demo`
+- Azure VM: `vm-fyp-grading-demo`
+- Region: Spain Central
+- VM size: `Standard_B2ats_v2`
+- Budget alert: `fyp-demo-budget`, USD 5 monthly threshold monitoring
+
+The `sslip.io` hostname is a free demonstration DNS name. Replace it with the
+official SQU domain when the application moves to the university server.
+
 ## Required inbound ports
 
 - `22/tcp`: SSH, restricted to the administrator IP when possible.

@@ -6,6 +6,7 @@ The platform covers the complete FYP I and FYP II process: annual data initializ
 
 ## Live Demo
 
+- [Open the live HTTPS platform](https://squ-fyp-grading.68-221-71-117.sslip.io)
 - [Watch the recorded platform demonstration](https://drive.google.com/file/d/1EmcknRu2H6jg8D8RO5O9LL1t7mJ2P7XL/view?usp=sharing)
 - [Download the fictional demonstration workbook](outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx)
 - [Download the clean initialization template](outputs/template-refresh/FYP_PLATFORM_INITIALIZATION_TEMPLATE.xlsx)
@@ -202,6 +203,8 @@ The final workbook can contain:
 - Audit history for sensitive administrative and grading actions.
 
 Mailpit is included only for local development. It is an SMTP-compatible inbox that captures messages without sending them to real users. Production uses the same Spring Mail code with the university SMTP server or SendGrid SMTP by changing environment variables; no backend code change is required.
+
+The public Azure demonstration also uses an internal, non-public Mailpit instance until SQU SMTP credentials are provided. E-mail workflows are executed and captured, but messages are not delivered to real external addresses in this temporary free deployment.
 
 ### User Interface
 
