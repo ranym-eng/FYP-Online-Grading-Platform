@@ -43,11 +43,12 @@ PowerShell:
 
 ```powershell
 $vm = "fyp-squ-ranym-89baa6.spaincentral.cloudapp.azure.com"
-$mailpitIp = (ssh azureuser@$vm 'cd /opt/fyp-platform && docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" $(docker compose --env-file .env.production -f compose.production.yaml ps -q mailpit)').Trim()
-ssh -N -L "8025:$($mailpitIp):8025" azureuser@$vm
+$mailpitIp = (ssh azureuser@$vm 'cd /opt/fyp-platform && docker exec $(docker compose --env-file .env.production -f compose.production.yaml ps -q mailpit) hostname -i').Trim()
+ssh -N -L "8026:$($mailpitIp):8025" azureuser@$vm
 ```
 
-Keep that terminal open and browse to `http://localhost:8025`. Mailpit is only a
+Keep that terminal open and browse to `http://localhost:8026`. Port `8026` avoids
+conflicts with a local Mailpit instance that may already use `8025`. Mailpit is only a
 demonstration SMTP capture service; replace it with SQU SMTP or SendGrid for delivery.
 
 ## Initial deployment
