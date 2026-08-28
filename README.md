@@ -11,6 +11,11 @@ The platform covers the complete FYP I and FYP II process: annual data initializ
 - [Download the fictional demonstration workbook](outputs/delivery-finalization/FYP_FULL_DEMO_DATA.xlsx)
 - [Download the clean initialization template](outputs/template-refresh/FYP_PLATFORM_INITIALIZATION_TEMPLATE.xlsx)
 
+## Delivery Documentation
+
+- [Read the complete platform, Azure operation, and university migration guide](docs/COMPLETE_PLATFORM_AND_DEPLOYMENT_GUIDE.md)
+- [Download the presentation-ready PDF guide](output/pdf/FYP_Platform_Complete_Guide.pdf)
+
 ## What the Platform Replaces
 
 Before this platform, each academic evaluator completed a multi-sheet Excel workbook. The university then used a MATLAB program to read those files, average the submitted marks, apply the official assessment weights, and generate `Final_Evaluation_Summary.xlsx`.
