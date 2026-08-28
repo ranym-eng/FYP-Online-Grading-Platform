@@ -15,6 +15,7 @@ import fyp_grading_platform.project.TrackRepository;
 import fyp_grading_platform.user.User;
 import fyp_grading_platform.user.UserRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,7 +31,8 @@ public class DataInitializer {
             PasswordEncoder encoder,
             GradeRuleRepository gradeRules,
             EvaluationFormTemplateRepository forms,
-            RubricCriterionRepository criteria
+            RubricCriterionRepository criteria,
+            @Value("${app.bootstrap.admin-password:}") String bootstrapAdminPassword
     ) {
         return args -> {
             seedTrack(tracks, "EIC", "Electronics, Instrumentation and Control");
@@ -39,11 +41,14 @@ public class DataInitializer {
             seedTrack(tracks, "PSE", "Power Systems Engineering");
 
             if (!users.existsByEmailIgnoreCase("admin@squ.edu.om")) {
+                String initialAdminPassword = bootstrapAdminPassword == null || bootstrapAdminPassword.isBlank()
+                        ? java.util.UUID.randomUUID().toString()
+                        : bootstrapAdminPassword;
                 User admin = new User();
                 admin.setUniversityId("ADMIN-001");
                 admin.setFullName("FYP Administrator");
                 admin.setEmail("admin@squ.edu.om");
-                admin.setPasswordHash(encoder.encode("Admin@123"));
+                admin.setPasswordHash(encoder.encode(initialAdminPassword));
                 admin.setRole(UserRole.ADMIN);
                 admin.setStatus(UserStatus.ACTIVE);
                 users.save(admin);

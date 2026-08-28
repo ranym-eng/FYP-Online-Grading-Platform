@@ -33,6 +33,10 @@ Do not expose ports 5432, 8080, 8025, or 1025.
 6. Verify `/actuator/health` internally and the public HTTPS login page.
 7. Import only fictional demo data for a public demonstration.
 
+`BOOTSTRAP_ADMIN_PASSWORD` must be a unique random value. The backend no longer
+uses a hard-coded production administrator password. Keep this secret outside
+Git and rotate it through the authenticated administration workflow.
+
 ## Updating
 
 After a push to `main`, wait for the container publication workflow, then run:
