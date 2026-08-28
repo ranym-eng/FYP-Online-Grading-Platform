@@ -65,5 +65,6 @@ app:
     token-secret: ${APP_TOKEN_SECRET:}
     token-lifetime-seconds: ${APP_TOKEN_LIFETIME_SECONDS:28800}
     allow-email-token: ${APP_ALLOW_EMAIL_TOKEN:false}
+    allowed-origin-patterns: ${APP_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,http://[::1]:*}
   reports:
     output-dir: ${REPORT_OUTPUT_DIR:generated}
