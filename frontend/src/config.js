@@ -56,8 +56,8 @@ export const views = [
 
 export const resourceConfigs = {
   users: {
-    title: 'Accounts and access', endpoint: '/api/users', subtitle: 'Internal accounts provisioned for SSO and Industry Guest invitations.',
-    columns: ['universityId', 'fullName', 'email', 'role', 'status', 'accessExpiresAt'],
+    title: 'Accounts and access', endpoint: '/api/users', subtitle: 'Pre-register an account or activate it immediately with a temporary password sent by email.',
+    columns: ['universityId', 'fullName', 'email', 'role', 'status', 'passwordChangeRequired', 'accessExpiresAt'],
     fields: [
       { name: 'universityId', label: 'University ID', required: true },
       { name: 'fullName', label: 'Full name', required: true },
@@ -69,6 +69,13 @@ export const resourceConfigs = {
         label: 'Industry Guest expiration',
         type: 'datetime-local',
         visibleWhen: { field: 'role', equals: 'INDUSTRY_REPRESENTATIVE' },
+      },
+      {
+        name: 'activateImmediately',
+        label: 'Create active account and email a temporary password',
+        type: 'checkbox',
+        defaultValue: false,
+        createOnly: true,
       },
     ],
   },

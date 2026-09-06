@@ -68,8 +68,8 @@ class SimplifiedInitializationImportServiceTest {
 
         assertTrue(report.importable(), () -> "Template errors: " + report.errors());
         assertEquals(9, report.sheets().size());
-        assertEquals(35, report.totalRows());
-        assertEquals(35, report.validRows());
+        assertEquals(13, report.totalRows());
+        assertEquals(13, report.validRows());
     }
 
     @Test

@@ -45,6 +45,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                  "/api/auth/login",
+                                "/api/auth/signup/request-code",
+                                "/api/auth/signup/complete",
+                                "/api/auth/complete-temporary-password",
                                 "/api/auth/sso/config",
                                 "/api/auth/sso/exchange",
                                 "/api/auth/industry/activate",

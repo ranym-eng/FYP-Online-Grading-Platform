@@ -32,7 +32,7 @@ public class IndustryInvitationService {
             OneTimeTokenHasher tokenHasher,
             EmailDeliveryService emails,
             @Value("${app.auth.industry-invitation-hours:48}") int invitationHours,
-            @Value("${app.frontend-url:http://localhost:3000}") String frontendUrl
+            @Value("${app.frontend-url:http://localhost:3010}") String frontendUrl
     ) {
         this.invitations = invitations;
         this.users = users;
@@ -87,12 +87,18 @@ public class IndustryInvitationService {
             throw new BusinessException("INVITATION_EXPIRED", "The Industry Guest invitation has expired");
         }
         User user = invitation.getUser();
+        if (user.getStatus() != UserStatus.PENDING_INVITATION
+                && user.getStatus() != UserStatus.PENDING_ACTIVATION) {
+            throw new BusinessException("INVALID_INVITATION", "The Industry Guest invitation is no longer valid");
+        }
         if (user.getAccessExpiresAt() == null || user.getAccessExpiresAt().isBefore(now)) {
             user.setStatus(UserStatus.INACTIVE);
             users.save(user);
             throw new BusinessException("ACCESS_EXPIRED", "Industry Guest access has expired");
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setPasswordChangeRequired(false);
+        user.setTemporaryPasswordExpiresAt(null);
         user.setStatus(UserStatus.ACTIVE);
         users.save(user);
         invitation.setAcceptedAt(now);

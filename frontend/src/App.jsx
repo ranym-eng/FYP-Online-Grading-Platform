@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, UsersRound, X } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
 import squLogo from './assets/Sultan_Qaboos_University_Logo.png'
 import squMark from './assets/sultan-qaboos-university-logo-png_seeklogo-271991.png'
 import campusLineArt from './assets/squ-campus-line-art.webp'
@@ -131,7 +131,7 @@ function App() {
     const next = normalizeSession(rawSession, fallbackRole)
     setSession(next)
     setActiveView(homeViewForRole(next.role))
-    notify('Bienvenue dans votre espace ' + pretty(next.role))
+    notify('Welcome to your ' + pretty(next.role) + ' workspace')
   }
 
   if (!session) return <AuthScreen onSession={openWorkspace} notify={notify} toast={toast} />
@@ -146,6 +146,8 @@ function AuthScreen({ onSession, notify, toast }) {
   const [showPassword, setShowPassword] = useState(false)
   const [mode, setMode] = useState(() => initialInvitationToken ? 'activate' : initialResetToken ? 'reset' : 'login')
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [signup, setSignup] = useState({ email: '', password: '', confirmPassword: '', code: '' })
+  const [temporaryPassword, setTemporaryPassword] = useState({ email: '', current: '', next: '', confirm: '' })
   const [recovery, setRecovery] = useState({ email: '', token: initialResetToken, newPassword: '', confirmPassword: '' })
   const [recoverySent, setRecoverySent] = useState(false)
   const [activation, setActivation] = useState(() => ({ token: initialInvitationToken, newPassword: '', confirmPassword: '' }))
@@ -197,6 +199,78 @@ function AuthScreen({ onSession, notify, toast }) {
     setBusy(true)
     try {
       const result = await apiRequest('/api/auth/login', { method: 'POST', body: JSON.stringify(loginForm) })
+      if (result.data?.passwordChangeRequired) {
+        setTemporaryPassword({ email: loginForm.email, current: loginForm.password, next: '', confirm: '' })
+        setLoginForm((current) => ({ ...current, password: '' }))
+        setMode('temporary')
+        notify('Choose your personal password to continue.')
+      } else {
+        onSession(result.data)
+      }
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function requestSignupCode(event) {
+    event.preventDefault()
+    if (signup.password !== signup.confirmPassword) {
+      notify('The passwords do not match.', 'danger')
+      return
+    }
+    setBusy(true)
+    try {
+      await apiRequest('/api/auth/signup/request-code', {
+        method: 'POST',
+        body: JSON.stringify({ email: signup.email }),
+      })
+      setMode('signupCode')
+      notify('If your email was pre-registered, a verification code has been sent.')
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function completeSignup(event) {
+    event.preventDefault()
+    setBusy(true)
+    try {
+      await apiRequest('/api/auth/signup/complete', {
+        method: 'POST',
+        body: JSON.stringify({ email: signup.email, code: signup.code, newPassword: signup.password }),
+      })
+      setLoginForm({ email: signup.email, password: '' })
+      setSignup({ email: '', password: '', confirmPassword: '', code: '' })
+      setMode('login')
+      notify('Account activated. You can now sign in.')
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function completeTemporaryPassword(event) {
+    event.preventDefault()
+    if (temporaryPassword.next !== temporaryPassword.confirm) {
+      notify('The passwords do not match.', 'danger')
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await apiRequest('/api/auth/complete-temporary-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: temporaryPassword.email,
+          temporaryPassword: temporaryPassword.current,
+          newPassword: temporaryPassword.next,
+        }),
+      })
+      setTemporaryPassword({ email: '', current: '', next: '', confirm: '' })
       onSession(result.data)
     } catch (error) {
       notify(error.message, 'danger')
@@ -268,14 +342,30 @@ function AuthScreen({ onSession, notify, toast }) {
     window.location.assign(ssoConfig.loginUrl)
   }
 
-  const heading = mode === 'login' ? 'Sign in' : mode === 'forgot' ? 'Recover your account' : mode === 'activate' ? 'Activate your invitation' : 'Create a new password'
-  const description = mode === 'login'
-    ? 'Access your FYP workspace.'
-    : mode === 'forgot'
-      ? 'Enter the email address imported by the administration.'
-      : mode === 'activate'
-        ? 'Choose the password for your temporary invitation.'
-        : 'This link is valid once. Choose your new password now.'
+  const headings = {
+    login: ['Sign in', 'Access your FYP workspace.'],
+    signup: ['Sign up', 'Use the email address registered by the administration.'],
+    signupCode: ['Verify your email', 'Enter the six-digit code sent to ' + signup.email + '.'],
+    temporary: ['Choose your password', 'Replace the temporary password before entering your workspace.'],
+    forgot: ['Recover your account', 'Enter the email address imported by the administration.'],
+    activate: ['Activate your invitation', 'Choose the password for your temporary invitation.'],
+    reset: ['Create a new password', 'This link is valid once. Choose your new password now.'],
+  }
+  const [heading, description] = headings[mode] || headings.login
+  const submitHandler = mode === 'login' ? login
+    : mode === 'signup' ? requestSignupCode
+      : mode === 'signupCode' ? completeSignup
+        : mode === 'temporary' ? completeTemporaryPassword
+          : mode === 'forgot' ? requestReset
+            : mode === 'activate' ? activateIndustryGuest
+              : resetPassword
+  const submitLabel = mode === 'login' ? 'Continue'
+    : mode === 'signup' ? 'Send verification code'
+      : mode === 'signupCode' ? 'Activate account'
+        : mode === 'temporary' ? 'Save and open my workspace'
+          : mode === 'forgot' ? 'Send reset link'
+            : mode === 'activate' ? 'Activate and open my workspace'
+              : 'Save password'
 
   return <main className="auth-screen">
     <section className="auth-visual">
@@ -291,24 +381,47 @@ function AuthScreen({ onSession, notify, toast }) {
     <div className="auth-panel-shell">
       <section className="auth-panel page-enter">
         <div className="brand-badge"><img src={squMark} alt="SQU" /><div><strong>Sultan Qaboos University</strong><small>Final Year Grading Platform</small></div></div>
-        <form className="stack-form auth-form" onSubmit={mode === 'login' ? login : mode === 'forgot' ? requestReset : mode === 'activate' ? activateIndustryGuest : resetPassword}>
+        <form className="stack-form auth-form" onSubmit={submitHandler}>
           <div className="auth-form-heading"><h2>{heading}</h2>{description && <p>{description}</p>}</div>
           {mode === 'login' && <>
             <AuthField icon={Mail} label="Email address" type="email" required value={loginForm.email} onChange={(email) => setLoginForm({ ...loginForm, email })} autoComplete="username" />
             <AuthField icon={ShieldCheck} label="Password" type={showPassword ? 'text' : 'password'} required={!ssoConfig.enabled || ssoConfig.localInternalLoginEnabled || !loginForm.email.toLowerCase().endsWith('@squ.edu.om')} value={loginForm.password} onChange={(password) => setLoginForm({ ...loginForm, password })} autoComplete="current-password" action={<button type="button" onClick={() => setShowPassword((value) => !value)} title={showPassword ? 'Hide password' : 'Show password'} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} />
           </>}
+          {mode === 'signup' && <>
+            <AuthField icon={Mail} label="Pre-registered email" type="email" required value={signup.email} onChange={(email) => setSignup({ ...signup, email })} autoComplete="email" />
+            <AuthField icon={KeyRound} label="Password" type="password" required minLength="8" maxLength="128" value={signup.password} onChange={(password) => setSignup({ ...signup, password })} autoComplete="new-password" />
+            <AuthField icon={ShieldCheck} label="Confirm password" type="password" required minLength="8" maxLength="128" value={signup.confirmPassword} onChange={(confirmPassword) => setSignup({ ...signup, confirmPassword })} autoComplete="new-password" />
+          </>}
+          {mode === 'signupCode' && <>
+            <div className="auth-account-summary"><Mail size={17} /><span>{signup.email}</span></div>
+            <AuthField icon={CheckCheck} label="Verification code" type="text" inputMode="numeric" pattern="[0-9]{6}" maxLength="6" required value={signup.code} onChange={(code) => setSignup({ ...signup, code: code.replace(/\D/g, '').slice(0, 6) })} autoComplete="one-time-code" />
+          </>}
+          {mode === 'temporary' && <>
+            <div className="auth-account-summary"><Mail size={17} /><span>{temporaryPassword.email}</span></div>
+            <AuthField icon={KeyRound} label="New password" type="password" required minLength="8" maxLength="128" value={temporaryPassword.next} onChange={(next) => setTemporaryPassword({ ...temporaryPassword, next })} autoComplete="new-password" />
+            <AuthField icon={ShieldCheck} label="Confirm password" type="password" required minLength="8" maxLength="128" value={temporaryPassword.confirm} onChange={(confirm) => setTemporaryPassword({ ...temporaryPassword, confirm })} autoComplete="new-password" />
+          </>}
           {mode === 'forgot' && !recoverySent && <AuthField icon={Mail} label="Email address" type="email" required value={recovery.email} onChange={(email) => setRecovery({ ...recovery, email })} autoComplete="email" />}
           {mode === 'forgot' && recoverySent && <div className="auth-success-state"><span><CheckCircle2 size={22} /></span><div><strong>Check your email</strong><p>A link will be sent if the account is eligible.</p></div></div>}
           {mode === 'reset' && <><AuthField icon={KeyRound} label="New password" type="password" minLength="8" value={recovery.newPassword} onChange={(newPassword) => setRecovery({ ...recovery, newPassword })} autoComplete="new-password" /><AuthField icon={ShieldCheck} label="Confirm password" type="password" minLength="8" value={recovery.confirmPassword} onChange={(confirmPassword) => setRecovery({ ...recovery, confirmPassword })} autoComplete="new-password" /></>}
           {mode === 'activate' && <><AuthField icon={KeyRound} label="New password" type="password" minLength="8" value={activation.newPassword} onChange={(newPassword) => setActivation({ ...activation, newPassword })} autoComplete="new-password" /><AuthField icon={ShieldCheck} label="Confirm password" type="password" minLength="8" value={activation.confirmPassword} onChange={(confirmPassword) => setActivation({ ...activation, confirmPassword })} autoComplete="new-password" /></>}
-          {!(mode === 'forgot' && recoverySent) && <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Processing…</> : <>{mode === 'login' ? 'Continue' : mode === 'forgot' ? 'Send reset link' : mode === 'activate' ? 'Activate and open my workspace' : 'Save password'}<ArrowRight size={18} /></>}</button>}
+          {!(mode === 'forgot' && recoverySent) && <button className="primary-action auth-submit" disabled={busy}>{busy ? <><span className="button-spinner" />Processing…</> : <>{submitLabel}<ArrowRight size={18} /></>}</button>}
           {mode === 'forgot' && recoverySent && <button className="soft-button auth-submit" type="button" onClick={() => setRecoverySent(false)}>Use another address</button>}
-          {mode === 'login' ? <button className="auth-link" type="button" onClick={() => { setRecovery((current) => ({ ...current, email: loginForm.email })); setRecoverySent(false); setMode('forgot') }}>Forgot password?</button> : <button className="auth-link" type="button" onClick={() => { setRecoverySent(false); setMode('login') }}>Back to sign in</button>}
+          {mode === 'login'
+            ? <div className="auth-entry-actions">
+              <button className="auth-signup-action" type="button" onClick={() => { setSignup((current) => ({ ...current, email: loginForm.email })); setMode('signup') }}>
+                <UserPlus size={18} aria-hidden="true" />
+                <span><strong>Sign up</strong><small>Activate a pre-registered account</small></span>
+                <ArrowRight size={17} aria-hidden="true" />
+              </button>
+              <button className="auth-link" type="button" onClick={() => { setRecovery((current) => ({ ...current, email: loginForm.email })); setRecoverySent(false); setMode('forgot') }}>Forgot password?</button>
+            </div>
+            : <div className="auth-link-row">{mode === 'signupCode' && <button className="auth-link" type="button" onClick={() => setMode('signup')}>Change details</button>}<button className="auth-link" type="button" onClick={() => { setRecoverySent(false); setMode('login') }}>Back to sign in</button></div>}
         </form>
         <div className="auth-trust"><ShieldCheck size={16} /><span>Secure access for authorized users only</span></div>
+        {toast && <div className="auth-inline-toast"><Toast {...toast} /></div>}
       </section>
     </div>
-    {toast && <Toast {...toast} />}
   </main>
 }
 
@@ -749,6 +862,17 @@ function CrudStudio({ datasets, request, reload, notify, searchTarget }) {
 }
 
 function ResourceManager({ resourceKey, config, datasets, request, reload, notify, initialQuery }) {
+  const entityLabel = {
+    users: 'account',
+    students: 'student',
+    evaluators: 'evaluator',
+    tracks: 'track',
+    projects: 'project',
+    teams: 'team',
+    phases: 'phase',
+    forms: 'evaluation form',
+    notifications: 'notification',
+  }[resourceKey] || 'record'
   const [rows, setRows] = useState(datasets[resourceKey] || [])
   const [form, setForm] = useState(() => initialForm(config.fields || []))
   const [editing, setEditing] = useState(null)
@@ -788,10 +912,13 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
   async function submit(event) {
     event.preventDefault(); if (config.readOnly) return; setBusy(true)
     try {
-      const visibleFields = (config.fields || []).filter((field) => fieldIsVisible(field, form))
+      const visibleFields = (config.fields || []).filter((field) => fieldIsVisible(field, form) && (!editing || !field.createOnly))
       const payload = serialize(form, visibleFields)
       await request(editing ? config.endpoint + '/' + editing.id : (config.customCreateEndpoint || config.endpoint), { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
-      notify(editing ? 'Changes saved' : 'Record added'); setEditing(null); setFormOpen(false); setForm(initialForm(config.fields || [])); await reload(); setRows(unwrapList(await request(config.endpoint)))
+      const creationMessage = resourceKey === 'users'
+        ? payload.activateImmediately ? 'Active account created. The temporary password was sent by email.' : 'Account pre-registered. The user can now sign up.'
+        : 'Record added'
+      notify(editing ? 'Changes saved' : creationMessage); setEditing(null); setFormOpen(false); setForm(initialForm(config.fields || [])); await reload(); setRows(unwrapList(await request(config.endpoint)))
     } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
@@ -800,11 +927,11 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
     try { await request(config.endpoint + '/' + row.id, { method: 'DELETE' }); notify('Record deleted'); setDeleteTarget(null); await reload(); setRows(unwrapList(await request(config.endpoint))) } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
-  async function resendIndustryInvitation(row) {
+  async function issueTemporaryPassword(row) {
     setBusy(true)
     try {
-      await request('/api/users/' + row.id + '/invite', { method: 'POST' })
-      notify('Industry Guest invitation sent')
+      await request('/api/users/' + row.id + '/temporary-password', { method: 'POST' })
+      notify('A temporary password was sent by email')
       await reload()
       setRows(unwrapList(await request(config.endpoint)))
     } catch (error) {
@@ -815,16 +942,16 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
   }
 
   const extraAction = resourceKey === 'users'
-    ? (row) => row.role === 'INDUSTRY_REPRESENTATIVE'
-      ? <button type="button" className="mini-button icon-text" disabled={busy} onClick={() => resendIndustryInvitation(row)} title="Resend invitation"><Send size={14} />Invite</button>
+    ? (row) => ['PENDING_ACTIVATION', 'PENDING_INVITATION', 'INACTIVE'].includes(row.status) || row.passwordChangeRequired
+      ? <button type="button" className="table-action-button" disabled={busy} onClick={() => issueTemporaryPassword(row)} title={row.passwordChangeRequired ? 'Send a new temporary password' : 'Activate now with a temporary password'} aria-label={row.passwordChangeRequired ? 'Send a new temporary password' : 'Activate now with a temporary password'}><KeyRound size={15} /></button>
       : null
     : null
 
   return <div className="resource-manager">
-    <div className="resource-manager-toolbar"><button className="icon-button" title="Reload" aria-label="Reload" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}><RefreshCw size={17} /></button>{!config.readOnly && <button type="button" className="primary-action" onClick={createNew}><Plus size={17} />Add</button>}</div>
+    <div className="resource-manager-toolbar"><button className="icon-button" title="Reload" aria-label="Reload" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}><RefreshCw size={17} /></button>{!config.readOnly && <button type="button" className="primary-action" onClick={createNew}><Plus size={17} />Add {entityLabel}</button>}</div>
     <Panel title={config.title} wide><DataTable rows={rows} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? setDeleteTarget : null} extraAction={extraAction} initialQuery={initialQuery} /></Panel>
-    <DialogShell open={formOpen} title={editing ? 'Edit' : 'Add'} onClose={() => { if (!busy) setFormOpen(false) }}>
-      <form className="stack-form compact dialog-form" onSubmit={submit}>{(config.fields || []).filter((field) => fieldIsVisible(field, form)).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => updateField(field, value)} />)}<div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setFormOpen(false)} disabled={busy}>Cancel</button><button className="primary-action" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save' : 'Add'}</button></div></form>
+    <DialogShell open={formOpen} title={`${editing ? 'Edit' : 'Add'} ${entityLabel}`} onClose={() => { if (!busy) setFormOpen(false) }}>
+      <form className="stack-form compact dialog-form" onSubmit={submit}>{(config.fields || []).filter((field) => fieldIsVisible(field, form) && (!editing || !field.createOnly)).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => updateField(field, value)} />)}<div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setFormOpen(false)} disabled={busy}>Cancel</button><button className="primary-action" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : `Add ${entityLabel}`}</button></div></form>
     </DialogShell>
     <ConfirmDialog open={Boolean(deleteTarget)} title="Delete this record?" message={deleteTarget ? itemName(deleteTarget) : ''} confirmLabel="Delete" danger onCancel={() => setDeleteTarget(null)} onConfirm={() => remove(deleteTarget)} />
   </div>
@@ -1827,7 +1954,7 @@ function StatusPill({ value }) {
   return <span className={'status-pill ' + String(value || 'unknown').toLowerCase()}>{pretty(value)}</span>
 }
 
-function EmptyState({ title = 'No data yet', detail = 'Create records or run the SQL seed script to populate this view.' }) {
+function EmptyState({ title = 'No data yet', detail = 'Nothing is available in this view yet.' }) {
   return <div className="empty-state"><div className="empty-icon"><CircleAlert size={20} /></div><h3>{title}</h3><p>{detail}</p></div>
 }
 

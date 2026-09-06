@@ -12,7 +12,7 @@ public record UserRequest(
         @NotBlank String fullName,
         @Email @NotBlank String email,
         String phone,
-        String password,
         @NotNull UserRole role,
-        LocalDateTime accessExpiresAt
+        LocalDateTime accessExpiresAt,
+        Boolean activateImmediately
 ) {}

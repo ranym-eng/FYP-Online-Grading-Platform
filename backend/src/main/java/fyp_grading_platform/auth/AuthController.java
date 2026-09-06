@@ -33,6 +33,7 @@ public class AuthController {
     private final TokenService tokens;
     private final CurrentUserService currentUsers;
     private final PasswordResetService passwordResets;
+    private final SignupService signup;
     private final SsoLoginService sso;
     private final IndustryInvitationService industryInvitations;
     private final boolean localInternalLoginEnabled;
@@ -43,6 +44,7 @@ public class AuthController {
             TokenService tokens,
             CurrentUserService currentUsers,
             PasswordResetService passwordResets,
+            SignupService signup,
             SsoLoginService sso,
             IndustryInvitationService industryInvitations,
             @Value("${app.auth.local-internal-login-enabled:false}") boolean localInternalLoginEnabled
@@ -52,6 +54,7 @@ public class AuthController {
         this.tokens = tokens;
         this.currentUsers = currentUsers;
         this.passwordResets = passwordResets;
+        this.signup = signup;
         this.sso = sso;
         this.industryInvitations = industryInvitations;
         this.localInternalLoginEnabled = localInternalLoginEnabled;
@@ -61,8 +64,8 @@ public class AuthController {
     ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         User user = users.findByEmailIgnoreCase(request.email())
                 .orElseThrow(() -> invalidCredentials());
-        if (user.getStatus() == UserStatus.PENDING_INVITATION) {
-            throw new BusinessException("INVITATION_REQUIRED", "Activate the Industry Guest invitation before signing in");
+        if (user.getStatus() == UserStatus.PENDING_ACTIVATION || user.getStatus() == UserStatus.PENDING_INVITATION) {
+            throw new BusinessException("SIGNUP_REQUIRED", "Complete Sign up before signing in");
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw invalidCredentials();
@@ -76,10 +79,53 @@ public class AuthController {
         if (user.getRole() != UserRole.INDUSTRY_REPRESENTATIVE && !localInternalLoginEnabled) {
             throw new BusinessException("USE_SQU_SSO", "Use the SQU institutional sign-in button");
         }
-        if (!encoder.matches(request.password(), user.getPasswordHash())) {
+        if (user.getPasswordHash() == null || !encoder.matches(request.password(), user.getPasswordHash())) {
             throw invalidCredentials();
         }
+        if (user.isPasswordChangeRequired()) {
+            if (user.getTemporaryPasswordExpiresAt() == null
+                    || !user.getTemporaryPasswordExpiresAt().isAfter(LocalDateTime.now())) {
+                throw new BusinessException("TEMPORARY_PASSWORD_EXPIRED", "Ask an administrator for a new temporary password");
+            }
+            return ApiResponse.ok("A new password is required", new LoginResponse(
+                    null, user.getId(), user.getEmail(), user.getRole(), user.getFullName(), true
+            ));
+        }
         return ApiResponse.ok("Login successful", response(user, tokens.generate(user)));
+    }
+
+    @PostMapping("/signup/request-code")
+    ApiResponse<Void> requestSignupCode(@Valid @RequestBody SignupCodeRequest request) {
+        signup.requestCode(request.email());
+        return ApiResponse.ok("If the account is eligible, a verification code has been sent", null);
+    }
+
+    @PostMapping("/signup/complete")
+    ApiResponse<Void> completeSignup(@Valid @RequestBody SignupCompleteRequest request) {
+        signup.complete(request.email(), request.code(), request.newPassword());
+        return ApiResponse.ok("Account activated. You can now sign in", null);
+    }
+
+    @PostMapping("/complete-temporary-password")
+    ApiResponse<LoginResponse> completeTemporaryPassword(@Valid @RequestBody CompleteTemporaryPasswordRequest request) {
+        User user = users.findByEmailIgnoreCase(request.email())
+                .orElseThrow(() -> invalidCredentials());
+        if (user.getStatus() != UserStatus.ACTIVE || !user.isPasswordChangeRequired()
+                || user.getPasswordHash() == null || !encoder.matches(request.temporaryPassword(), user.getPasswordHash())) {
+            throw invalidCredentials();
+        }
+        if (user.getTemporaryPasswordExpiresAt() == null
+                || !user.getTemporaryPasswordExpiresAt().isAfter(LocalDateTime.now())) {
+            throw new BusinessException("TEMPORARY_PASSWORD_EXPIRED", "Ask an administrator for a new temporary password");
+        }
+        if (request.temporaryPassword().equals(request.newPassword())) {
+            throw new BusinessException("PASSWORD_UNCHANGED", "Choose a password different from the temporary password");
+        }
+        user.setPasswordHash(encoder.encode(request.newPassword()));
+        user.setPasswordChangeRequired(false);
+        user.setTemporaryPasswordExpiresAt(null);
+        users.save(user);
+        return ApiResponse.ok("Password changed", response(user, tokens.generate(user)));
     }
 
     @GetMapping("/sso/config")
@@ -143,6 +189,8 @@ public class AuthController {
             throw new BusinessException("PASSWORD_UNCHANGED", "New password must be different");
         }
         user.setPasswordHash(encoder.encode(request.newPassword()));
+        user.setPasswordChangeRequired(false);
+        user.setTemporaryPasswordExpiresAt(null);
         users.save(user);
         return ApiResponse.ok("Password changed", null);
     }
@@ -160,7 +208,7 @@ public class AuthController {
     }
 
     private LoginResponse response(User user, String token) {
-        return new LoginResponse(token, user.getId(), user.getEmail(), user.getRole(), user.getFullName());
+        return new LoginResponse(token, user.getId(), user.getEmail(), user.getRole(), user.getFullName(), false);
     }
 
     private BusinessException invalidCredentials() {
@@ -186,6 +234,17 @@ record TokenValidationResponse(boolean valid, UUID userId, UserRole role, long e
 record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank @Size(min = 8, max = 128) String newPassword) {}
 record ForgotPasswordRequest(@NotBlank @Email String email) {}
 record ResetPasswordRequest(@NotBlank String token, @NotBlank @Size(min = 8, max = 128) String newPassword) {}
+record SignupCodeRequest(@NotBlank @Email String email) {}
+record SignupCompleteRequest(
+        @NotBlank @Email String email,
+        @NotBlank @Size(min = 6, max = 6) String code,
+        @NotBlank @Size(min = 8, max = 128) String newPassword
+) {}
+record CompleteTemporaryPasswordRequest(
+        @NotBlank @Email String email,
+        @NotBlank String temporaryPassword,
+        @NotBlank @Size(min = 8, max = 128) String newPassword
+) {}
 record SsoExchangeRequest(@NotBlank String code) {}
 record IndustryActivationRequest(
         @NotBlank String token,

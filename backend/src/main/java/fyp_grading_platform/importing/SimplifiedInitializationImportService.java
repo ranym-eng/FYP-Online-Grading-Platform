@@ -233,8 +233,9 @@ public class SimplifiedInitializationImportService {
                 error(row, "organization", "Industry guests require an organization", errors);
             }
             if (role == UserRole.INDUSTRY_REPRESENTATIVE) {
-                if (!"PENDING_INVITATION".equals(upper(row.value("status")))) {
-                    error(row, "status", "New Industry Guests must use PENDING_INVITATION", errors);
+                String status = upper(row.value("status"));
+                if (!"PENDING_ACTIVATION".equals(status) && !"PENDING_INVITATION".equals(status)) {
+                    error(row, "status", "New Industry Guests must use PENDING_ACTIVATION", errors);
                 }
                 if (row.value("accessExpiresAt").isBlank()) {
                     error(row, "accessExpiresAt", "Industry Guest access requires an expiration date", errors);
@@ -251,7 +252,7 @@ public class SimplifiedInitializationImportService {
             try {
                 UserStatus.valueOf(upper(row.value("status")));
             } catch (IllegalArgumentException exception) {
-                error(row, "status", "Status must be ACTIVE, PENDING_INVITATION, INACTIVE or SUSPENDED", errors);
+                error(row, "status", "Status must be ACTIVE, PENDING_ACTIVATION, PENDING_INVITATION, INACTIVE or SUSPENDED", errors);
             }
         }
     }
@@ -415,7 +416,11 @@ public class SimplifiedInitializationImportService {
                 user.setAccessExpiresAt(entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
                         ? parseAccessExpiresAt(row.value("accessExpiresAt"))
                         : null);
-                if (created) {
+                if (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION) {
+                    user.setPasswordHash(null);
+                    user.setPasswordChangeRequired(false);
+                    user.setTemporaryPasswordExpiresAt(null);
+                } else if (created) {
                     String temporaryPassword = row.value("temporaryPassword");
                     String initialPassword = localInternalLoginEnabled
                             && entry.getValue() != UserRole.INDUSTRY_REPRESENTATIVE

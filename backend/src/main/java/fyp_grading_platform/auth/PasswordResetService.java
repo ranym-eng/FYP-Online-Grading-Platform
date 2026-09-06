@@ -34,7 +34,7 @@ public class PasswordResetService {
             EmailDeliveryService emails,
             @Value("${app.auth.local-internal-login-enabled:false}") boolean localInternalLoginEnabled,
             @Value("${app.auth.password-reset-minutes:30}") int resetMinutes,
-            @Value("${app.frontend-url:http://localhost:3000}") String frontendUrl
+            @Value("${app.frontend-url:http://localhost:3010}") String frontendUrl
     ) {
         this.users = users;
         this.resetTokens = resetTokens;
@@ -70,6 +70,8 @@ public class PasswordResetService {
             throw new BusinessException("PASSWORD_RESET_NOT_ALLOWED", "Password reset is not available for this account");
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setPasswordChangeRequired(false);
+        user.setTemporaryPasswordExpiresAt(null);
         users.save(user);
         reset.setUsedAt(now);
         resetTokens.save(reset);

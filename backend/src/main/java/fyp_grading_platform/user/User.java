@@ -27,9 +27,14 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private String email;
 
-    @Column(nullable = false)
+    @Column
     @JsonIgnore
     private String passwordHash;
+
+    @Column(nullable = false)
+    private boolean passwordChangeRequired;
+
+    private LocalDateTime temporaryPasswordExpiresAt;
 
     private String phone;
 

@@ -35,6 +35,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,6 +96,8 @@ public class PlatformInitializationImportService {
     private final OneTimeTokenHasher tokenHasher;
     private final IndustryInvitationService industryInvitations;
     private final AuditService audit;
+    @Value("${app.auth.local-internal-login-enabled:false}")
+    private boolean localInternalLoginEnabled;
 
     public PlatformInitializationImportService(
             TrackRepository tracks,
@@ -277,8 +280,9 @@ public class PlatformInitializationImportService {
                     error(row, "email", "Internal actors require an institutional @squ.edu.om email", errors);
                 }
                 if (role == UserRole.INDUSTRY_REPRESENTATIVE) {
-                    if (!"PENDING_INVITATION".equals(upper(row.value("status")))) {
-                        error(row, "status", "New Industry Guests must use PENDING_INVITATION", errors);
+                    String status = upper(row.value("status"));
+                    if (!status.isBlank() && !"PENDING_ACTIVATION".equals(status) && !"PENDING_INVITATION".equals(status)) {
+                        error(row, "status", "New Industry Guests must use PENDING_ACTIVATION", errors);
                     }
                     required(row, "accessExpiresAt", errors);
                     LocalDateTime expiresAt = dateTime(row, "accessExpiresAt", errors);
@@ -289,6 +293,10 @@ public class PlatformInitializationImportService {
             });
             enumValue(row, "status", UserStatus.class, errors);
             String email = lower(row.value("email"));
+            String requestedStatus = upper(row.value("status"));
+            if (!existing.containsKey(email) && localInternalLoginEnabled && "ACTIVE".equals(requestedStatus)) {
+                error(row, "status", "New local accounts must use PENDING_ACTIVATION; use the admin form for immediate activation", errors);
+            }
             if (!email.isBlank() && !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                 error(row, "email", "Invalid email address", errors);
             }
@@ -420,7 +428,7 @@ public class PlatformInitializationImportService {
             boolean created = user == null;
             if (created) user = new User();
             UserRole role = enumRequired(row.value("role"), UserRole.class);
-            UserStatus status = enumOrDefault(row.value("status"), UserStatus.class, UserStatus.ACTIVE);
+            UserStatus status = enumOrDefault(row.value("status"), UserStatus.class, UserStatus.PENDING_ACTIVATION);
             LocalDateTime accessExpiresAt = role == UserRole.INDUSTRY_REPRESENTATIVE
                     ? parseDateTime(row.value("accessExpiresAt"))
                     : null;
@@ -435,7 +443,13 @@ public class PlatformInitializationImportService {
             user.setRole(role);
             user.setStatus(status);
             user.setAccessExpiresAt(accessExpiresAt);
-            if (created) user.setPasswordHash(passwordEncoder.encode(tokenHasher.generate()));
+            if (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION) {
+                user.setPasswordHash(null);
+                user.setPasswordChangeRequired(false);
+                user.setTemporaryPasswordExpiresAt(null);
+            } else if (created && localInternalLoginEnabled) {
+                user.setPasswordHash(passwordEncoder.encode(tokenHasher.generate()));
+            }
             user = users.save(user);
             if (EVALUATOR_ROLES.contains(role)) {
                 EvaluatorProfile profile = evaluatorProfiles.findByUserId(user.getId()).orElse(null);

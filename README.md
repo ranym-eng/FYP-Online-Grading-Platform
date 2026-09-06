@@ -42,10 +42,10 @@ Students are academic records used for teams and individual grades. They are not
 | Supervisor | Sees only supervised projects; completes the individual Supervisor FYP I and FYP II forms; saves drafts; validates final forms; requests an extension after an expired deadline. |
 | Report Evaluator | Sees only assigned projects; evaluates the written Report I and Report II using the official paper-report rubric. |
 | Faculty Evaluator | Sees only assigned projects; evaluates Oral I and Oral II presentations using individual and group criteria. |
-| Industry Representative | Receives an invitation-based, time-limited account; sees only assigned Demo Day projects; can complete only the Industry Demo Day form. |
+| Industry Representative | Activates a pre-registered, time-limited account; sees only assigned Demo Day projects; can complete only the Industry Demo Day form. |
 | FYP Coordinator | Monitors progress and published grades and accesses authorized reports and exports without receiving administrative data-management permissions. |
 
-There is no public sign-up page. Internal users must be provisioned from official university data before their first connection. Production authentication is designed for SQU OpenID Connect single sign-on. Local password login remains available only as a configurable demonstration fallback.
+The Sign up page works only for e-mail addresses already provisioned by an administrator. It does not create unknown users or allow users to choose their own roles. Production authentication remains compatible with SQU OpenID Connect single sign-on.
 
 ## Detailed Features
 
@@ -53,10 +53,14 @@ There is no public sign-up page. Internal users must be provisioned from officia
 
 - Role-based authentication and automatic redirection to the correct dashboard.
 - Separate session, navigation, project scope, and permissions for every actor.
-- No self-registration for internal university actors.
+- Controlled Sign up for pre-registered accounts: the user chooses a password and confirms a six-digit e-mail code.
+- Unknown e-mail addresses cannot create accounts, roles, or permissions.
+- Administrators can create an immediately active account; the server generates and e-mails a temporary password that expires after 24 hours.
+- A temporary password never opens the dashboard and must be replaced at first sign-in.
+- Administrators never enter, receive, or read another user's password.
 - Configurable SQU OpenID Connect authorization-code flow.
 - Imported internal e-mail addresses must match the identity returned by SQU SSO.
-- One-time Industry Guest invitation links with hashed tokens and configurable expiration.
+- Backward-compatible one-time Industry Guest invitation links with hashed tokens and configurable expiration.
 - Mandatory Industry Guest access-expiration date and Demo Day-only authorization.
 - Secure logout, session validation, token refresh, and password change.
 - Functional forgot-password workflow with a generic anti-enumeration response, single-use token, expiration, reset form, and e-mail delivery.
@@ -71,12 +75,12 @@ The workbook contains nine sheets:
 | Sheet | Imported data |
 | --- | --- |
 | `STUDENTS` | Student ID, name, e-mail, cohort, track, and level. |
-| `ADMINISTRATORS` | Official administrator identities and account status. |
+| `ADMINISTRATORS` | Official administrator identities pre-registered without passwords. |
 | `COORDINATORS` | FYP coordinator identities. |
 | `SUPERVISORS` | Supervisor identities and academic profile data. |
 | `REPORT_EVALUATORS` | Written-report evaluator identities. |
 | `FACULTY_EVALUATORS` | Oral-presentation evaluator identities. |
-| `INDUSTRY_GUESTS` | Guest identity, organization, invitation state, and access-expiration date. |
+| `INDUSTRY_GUESTS` | Guest identity, organization, activation state, and access-expiration date. |
 | `PHASES` | Academic phase, cohort/year, opening date, deadline, sequence, and status. |
 | `PROJECT_ASSIGNMENTS` | Projects, tracks, students, supervisors, report evaluators, oral evaluators, and Industry Guests. |
 
@@ -92,6 +96,9 @@ Import behavior:
 - accept multiple assigned evaluators separated by commas or semicolons;
 - provide a separate student-update import for official database extracts;
 - preserve students as academic records without creating student login accounts.
+- create imported actors with `PENDING_ACTIVATION`; no password column is accepted or required;
+- let each imported actor complete Sign up using the pre-registered e-mail address and a one-time code;
+- keep immediate activation in the Accounts and access form, where the temporary password is generated only by the backend.
 
 The clean workbook contains only a few fictional examples to explain the required structure. The full demo workbook contains fictional data covering all roles, tracks, team sizes, assignment combinations, phases, and evaluation types.
 
@@ -340,7 +347,7 @@ The frontend, backend, PostgreSQL, and Mailpit containers should be running. Pos
 
 | Service | URL |
 | --- | --- |
-| Platform | http://localhost:3000 |
+| Platform | http://localhost:3010 |
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Backend health | http://localhost:8080/actuator/health |
 | Mailpit inbox | http://localhost:8025 |
@@ -403,7 +410,7 @@ Important defaults:
 
 | Variable | Default |
 | --- | --- |
-| `FRONTEND_PORT` | `3000` |
+| `FRONTEND_PORT` | `3010` |
 | `BACKEND_PORT` | `8080` |
 | `POSTGRES_PORT` | `5433` |
 | `MAILPIT_UI_PORT` | `8025` |

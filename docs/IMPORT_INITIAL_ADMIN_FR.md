@@ -58,7 +58,7 @@ Les listes d'e-mails acceptent la virgule ou le point-virgule. `projectNumber` d
 6. Corriger toutes les erreurs affichees avec feuille, ligne et champ.
 7. Relancer l'analyse jusqu'a zero erreur.
 8. Cliquer sur `Initialiser la plateforme`.
-9. Verifier dans Mailpit que les invitations Industry Guest ont ete generees, puis verifier comptes, etudiants, projets, equipes et affectations dans `Gestion des donnees`.
+9. Verifier les comptes, etudiants, projets, equipes et affectations dans `Gestion des donnees`, puis tester un code Sign up dans Mailpit.
 10. Creer ensuite les phases FYP I et FYP II. Leur `academicYear` doit etre exactement egal a la valeur `cohort` importee.
 11. Definir debut, echeance et statut `OPEN`.
 
@@ -66,13 +66,13 @@ L'analyse ne modifie pas la base. L'import final utilise une transaction unique 
 
 ## 5. Identites, SSO et invitations
 
-Il n'existe aucune inscription publique et les etudiants ne possedent pas de compte.
+La page Sign up est reservee aux adresses deja importees par l'administration. Les etudiants ne possedent pas de compte.
 
-Pour `ADMINISTRATORS`, `COORDINATORS`, `SUPERVISORS`, `REPORT_EVALUATORS` et `FACULTY_EVALUATORS`, ne fournir aucun mot de passe dans le classeur. `actorId` et l'e-mail institutionnel proviennent de la source officielle SQU, `authenticationMode` vaut `SQU_SSO` et `status` vaut normalement `ACTIVE`. L'acteur clique sur `Se connecter avec le compte SQU`. Apres validation OIDC, la plateforme recherche exactement son e-mail importe, applique son role et ouvre son dashboard. Un compte SQU absent du referentiel importe est refuse.
+Pour tous les acteurs, ne fournir aucun mot de passe dans le classeur et utiliser `PENDING_ACTIVATION`. L'acteur ouvre Sign up, choisit son mot de passe et saisit le code a six chiffres recu par e-mail. Son compte devient alors `ACTIVE`. Une adresse absente du referentiel importe est refusee et aucun utilisateur ne peut choisir son role.
 
-Pour `INDUSTRY_GUESTS`, renseigner l'organisation, une date future `accessExpiresAt` au format `YYYY-MM-DD` ou `YYYY-MM-DDTHH:mm`, puis `PENDING_INVITATION`. L'import genere un lien d'activation unique envoye par e-mail. Le lien d'invitation expire par defaut apres 48 heures. L'invite choisit alors son mot de passe externe. Son compte ne donne acces qu'au Demo Day, seulement aux projets attribues, et devient inutilisable apres `accessExpiresAt`. L'administrateur peut renvoyer une invitation depuis `Comptes et acces`.
+Pour `INDUSTRY_GUESTS`, renseigner aussi l'organisation et une date future `accessExpiresAt` au format `YYYY-MM-DD` ou `YYYY-MM-DDTHH:mm`. Le compte ne donne acces qu'au Demo Day, seulement aux projets attribues, et devient inutilisable apres cette date.
 
-Le lien `Mot de passe oublie` concerne les Industry Guests. En developpement, les invitations et jetons sont visibles dans Mailpit. Le compte administrateur local `admin@squ.edu.om` / `Admin@123` reste uniquement un mode de demonstration controle par `LOCAL_INTERNAL_LOGIN_ENABLED=true` ; il doit etre desactive en production.
+Depuis `Accounts and access`, l'administrateur peut aussi creer un compte actif immediatement. La plateforme genere alors un mot de passe temporaire, l'envoie directement par e-mail et impose son remplacement avant l'ouverture du dashboard. En developpement, les codes, mots de passe temporaires et liens de reinitialisation sont visibles dans Mailpit. Lorsque SQU SSO sera configure, les acteurs internes utiliseront leur identite universitaire sans mot de passe local.
 
 ## 6. Evaluation et calcul
 

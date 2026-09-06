@@ -39,7 +39,7 @@ public class SsoLoginService {
             @Value("${app.auth.sso.registration-id:squ}") String registrationId,
             @Value("${app.auth.sso.email-claim:email}") String emailClaim,
             @Value("${app.auth.sso.allowed-domain:squ.edu.om}") String allowedDomain,
-            @Value("${app.frontend-url:http://localhost:3000}") String frontendUrl,
+            @Value("${app.frontend-url:http://localhost:3010}") String frontendUrl,
             @Value("${app.auth.local-internal-login-enabled:false}") boolean localInternalLoginEnabled
     ) {
         this.users = users;

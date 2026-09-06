@@ -4,7 +4,7 @@ WORKDIR /workspace
 COPY pom.xml .
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -B -Dmaven.test.skip=true package
+    mvn -B -Dmaven.test.skip=true -DskipTestDependencies package
 
 FROM eclipse-temurin:21-jre-alpine
 

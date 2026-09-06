@@ -305,10 +305,12 @@ For real delivery, replace the Mailpit variables with authorized SQU SMTP or Sen
 ### 7.1 Normal User Access
 
 1. Open `https://squ-fyp-grading.68-221-71-117.sslip.io`.
-2. Enter the provisioned account e-mail and password.
-3. The backend verifies the account, status, role, and expiration.
-4. The frontend redirects the user to the appropriate dashboard.
-5. The user sees only authorized projects and actions.
+2. For a pre-registered account, select Sign up, choose a password, and confirm the six-digit code captured by Mailpit or delivered by the configured SMTP service.
+3. For an immediately active account, sign in with the temporary password received by e-mail and replace it when prompted.
+4. Sign in with the personal password.
+5. The backend verifies the account, status, role, assignment scope, and Industry Guest expiration.
+6. The frontend redirects the user to the appropriate dashboard.
+7. The user sees only authorized projects and actions.
 
 ### 7.2 Administrator First Use
 

@@ -47,11 +47,13 @@ management:
         include: health,info,metrics
 
 app:
-  frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:3010}
   auth:
     local-internal-login-enabled: ${LOCAL_INTERNAL_LOGIN_ENABLED:false}
     industry-invitation-hours: ${INDUSTRY_INVITATION_HOURS:48}
     password-reset-minutes: ${PASSWORD_RESET_MINUTES:30}
+    signup-code-minutes: ${SIGNUP_CODE_MINUTES:10}
+    temporary-password-hours: ${TEMPORARY_PASSWORD_HOURS:24}
     sso:
       enabled: ${SQU_SSO_ENABLED:false}
       registration-id: squ

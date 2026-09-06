@@ -25,8 +25,12 @@ public class UserController {
     @PostMapping
     ApiResponse<User> create(@Valid @RequestBody UserRequest request) {
         User user = service.create(request);
-        if (user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE) invitations.invite(user);
-        return ApiResponse.ok("User created", repository.findById(user.getId()).orElseThrow());
+        String message = user.isPasswordChangeRequired()
+                ? "Active account created and temporary password sent"
+                : user.getStatus() == UserStatus.PENDING_ACTIVATION
+                    ? "Account pre-registered for sign-up"
+                    : "User created";
+        return ApiResponse.ok(message, repository.findById(user.getId()).orElseThrow());
     }
     @GetMapping
     ApiResponse<?> all() { return ApiResponse.ok("Users", repository.findAll()); }
@@ -35,7 +39,13 @@ public class UserController {
     @PutMapping("/{id}")
     ApiResponse<User> update(@PathVariable UUID id, @Valid @RequestBody UserRequest request) { return ApiResponse.ok("User updated", service.update(id, request)); }
     @PatchMapping("/{id}/activate")
-    ApiResponse<User> activate(@PathVariable UUID id) { return ApiResponse.ok("User activated", service.setStatus(id, UserStatus.ACTIVE)); }
+    ApiResponse<User> activate(@PathVariable UUID id) {
+        return ApiResponse.ok("Account activated and temporary password sent", service.issueTemporaryPassword(id));
+    }
+    @PostMapping("/{id}/temporary-password")
+    ApiResponse<User> temporaryPassword(@PathVariable UUID id) {
+        return ApiResponse.ok("Temporary password sent", service.issueTemporaryPassword(id));
+    }
     @PatchMapping("/{id}/deactivate")
     ApiResponse<User> deactivate(@PathVariable UUID id) { return ApiResponse.ok("User deactivated", service.setStatus(id, UserStatus.INACTIVE)); }
     @PostMapping("/{id}/invite")
