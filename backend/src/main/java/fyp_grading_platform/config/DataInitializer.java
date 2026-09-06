@@ -32,6 +32,10 @@ public class DataInitializer {
             GradeRuleRepository gradeRules,
             EvaluationFormTemplateRepository forms,
             RubricCriterionRepository criteria,
+            @Value("${app.bootstrap.admin-enabled:false}") boolean bootstrapAdminEnabled,
+            @Value("${app.bootstrap.admin-email:admin@squ.edu.om}") String bootstrapAdminEmail,
+            @Value("${app.bootstrap.admin-name:FYP Administrator}") String bootstrapAdminName,
+            @Value("${app.bootstrap.admin-university-id:ADMIN-001}") String bootstrapAdminUniversityId,
             @Value("${app.bootstrap.admin-password:}") String bootstrapAdminPassword
     ) {
         return args -> {
@@ -40,19 +44,15 @@ public class DataInitializer {
             seedTrack(tracks, "CSP", "Computer Systems and Programming");
             seedTrack(tracks, "PSE", "Power Systems Engineering");
 
-            if (!users.existsByEmailIgnoreCase("admin@squ.edu.om")) {
-                String initialAdminPassword = bootstrapAdminPassword == null || bootstrapAdminPassword.isBlank()
-                        ? java.util.UUID.randomUUID().toString()
-                        : bootstrapAdminPassword;
-                User admin = new User();
-                admin.setUniversityId("ADMIN-001");
-                admin.setFullName("FYP Administrator");
-                admin.setEmail("admin@squ.edu.om");
-                admin.setPasswordHash(encoder.encode(initialAdminPassword));
-                admin.setRole(UserRole.ADMIN);
-                admin.setStatus(UserStatus.ACTIVE);
-                users.save(admin);
-            }
+            seedBootstrapAdmin(
+                    users,
+                    encoder,
+                    bootstrapAdminEnabled,
+                    bootstrapAdminEmail,
+                    bootstrapAdminName,
+                    bootstrapAdminUniversityId,
+                    bootstrapAdminPassword
+            );
 
             seedRule(gradeRules, PhaseType.PHASE_I, EvaluationType.SUPERVISOR_PHASE_I, 40);
             seedRule(gradeRules, PhaseType.PHASE_I, EvaluationType.REPORT_PHASE_I, 35);
@@ -72,6 +72,85 @@ public class DataInitializer {
                 }
             }
         };
+    }
+
+    void seedBootstrapAdmin(
+            UserRepository users,
+            PasswordEncoder encoder,
+            boolean enabled,
+            String email,
+            String fullName,
+            String universityId,
+            String password
+    ) {
+        if (!enabled) return;
+
+        String normalizedEmail = requiredSetting("APP_BOOTSTRAP_ADMIN_EMAIL", email).toLowerCase();
+        String normalizedName = requiredSetting("APP_BOOTSTRAP_ADMIN_NAME", fullName);
+        String normalizedUniversityId = requiredSetting("APP_BOOTSTRAP_ADMIN_UNIVERSITY_ID", universityId);
+        String initialPassword = requiredSetting("APP_BOOTSTRAP_ADMIN_PASSWORD", password);
+
+        User existingAdmin = users.findByEmailIgnoreCase(normalizedEmail).orElse(null);
+        if (existingAdmin != null) {
+            if (!normalizedUniversityId.equals(existingAdmin.getUniversityId())
+                    && users.existsByUniversityId(normalizedUniversityId)) {
+                throw duplicateUniversityId(normalizedUniversityId);
+            }
+
+            boolean changed = false;
+            if (!normalizedName.equals(existingAdmin.getFullName())) {
+                existingAdmin.setFullName(normalizedName);
+                changed = true;
+            }
+            if (!normalizedUniversityId.equals(existingAdmin.getUniversityId())) {
+                existingAdmin.setUniversityId(normalizedUniversityId);
+                changed = true;
+            }
+            if (existingAdmin.getRole() != UserRole.ADMIN) {
+                existingAdmin.setRole(UserRole.ADMIN);
+                changed = true;
+            }
+            if (existingAdmin.getStatus() != UserStatus.ACTIVE) {
+                existingAdmin.setStatus(UserStatus.ACTIVE);
+                changed = true;
+            }
+            if (existingAdmin.getPasswordHash() == null || existingAdmin.getPasswordHash().isBlank()) {
+                existingAdmin.setPasswordHash(encoder.encode(initialPassword));
+                existingAdmin.setPasswordChangeRequired(false);
+                existingAdmin.setTemporaryPasswordExpiresAt(null);
+                changed = true;
+            }
+            if (changed) users.save(existingAdmin);
+            return;
+        }
+
+        if (users.existsByUniversityId(normalizedUniversityId)) {
+            throw duplicateUniversityId(normalizedUniversityId);
+        }
+
+        User admin = new User();
+        admin.setUniversityId(normalizedUniversityId);
+        admin.setFullName(normalizedName);
+        admin.setEmail(normalizedEmail);
+        admin.setPasswordHash(encoder.encode(initialPassword));
+        admin.setPasswordChangeRequired(false);
+        admin.setTemporaryPasswordExpiresAt(null);
+        admin.setRole(UserRole.ADMIN);
+        admin.setStatus(UserStatus.ACTIVE);
+        users.save(admin);
+    }
+
+    private IllegalStateException duplicateUniversityId(String universityId) {
+        return new IllegalStateException(
+                "Bootstrap administrator university ID already belongs to another account: " + universityId
+        );
+    }
+
+    private String requiredSetting(String environmentName, String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(environmentName + " is required when bootstrap administration is enabled");
+        }
+        return value.trim();
     }
 
     private void ensureReportForm(

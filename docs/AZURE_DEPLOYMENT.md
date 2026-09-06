@@ -61,9 +61,41 @@ demonstration SMTP capture service; replace it with SQU SMTP or SendGrid for del
 6. Verify `/actuator/health` internally and the public HTTPS login page.
 7. Import only fictional demo data for a public demonstration.
 
-`BOOTSTRAP_ADMIN_PASSWORD` must be a unique random value. The backend no longer
-uses a hard-coded production administrator password. Keep this secret outside
-Git and rotate it through the authenticated administration workflow.
+### Provision the principal administrator
+
+The platform uses `ADMIN` as its highest-privilege role. On the first backend
+startup, it can create one principal administrator from server-only environment
+variables:
+
+```dotenv
+BOOTSTRAP_ADMIN_ENABLED=true
+BOOTSTRAP_ADMIN_EMAIL=principal-administrator@squ.edu.om
+BOOTSTRAP_ADMIN_NAME=Principal FYP Administrator
+BOOTSTRAP_ADMIN_UNIVERSITY_ID=ADMIN-PRINCIPAL
+BOOTSTRAP_ADMIN_PASSWORD=<private-initial-password>
+```
+
+Set these values in `/opt/fyp-platform/.env.production`, never in a tracked file.
+`BOOTSTRAP_ADMIN_PASSWORD` must be unique and delivered through a separate secure
+channel. The backend creates the account when absent. If the same e-mail was
+pre-provisioned without a password, it activates the account and grants `ADMIN`;
+an existing password is never overwritten by later deployments or restarts.
+
+Alternatively, the initial configuration script accepts the principal account
+identity as arguments and generates a private password automatically:
+
+```bash
+cd /opt/fyp-platform
+sudo ./deploy/azure/configure-production.sh \
+  fyp.example.squ.edu.om infrastructure@squ.edu.om false \
+  principal-administrator@squ.edu.om "Principal FYP Administrator" ADMIN-PRINCIPAL
+sudo cat /opt/fyp-platform/.bootstrap-admin-credential
+```
+
+The credential file is readable only by privileged server administrators. Delete
+it after the account owner confirms access. Once SQU OIDC is enabled, set
+`LOCAL_INTERNAL_LOGIN_ENABLED=false`; the database e-mail and `ADMIN` role still
+identify and authorize the same principal account without storing the SQU password.
 
 ## Updating
 

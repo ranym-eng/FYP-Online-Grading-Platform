@@ -48,6 +48,12 @@ management:
 
 app:
   frontend-url: ${APP_FRONTEND_URL:http://localhost:3010}
+  bootstrap:
+    admin-enabled: ${APP_BOOTSTRAP_ADMIN_ENABLED:false}
+    admin-email: ${APP_BOOTSTRAP_ADMIN_EMAIL:admin@squ.edu.om}
+    admin-name: ${APP_BOOTSTRAP_ADMIN_NAME:FYP Administrator}
+    admin-university-id: ${APP_BOOTSTRAP_ADMIN_UNIVERSITY_ID:ADMIN-001}
+    admin-password: ${APP_BOOTSTRAP_ADMIN_PASSWORD:}
   auth:
     local-internal-login-enabled: ${LOCAL_INTERNAL_LOGIN_ENABLED:false}
     industry-invitation-hours: ${INDUSTRY_INVITATION_HOURS:48}

@@ -631,6 +631,25 @@ docker compose up --build -d
 
 ## Security and Production Checklist
 
+### Principal administrator on a new server
+
+The technical role `ADMIN` already has the complete administration permission set.
+The university server creates its principal administrator once from values stored
+only in `/opt/fyp-platform/.env.production`:
+
+```dotenv
+BOOTSTRAP_ADMIN_ENABLED=true
+BOOTSTRAP_ADMIN_EMAIL=principal-administrator@squ.edu.om
+BOOTSTRAP_ADMIN_NAME=Principal FYP Administrator
+BOOTSTRAP_ADMIN_UNIVERSITY_ID=ADMIN-PRINCIPAL
+BOOTSTRAP_ADMIN_PASSWORD=<private-initial-password>
+```
+
+The account is not duplicated. A pre-provisioned account with the same e-mail is
+activated and promoted to `ADMIN`, while an existing password is never reset.
+See [Azure Deployment](docs/AZURE_DEPLOYMENT.md#provision-the-principal-administrator)
+for the initial provisioning command and the SQU SSO transition.
+
 Before deployment outside a local demonstration environment:
 
 - replace all default database and administrator credentials;
