@@ -60,6 +60,12 @@ public class CurrentUserService {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BusinessException("ACCOUNT_INACTIVE", "Account is inactive");
         }
+        if (user.isPasswordChangeRequired()) {
+            throw new BusinessException(
+                    "PASSWORD_CHANGE_REQUIRED",
+                    "Your account permissions changed; sign in again and choose a new password"
+            );
+        }
         if (user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
                 && (user.getAccessExpiresAt() == null || user.getAccessExpiresAt().isBefore(LocalDateTime.now()))) {
             throw new BusinessException("ACCESS_EXPIRED", "Industry Guest access has expired");

@@ -12,6 +12,7 @@ import fyp_grading_platform.project.TrackRepository;
 import fyp_grading_platform.user.EvaluatorProfileRepository;
 import fyp_grading_platform.user.StudentProfileRepository;
 import fyp_grading_platform.user.UserRepository;
+import fyp_grading_platform.user.UserService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -59,6 +60,7 @@ class PlatformInitializationImportServiceTest {
                 mock(PasswordEncoder.class),
                 mock(OneTimeTokenHasher.class),
                 mock(IndustryInvitationService.class),
+                mock(UserService.class),
                 mock(AuditService.class)
         );
     }

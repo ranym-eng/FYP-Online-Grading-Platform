@@ -27,6 +27,7 @@ import fyp_grading_platform.user.StudentProfile;
 import fyp_grading_platform.user.StudentProfileRepository;
 import fyp_grading_platform.user.User;
 import fyp_grading_platform.user.UserRepository;
+import fyp_grading_platform.user.UserService;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -87,6 +88,7 @@ public class SimplifiedInitializationImportService {
     private final PasswordEncoder passwordEncoder;
     private final OneTimeTokenHasher tokenHasher;
     private final IndustryInvitationService industryInvitations;
+    private final UserService userService;
     private final AuditService audit;
     @Value("${app.auth.local-internal-login-enabled:false}")
     private boolean localInternalLoginEnabled;
@@ -104,6 +106,7 @@ public class SimplifiedInitializationImportService {
             PasswordEncoder passwordEncoder,
             OneTimeTokenHasher tokenHasher,
             IndustryInvitationService industryInvitations,
+            UserService userService,
             AuditService audit
     ) {
         this.students = students;
@@ -118,6 +121,7 @@ public class SimplifiedInitializationImportService {
         this.passwordEncoder = passwordEncoder;
         this.tokenHasher = tokenHasher;
         this.industryInvitations = industryInvitations;
+        this.userService = userService;
         this.audit = audit;
     }
 
@@ -399,6 +403,8 @@ public class SimplifiedInitializationImportService {
                         .or(() -> users.findByUniversityId(row.value("actorId"))).orElse(null);
                 boolean created = user == null;
                 if (created) user = new User();
+                boolean emailChanged = !created && user.getEmail() != null
+                        && !user.getEmail().equalsIgnoreCase(email);
                 UserStatus status = UserStatus.valueOf(upper(row.value("status")));
                 boolean changed = created || different(user.getUniversityId(), row.value("actorId"))
                         || different(user.getFullName(), row.value("actorName"))
@@ -416,24 +422,30 @@ public class SimplifiedInitializationImportService {
                 user.setAccessExpiresAt(entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
                         ? parseAccessExpiresAt(row.value("accessExpiresAt"))
                         : null);
+                String initialPassword = null;
                 if (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION) {
                     user.setPasswordHash(null);
                     user.setPasswordChangeRequired(false);
                     user.setTemporaryPasswordExpiresAt(null);
-                } else if (created) {
+                } else if (created || emailChanged) {
                     String temporaryPassword = row.value("temporaryPassword");
-                    String initialPassword = localInternalLoginEnabled
+                    initialPassword = localInternalLoginEnabled
                             && entry.getValue() != UserRole.INDUSTRY_REPRESENTATIVE
                             && temporaryPassword.length() >= 8
                             ? temporaryPassword
                             : bcryptSafeGeneratedPassword(tokenHasher.generate());
-                    user.setPasswordHash(passwordEncoder.encode(initialPassword));
                 }
                 user = users.save(user);
                 if (isEvaluator(entry.getValue())) upsertEvaluatorProfile(user, row, entry.getValue());
-                if (entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
-                        && status == UserStatus.PENDING_INVITATION) {
-                    industryInvitations.invite(user);
+                if (created || emailChanged) {
+                    if (entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
+                            && (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION)) {
+                        industryInvitations.invite(user);
+                    } else if (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION) {
+                        userService.sendSignupInstructions(user);
+                    } else if (status == UserStatus.ACTIVE) {
+                        user = userService.provisionImportedActiveAccount(user, initialPassword);
+                    }
                 }
                 result.put(lower(row.value("actorId")), user);
                 counters.get(entry.getKey()).record(created, changed);

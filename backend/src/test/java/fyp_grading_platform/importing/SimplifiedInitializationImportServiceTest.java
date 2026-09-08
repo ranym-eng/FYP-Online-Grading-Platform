@@ -13,6 +13,7 @@ import fyp_grading_platform.project.TrackRepository;
 import fyp_grading_platform.user.EvaluatorProfileRepository;
 import fyp_grading_platform.user.StudentProfileRepository;
 import fyp_grading_platform.user.UserRepository;
+import fyp_grading_platform.user.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -45,6 +46,7 @@ class SimplifiedInitializationImportServiceTest {
     @Mock PasswordEncoder passwordEncoder;
     @Mock OneTimeTokenHasher tokenHasher;
     @Mock IndustryInvitationService industryInvitations;
+    @Mock UserService userService;
     @Mock AuditService audit;
 
     @Test
@@ -120,6 +122,7 @@ class SimplifiedInitializationImportServiceTest {
                 passwordEncoder,
                 tokenHasher,
                 industryInvitations,
+                userService,
                 audit
         );
     }

@@ -28,6 +28,7 @@ import fyp_grading_platform.user.StudentProfile;
 import fyp_grading_platform.user.StudentProfileRepository;
 import fyp_grading_platform.user.User;
 import fyp_grading_platform.user.UserRepository;
+import fyp_grading_platform.user.UserService;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -95,6 +96,7 @@ public class PlatformInitializationImportService {
     private final PasswordEncoder passwordEncoder;
     private final OneTimeTokenHasher tokenHasher;
     private final IndustryInvitationService industryInvitations;
+    private final UserService userService;
     private final AuditService audit;
     @Value("${app.auth.local-internal-login-enabled:false}")
     private boolean localInternalLoginEnabled;
@@ -112,6 +114,7 @@ public class PlatformInitializationImportService {
             PasswordEncoder passwordEncoder,
             OneTimeTokenHasher tokenHasher,
             IndustryInvitationService industryInvitations,
+            UserService userService,
             AuditService audit
     ) {
         this.tracks = tracks;
@@ -126,6 +129,7 @@ public class PlatformInitializationImportService {
         this.passwordEncoder = passwordEncoder;
         this.tokenHasher = tokenHasher;
         this.industryInvitations = industryInvitations;
+        this.userService = userService;
         this.audit = audit;
     }
 
@@ -424,9 +428,13 @@ public class PlatformInitializationImportService {
     private void importActors(List<ImportRow> rows, Counters counts) {
         for (ImportRow row : rows) {
             String email = lower(row.value("email"));
-            User user = users.findByEmailIgnoreCase(email).orElse(null);
+            User user = users.findByEmailIgnoreCase(email)
+                    .or(() -> users.findByUniversityId(row.value("universityId")))
+                    .orElse(null);
             boolean created = user == null;
             if (created) user = new User();
+            boolean emailChanged = !created && user.getEmail() != null
+                    && !user.getEmail().equalsIgnoreCase(email);
             UserRole role = enumRequired(row.value("role"), UserRole.class);
             UserStatus status = enumOrDefault(row.value("status"), UserStatus.class, UserStatus.PENDING_ACTIVATION);
             LocalDateTime accessExpiresAt = role == UserRole.INDUSTRY_REPRESENTATIVE
@@ -443,12 +451,13 @@ public class PlatformInitializationImportService {
             user.setRole(role);
             user.setStatus(status);
             user.setAccessExpiresAt(accessExpiresAt);
+            String initialPassword = null;
             if (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION) {
                 user.setPasswordHash(null);
                 user.setPasswordChangeRequired(false);
                 user.setTemporaryPasswordExpiresAt(null);
-            } else if (created && localInternalLoginEnabled) {
-                user.setPasswordHash(passwordEncoder.encode(tokenHasher.generate()));
+            } else if ((created || emailChanged) && localInternalLoginEnabled) {
+                initialPassword = tokenHasher.generate();
             }
             user = users.save(user);
             if (EVALUATOR_ROLES.contains(role)) {
@@ -463,8 +472,15 @@ public class PlatformInitializationImportService {
                 evaluatorProfiles.save(profile);
                 changed = changed || profileCreated;
             }
-            if (role == UserRole.INDUSTRY_REPRESENTATIVE && status == UserStatus.PENDING_INVITATION) {
-                industryInvitations.invite(user);
+            if (created || emailChanged) {
+                if (role == UserRole.INDUSTRY_REPRESENTATIVE
+                        && (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION)) {
+                    industryInvitations.invite(user);
+                } else if (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION) {
+                    userService.sendSignupInstructions(user);
+                } else if (status == UserStatus.ACTIVE) {
+                    user = userService.provisionImportedActiveAccount(user, initialPassword);
+                }
             }
             counts.record(created, changed);
         }

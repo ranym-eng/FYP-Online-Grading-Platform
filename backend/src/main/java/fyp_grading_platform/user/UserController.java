@@ -47,7 +47,7 @@ public class UserController {
         return ApiResponse.ok("Temporary password sent", service.issueTemporaryPassword(id));
     }
     @PatchMapping("/{id}/deactivate")
-    ApiResponse<User> deactivate(@PathVariable UUID id) { return ApiResponse.ok("User deactivated", service.setStatus(id, UserStatus.INACTIVE)); }
+    ApiResponse<User> deactivate(@PathVariable UUID id) { return ApiResponse.ok("User deactivated", service.deactivate(id)); }
     @PostMapping("/{id}/invite")
     ApiResponse<User> invite(@PathVariable UUID id) {
         User user = repository.findById(id).orElseThrow();
@@ -55,7 +55,9 @@ public class UserController {
         return ApiResponse.ok("Industry Guest invitation sent", repository.findById(id).orElseThrow());
     }
     @DeleteMapping("/{id}")
-    ApiResponse<Void> delete(@PathVariable UUID id) { repository.deleteById(id); return ApiResponse.ok("User deleted", null); }
+    ApiResponse<User> delete(@PathVariable UUID id) {
+        return ApiResponse.ok("User deactivated. Academic history was preserved", service.deactivate(id));
+    }
     @GetMapping("/by-role/{role}")
     ApiResponse<?> byRole(@PathVariable UserRole role) { return ApiResponse.ok("Users by role", repository.findByRole(role)); }
     @GetMapping("/search")

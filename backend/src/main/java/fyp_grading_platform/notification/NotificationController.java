@@ -6,6 +6,7 @@ import fyp_grading_platform.security.CurrentUserService;
 import fyp_grading_platform.user.User;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -143,6 +144,19 @@ public class NotificationController {
         EmailNotification notification = repository.findById(id)
                 .orElseThrow(() -> new BusinessException("NOTIFICATION_NOT_FOUND", "Notification not found"));
         return ApiResponse.ok("Notification retry processed", delivery.retry(notification));
+    }
+
+    @DeleteMapping("/{id}")
+    ApiResponse<Void> delete(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable UUID id
+    ) {
+        currentUsers.requireAdmin(authorization);
+        if (!repository.existsById(id)) {
+            throw new BusinessException("NOTIFICATION_NOT_FOUND", "Notification not found");
+        }
+        repository.deleteById(id);
+        return ApiResponse.ok("Notification deleted", null);
     }
 
     @PostMapping("/reminders/evaluation-deadline")

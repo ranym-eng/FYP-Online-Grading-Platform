@@ -80,8 +80,34 @@ public class UserService {
         users.findByUniversityId(request.universityId())
                 .filter(other -> !other.getId().equals(id))
                 .ifPresent(other -> { throw new BusinessException("DUPLICATE_UNIVERSITY_ID", "University ID already exists"); });
+        UserRole previousRole = user.getRole();
         apply(user, request);
-        return users.save(user);
+        user = users.save(user);
+        if (previousRole != user.getRole()) {
+            user = requireNewPasswordAfterRoleChange(user, previousRole);
+        }
+        return user;
+    }
+
+    @Transactional
+    public User provisionImportedActiveAccount(User user, String preferredTemporaryPassword) {
+        if (!usesLocalPassword(user)) {
+            user.setPasswordHash(null);
+            user.setPasswordChangeRequired(false);
+            user.setTemporaryPasswordExpiresAt(null);
+            user.setStatus(UserStatus.ACTIVE);
+            user = users.save(user);
+            sendInstitutionalSigninInstructions(user);
+            return user;
+        }
+        ensureIndustryAccessIsCurrent(user);
+        String temporaryPassword = preferredTemporaryPassword == null || preferredTemporaryPassword.length() < 8
+                ? credentials.temporaryPassword()
+                : preferredTemporaryPassword;
+        prepareTemporaryPassword(user, temporaryPassword);
+        user = users.save(user);
+        sendTemporaryPassword(user, temporaryPassword);
+        return user;
     }
 
     @Transactional
@@ -110,6 +136,25 @@ public class UserService {
         return users.save(user);
     }
 
+    @Transactional
+    public User deactivate(UUID id) {
+        User user = users.findById(id)
+                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "User not found"));
+        if (user.getRole() == UserRole.ADMIN) {
+            long activeAdministrators = users.findByRole(UserRole.ADMIN).stream()
+                    .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
+                    .count();
+            if (activeAdministrators <= 1) {
+                throw new BusinessException("LAST_ADMIN", "The last active administrator cannot be deactivated");
+            }
+        }
+        user.setStatus(UserStatus.INACTIVE);
+        user.setPasswordHash(null);
+        user.setPasswordChangeRequired(false);
+        user.setTemporaryPasswordExpiresAt(null);
+        return users.save(user);
+    }
+
     private void apply(User user, UserRequest request) {
         user.setUniversityId(request.universityId().trim());
         user.setFullName(request.fullName().trim());
@@ -126,14 +171,18 @@ public class UserService {
 
     private String prepareTemporaryPassword(User user) {
         String temporaryPassword = credentials.temporaryPassword();
+        prepareTemporaryPassword(user, temporaryPassword);
+        return temporaryPassword;
+    }
+
+    private void prepareTemporaryPassword(User user, String temporaryPassword) {
         user.setPasswordHash(passwordEncoder.encode(temporaryPassword));
         user.setPasswordChangeRequired(true);
         user.setTemporaryPasswordExpiresAt(LocalDateTime.now().plusHours(temporaryPasswordHours));
         user.setStatus(UserStatus.ACTIVE);
-        return temporaryPassword;
     }
 
-    private void sendSignupInstructions(User user) {
+    public void sendSignupInstructions(User user) {
         emails.send(
                 user.getEmail(),
                 "Your FYP platform account is ready for sign-up",
@@ -151,6 +200,58 @@ public class UserService {
                 "Your FYP platform account is active.\n\nTemporary password: " + temporaryPassword
                         + "\n\nSign in within " + temporaryPasswordHours
                         + " hours. You must choose a new password before entering your workspace.",
+                null
+        );
+    }
+
+    private User requireNewPasswordAfterRoleChange(User user, UserRole previousRole) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            if (user.getStatus() == UserStatus.PENDING_ACTIVATION) {
+                sendSignupInstructions(user);
+            }
+            return user;
+        }
+        if (!usesLocalPassword(user)) {
+            user.setPasswordChangeRequired(false);
+            user.setTemporaryPasswordExpiresAt(null);
+            user = users.save(user);
+            emails.send(
+                    user.getEmail(),
+                    "Your FYP platform role has changed",
+                    "Your platform role changed from " + previousRole + " to " + user.getRole()
+                            + ".\n\nYour previous session is no longer valid. Sign in again using your SQU account.",
+                    null
+            );
+            return user;
+        }
+        if (user.getPasswordHash() == null) {
+            String temporaryPassword = prepareTemporaryPassword(user);
+            user = users.save(user);
+            sendTemporaryPassword(user, temporaryPassword);
+            return user;
+        }
+        user.setPasswordChangeRequired(true);
+        user.setTemporaryPasswordExpiresAt(LocalDateTime.now().plusHours(temporaryPasswordHours));
+        user = users.save(user);
+        emails.send(
+                user.getEmail(),
+                "Your FYP platform role has changed",
+                "Your platform role changed from " + previousRole + " to " + user.getRole()
+                        + ".\n\nYour previous session is no longer valid. Sign in within "
+                        + temporaryPasswordHours
+                        + " hours using your current password, then choose a new password before entering your workspace.",
+                null
+        );
+        return user;
+    }
+
+    private void sendInstitutionalSigninInstructions(User user) {
+        emails.send(
+                user.getEmail(),
+                "Your FYP platform account is ready",
+                "The FYP administration has created your account.\n\n"
+                        + "Open the platform and sign in with your SQU institutional account.\n\n"
+                        + "Your role and project access have already been assigned by the administration.",
                 null
         );
     }

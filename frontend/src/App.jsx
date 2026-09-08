@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
+import { ArrowRight, Bell, CheckCheck, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, Download, Eye, EyeOff, FileSpreadsheet, KeyRound, LogOut, Mail, MailOpen, Menu, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, UserPlus, UsersRound, UserX, X } from 'lucide-react'
 import squLogo from './assets/Sultan_Qaboos_University_Logo.png'
 import squMark from './assets/sultan-qaboos-university-logo-png_seeklogo-271991.png'
 import campusLineArt from './assets/squ-campus-line-art.webp'
@@ -914,17 +914,24 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
     try {
       const visibleFields = (config.fields || []).filter((field) => fieldIsVisible(field, form) && (!editing || !field.createOnly))
       const payload = serialize(form, visibleFields)
+      const roleChanged = resourceKey === 'users' && editing && payload.role !== editing.role
       await request(editing ? config.endpoint + '/' + editing.id : (config.customCreateEndpoint || config.endpoint), { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
       const creationMessage = resourceKey === 'users'
         ? payload.activateImmediately ? 'Active account created. The temporary password was sent by email.' : 'Account pre-registered. The user can now sign up.'
         : 'Record added'
-      notify(editing ? 'Changes saved' : creationMessage); setEditing(null); setFormOpen(false); setForm(initialForm(config.fields || [])); await reload(); setRows(unwrapList(await request(config.endpoint)))
+      notify(roleChanged ? 'Role updated. The user must sign in again and choose a new password.' : editing ? 'Changes saved' : creationMessage); setEditing(null); setFormOpen(false); setForm(initialForm(config.fields || [])); await reload(); setRows(unwrapList(await request(config.endpoint)))
     } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
   async function remove(row) {
     setBusy(true)
-    try { await request(config.endpoint + '/' + row.id, { method: 'DELETE' }); notify('Record deleted'); setDeleteTarget(null); await reload(); setRows(unwrapList(await request(config.endpoint))) } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
+    try {
+      await request(config.endpoint + '/' + row.id, { method: 'DELETE' })
+      notify(resourceKey === 'users' ? 'Account deactivated. Academic history was preserved.' : 'Record deleted')
+      setDeleteTarget(null)
+      await reload()
+      setRows(unwrapList(await request(config.endpoint)))
+    } catch (error) { notify(error.message, 'danger') } finally { setBusy(false) }
   }
 
   async function issueTemporaryPassword(row) {
@@ -949,11 +956,11 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
 
   return <div className="resource-manager">
     <div className="resource-manager-toolbar"><button className="icon-button" title="Reload" aria-label="Reload" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}><RefreshCw size={17} /></button>{!config.readOnly && <button type="button" className="primary-action" onClick={createNew}><Plus size={17} />Add {entityLabel}</button>}</div>
-    <Panel title={config.title} wide><DataTable rows={rows} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? setDeleteTarget : null} extraAction={extraAction} initialQuery={initialQuery} /></Panel>
+    <Panel title={config.title} wide><DataTable rows={rows} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? setDeleteTarget : null} canDelete={resourceKey === 'users' ? (row) => row.status !== 'INACTIVE' : null} deleteKind={resourceKey === 'users' ? 'deactivate' : 'delete'} extraAction={extraAction} initialQuery={initialQuery} /></Panel>
     <DialogShell open={formOpen} title={`${editing ? 'Edit' : 'Add'} ${entityLabel}`} onClose={() => { if (!busy) setFormOpen(false) }}>
       <form className="stack-form compact dialog-form" onSubmit={submit}>{(config.fields || []).filter((field) => fieldIsVisible(field, form) && (!editing || !field.createOnly)).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => updateField(field, value)} />)}<div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setFormOpen(false)} disabled={busy}>Cancel</button><button className="primary-action" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : `Add ${entityLabel}`}</button></div></form>
     </DialogShell>
-    <ConfirmDialog open={Boolean(deleteTarget)} title="Delete this record?" message={deleteTarget ? itemName(deleteTarget) : ''} confirmLabel="Delete" danger onCancel={() => setDeleteTarget(null)} onConfirm={() => remove(deleteTarget)} />
+    <ConfirmDialog open={Boolean(deleteTarget)} title={resourceKey === 'users' ? 'Deactivate this account?' : 'Delete this record?'} message={deleteTarget ? resourceKey === 'users' ? `${itemName(deleteTarget)} will lose access. Evaluations and audit history will be preserved.` : itemName(deleteTarget) : ''} confirmLabel={busy ? resourceKey === 'users' ? 'Deactivating…' : 'Deleting…' : resourceKey === 'users' ? 'Deactivate' : 'Delete'} danger busy={busy} onCancel={() => setDeleteTarget(null)} onConfirm={() => remove(deleteTarget)} />
   </div>
 }
 function ImportCenter({ request, notify, reload }) {
@@ -1018,7 +1025,7 @@ function ImportCenter({ request, notify, reload }) {
         setPreview({ ...report, invalidRows: 0, errors: [] })
         const created = (report.sheets || []).reduce((sum, sheet) => sum + (sheet.created || 0), 0)
         const updated = (report.sheets || []).reduce((sum, sheet) => sum + (sheet.updated || 0), 0)
-        notify(`Initialization complete: ${created} created, ${updated} updated. Check Industry invitations in Mailpit.`)
+        notify(`Initialization complete: ${created} created, ${updated} updated. Check account activation emails in Mailpit.`)
       } else {
         setPreview((current) => ({
           ...current,
@@ -1894,7 +1901,7 @@ function DataDialog({ open, title, rows, columns, onClose }) {
   return <DialogShell open={open} title={title || 'Details'} onClose={onClose} wide><DataTable rows={rows} columns={columns} compact /></DialogShell>
 }
 
-function ConfirmDialog({ open, title, message, confirmLabel, danger, onCancel, onConfirm }) {
+function ConfirmDialog({ open, title, message, confirmLabel, danger, busy = false, onCancel, onConfirm }) {
   useEffect(() => {
     if (!open) return undefined
     const close = (event) => {
@@ -1904,10 +1911,10 @@ function ConfirmDialog({ open, title, message, confirmLabel, danger, onCancel, o
     return () => window.removeEventListener('keydown', close)
   }, [onCancel, open])
   if (!open) return null
-  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message"><button type="button" className="modal-close" onClick={onCancel} aria-label="Close"><X size={18} /></button><span className={'confirm-dialog-icon ' + (danger ? 'danger' : '')}>{danger ? <Trash2 size={22} /> : <ShieldCheck size={22} />}</span><h2 id="confirm-title">{title}</h2><p id="confirm-message">{message}</p><div className="confirm-dialog-actions"><button type="button" className="ghost-button" onClick={onCancel}>Cancel</button><button type="button" className={danger ? 'danger-action compact' : 'primary-action'} onClick={onConfirm}>{confirmLabel || 'Confirm'}</button></div></section></div>, document.body)
+  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (!busy && event.target === event.currentTarget) onCancel() }}><section className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message"><button type="button" className="modal-close" disabled={busy} onClick={onCancel} aria-label="Close"><X size={18} /></button><span className={'confirm-dialog-icon ' + (danger ? 'danger' : '')}>{danger ? <Trash2 size={22} /> : <ShieldCheck size={22} />}</span><h2 id="confirm-title">{title}</h2><p id="confirm-message">{message}</p><div className="confirm-dialog-actions"><button type="button" className="ghost-button" disabled={busy} onClick={onCancel}>Cancel</button><button type="button" disabled={busy} className={danger ? 'danger-action compact' : 'primary-action'} onClick={onConfirm}>{confirmLabel || 'Confirm'}</button></div></section></div>, document.body)
 }
 
-function DataTable({ rows = [], columns = [], onEdit, onDelete, compact = false, extraAction, searchable = true, initialQuery = '', pageSize }) {
+function DataTable({ rows = [], columns = [], onEdit, onDelete, canDelete, deleteKind = 'delete', compact = false, extraAction, searchable = true, initialQuery = '', pageSize }) {
   const [query, setQuery] = useState(initialQuery || '')
   const [page, setPage] = useState(0)
   const effectivePageSize = pageSize || 8
@@ -1922,7 +1929,7 @@ function DataTable({ rows = [], columns = [], onEdit, onDelete, compact = false,
   if (!rows.length) return <EmptyState />
   return <div className="data-table-shell">
     {searchable && <div className="data-table-toolbar"><label><Search size={16} /><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(0) }} placeholder="Search this table…" aria-label="Search this table" />{query && <button type="button" onClick={() => { setQuery(''); setPage(0) }} title="Clear" aria-label="Clear search"><X size={15} /></button>}</label><span>{filteredRows.length} / {rows.length}</span></div>}
-    {!filteredRows.length ? <EmptyState title="No results" detail="Change your search." /> : <div className={'table-wrap ' + (compact ? 'compact' : '')}><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{pretty(column)}</th>)}{(onEdit || onDelete || extraAction) && <th className="actions-column">Actions</th>}</tr></thead><tbody>{visibleRows.map((row, index) => <tr key={row.id || currentPage * effectivePageSize + index}>{columns.map((column) => <td key={column} data-label={pretty(column)} title={cellTitle(row[column])}><div className="cell-content">{renderCell(row[column], column)}</div></td>)}{(onEdit || onDelete || extraAction) && <td className="actions-cell" data-label="Actions"><div className="row-actions">{extraAction?.(row)}{onEdit && <button type="button" className="table-action-button" onClick={() => onEdit(row)} title="Edit" aria-label={'Edit ' + itemName(row)}><Pencil size={15} /></button>}{onDelete && <button type="button" className="table-action-button danger" onClick={() => onDelete(row)} title="Delete" aria-label={'Delete ' + itemName(row)}><Trash2 size={15} /></button>}</div></td>}</tr>)}</tbody></table></div>}
+    {!filteredRows.length ? <EmptyState title="No results" detail="Change your search." /> : <div className={'table-wrap ' + (compact ? 'compact' : '')}><table className="data-table"><thead><tr>{columns.map((column) => <th key={column}>{pretty(column)}</th>)}{(onEdit || onDelete || extraAction) && <th className="actions-column">Actions</th>}</tr></thead><tbody>{visibleRows.map((row, index) => <tr key={row.id || currentPage * effectivePageSize + index}>{columns.map((column) => <td key={column} data-label={pretty(column)} title={cellTitle(row[column])}><div className="cell-content">{renderCell(row[column], column)}</div></td>)}{(onEdit || onDelete || extraAction) && <td className="actions-cell" data-label="Actions"><div className="row-actions">{extraAction?.(row)}{onEdit && <button type="button" className="table-action-button" onClick={() => onEdit(row)} title="Edit" aria-label={'Edit ' + itemName(row)}><Pencil size={15} /></button>}{onDelete && (!canDelete || canDelete(row)) && <button type="button" className="table-action-button danger" onClick={() => onDelete(row)} title={deleteKind === 'deactivate' ? 'Deactivate' : 'Delete'} aria-label={(deleteKind === 'deactivate' ? 'Deactivate ' : 'Delete ') + itemName(row)}>{deleteKind === 'deactivate' ? <UserX size={15} /> : <Trash2 size={15} />}</button>}</div></td>}</tr>)}</tbody></table></div>}
     {filteredRows.length > effectivePageSize && <footer className="data-table-pagination"><span>{currentPage + 1} / {pageCount}</span><div><button type="button" className="icon-button" disabled={currentPage === 0} onClick={() => setPage(Math.max(0, currentPage - 1))} title="Previous page" aria-label="Previous page"><ChevronLeft size={17} /></button><button type="button" className="icon-button" disabled={currentPage >= pageCount - 1} onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))} title="Next page" aria-label="Next page"><ChevronRight size={17} /></button></div></footer>}
   </div>
 }

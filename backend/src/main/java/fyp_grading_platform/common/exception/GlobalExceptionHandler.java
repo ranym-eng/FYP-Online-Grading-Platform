@@ -4,6 +4,7 @@ import fyp_grading_platform.common.api.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -34,6 +35,15 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(
                         "Invalid request payload",
                         Map.of("errorCode", "INVALID_REQUEST")
+                ));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<ApiResponse<Map<String, String>>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.fail(
+                        "This record is still used by other platform data. Remove its assignments first or deactivate it instead.",
+                        Map.of("errorCode", "RECORD_IN_USE")
                 ));
     }
 
