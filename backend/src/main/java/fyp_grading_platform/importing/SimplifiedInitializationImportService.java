@@ -44,6 +44,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -62,19 +63,23 @@ public class SimplifiedInitializationImportService {
             "STUDENTS", "ADMINISTRATORS", "COORDINATORS", "SUPERVISORS",
             "REPORT_EVALUATORS", "FACULTY_EVALUATORS", "INDUSTRY_GUESTS", "PHASES", "PROJECT_ASSIGNMENTS"
     );
-    private static final Map<String, UserRole> ACTOR_ROLES = Map.of(
-            "ADMINISTRATORS", UserRole.ADMIN,
-            "COORDINATORS", UserRole.COORDINATOR,
-            "SUPERVISORS", UserRole.SUPERVISOR,
-            "REPORT_EVALUATORS", UserRole.REPORT_EVALUATOR,
-            "FACULTY_EVALUATORS", UserRole.FACULTY_EVALUATOR,
-            "INDUSTRY_GUESTS", UserRole.INDUSTRY_REPRESENTATIVE
-    );
+    private static final Map<String, UserRole> ACTOR_ROLES = actorRoles();
     private static final List<String> PROJECT_METADATA = List.of(
             "cohort", "trackCode", "projectNumber", "projectTitle", "projectAbstract", "section",
             "reportPhaseIEvaluatorEmails", "oralPhaseIEvaluatorEmails",
             "reportPhaseIIEvaluatorEmails", "oralPhaseIIEvaluatorEmails", "industryGuestEmails"
     );
+
+    private static Map<String, UserRole> actorRoles() {
+        Map<String, UserRole> roles = new LinkedHashMap<>();
+        roles.put("ADMINISTRATORS", UserRole.ADMIN);
+        roles.put("COORDINATORS", UserRole.COORDINATOR);
+        roles.put("SUPERVISORS", UserRole.SUPERVISOR);
+        roles.put("REPORT_EVALUATORS", UserRole.REPORT_EVALUATOR);
+        roles.put("FACULTY_EVALUATORS", UserRole.FACULTY_EVALUATOR);
+        roles.put("INDUSTRY_GUESTS", UserRole.INDUSTRY_REPRESENTATIVE);
+        return Collections.unmodifiableMap(roles);
+    }
 
     private final StudentProfileRepository students;
     private final UserRepository users;
@@ -170,12 +175,15 @@ public class SimplifiedInitializationImportService {
         uniqueIndex(parsed.rows("STUDENTS"), "email", errors);
         Map<String, RowData> actorsById = new LinkedHashMap<>();
         Map<String, RowData> actorsByEmail = new LinkedHashMap<>();
+        Map<String, Set<UserRole>> actorRolesByEmail = new LinkedHashMap<>();
         validateStudents(parsed.rows("STUDENTS"), errors);
         for (Map.Entry<String, UserRole> entry : ACTOR_ROLES.entrySet()) {
-            validateActors(parsed.rows(entry.getKey()), entry.getValue(), actorsById, actorsByEmail, errors);
+            validateActors(parsed.rows(entry.getKey()), entry.getValue(), actorsById, actorsByEmail,
+                    actorRolesByEmail, errors);
         }
         validatePhases(parsed.rows("PHASES"), errors);
-        validateProjects(parsed.rows("PROJECT_ASSIGNMENTS"), studentsById, actorsById, actorsByEmail, errors);
+        validateProjects(parsed.rows("PROJECT_ASSIGNMENTS"), studentsById, actorsById, actorsByEmail,
+                actorRolesByEmail, errors);
 
         Set<RowLocation> invalid = errors.stream()
                 .filter(error -> error.rowNumber() > 0)
@@ -208,7 +216,7 @@ public class SimplifiedInitializationImportService {
             if (!row.value("cohort").matches("(?:19|20)\\d{2}")) {
                 error(row, "cohort", "Cohort must use YYYY format", errors);
             }
-            if (!knownTracks.contains(upper(row.value("trackCode")))) {
+            if (!knownTracks.contains(normalizeTrackCode(row.value("trackCode")))) {
                 error(row, "trackCode", "Unknown track code", errors);
             }
         }
@@ -219,14 +227,20 @@ public class SimplifiedInitializationImportService {
             UserRole role,
             Map<String, RowData> actorsById,
             Map<String, RowData> actorsByEmail,
+            Map<String, Set<UserRole>> actorRolesByEmail,
             List<InitializationImportError> errors
     ) {
         for (RowData row : rows) {
             for (String field : List.of("actorId", "actorName", "email", "status")) required(row, field, errors);
             String id = lower(row.value("actorId"));
             String email = lower(row.value("email"));
-            duplicate(row, "actorId", id, actorsById, "Actor ID is duplicated across role sheets", errors);
-            duplicate(row, "email", email, actorsByEmail, "Actor email is duplicated across role sheets", errors);
+            if (!id.isBlank()) {
+                duplicate(row, "actorId", id, actorsById, "Actor ID is duplicated across role sheets", errors);
+            }
+            if (!email.isBlank()) {
+                actorsByEmail.putIfAbsent(email, row);
+                actorRolesByEmail.computeIfAbsent(email, ignored -> new LinkedHashSet<>()).add(role);
+            }
             if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                 error(row, "email", "Invalid email address", errors);
             }
@@ -266,6 +280,7 @@ public class SimplifiedInitializationImportService {
             Map<String, RowData> studentsById,
             Map<String, RowData> actorsById,
             Map<String, RowData> actorsByEmail,
+            Map<String, Set<UserRole>> actorRolesByEmail,
             List<InitializationImportError> errors
     ) {
         Map<String, List<RowData>> grouped = rows.stream()
@@ -279,7 +294,7 @@ public class SimplifiedInitializationImportService {
             for (String field : List.of("cohort", "trackCode", "projectNumber", "projectTitle")) {
                 required(first, field, errors);
             }
-            if (tracks.findByCode(upper(first.value("trackCode"))).isEmpty()) {
+            if (tracks.findByCode(normalizeTrackCode(first.value("trackCode"))).isEmpty()) {
                 error(first, "trackCode", "Unknown track code", errors);
             }
             Set<String> projectStudents = new LinkedHashSet<>();
@@ -312,11 +327,16 @@ public class SimplifiedInitializationImportService {
             if (projectStudents.size() > 5) error(first, "studentId", "A project cannot contain more than 5 students", errors);
             if (projectSupervisors.isEmpty()) error(first, "supervisorId", "A project requires at least one supervisor", errors);
             if (projectSupervisors.size() > 2) error(first, "supervisorId", "A project cannot contain more than 2 supervisors", errors);
-            validateEvaluatorEmails(first, "reportPhaseIEvaluatorEmails", UserRole.REPORT_EVALUATOR, actorsByEmail, errors);
-            validateEvaluatorEmails(first, "oralPhaseIEvaluatorEmails", UserRole.FACULTY_EVALUATOR, actorsByEmail, errors);
-            validateEvaluatorEmails(first, "reportPhaseIIEvaluatorEmails", UserRole.REPORT_EVALUATOR, actorsByEmail, errors);
-            validateEvaluatorEmails(first, "oralPhaseIIEvaluatorEmails", UserRole.FACULTY_EVALUATOR, actorsByEmail, errors);
-            validateEvaluatorEmails(first, "industryGuestEmails", UserRole.INDUSTRY_REPRESENTATIVE, actorsByEmail, errors);
+            validateEvaluatorEmails(first, "reportPhaseIEvaluatorEmails", UserRole.REPORT_EVALUATOR,
+                    actorsByEmail, actorRolesByEmail, errors);
+            validateEvaluatorEmails(first, "oralPhaseIEvaluatorEmails", UserRole.FACULTY_EVALUATOR,
+                    actorsByEmail, actorRolesByEmail, errors);
+            validateEvaluatorEmails(first, "reportPhaseIIEvaluatorEmails", UserRole.REPORT_EVALUATOR,
+                    actorsByEmail, actorRolesByEmail, errors);
+            validateEvaluatorEmails(first, "oralPhaseIIEvaluatorEmails", UserRole.FACULTY_EVALUATOR,
+                    actorsByEmail, actorRolesByEmail, errors);
+            validateEvaluatorEmails(first, "industryGuestEmails", UserRole.INDUSTRY_REPRESENTATIVE,
+                    actorsByEmail, actorRolesByEmail, errors);
         }
     }
 
@@ -358,12 +378,13 @@ public class SimplifiedInitializationImportService {
             String field,
             UserRole requiredRole,
             Map<String, RowData> actorsByEmail,
+            Map<String, Set<UserRole>> actorRolesByEmail,
             List<InitializationImportError> errors
     ) {
         for (String email : splitEmails(row.value(field))) {
             RowData actor = actorsByEmail.get(lower(email));
             if (actor == null) error(row, field, "Evaluator is missing from actor sheets: " + email, errors);
-            else if (ACTOR_ROLES.get(actor.sheet()) != requiredRole) {
+            else if (!actorRolesByEmail.getOrDefault(lower(email), Set.of()).contains(requiredRole)) {
                 error(row, field, "Evaluator has the wrong role: " + email, errors);
             }
         }
@@ -377,7 +398,7 @@ public class SimplifiedInitializationImportService {
             String name = StudentController.normalizeName(row.value("studentName"));
             String email = lower(row.value("email"));
             String cohort = row.value("cohort");
-            String trackCode = upper(row.value("trackCode"));
+            String trackCode = normalizeTrackCode(row.value("trackCode"));
             String level = row.value("level");
             boolean changed = created || different(student.getFullName(), name)
                     || different(student.getEmail(), email) || different(student.getCohort(), cohort)
@@ -396,30 +417,44 @@ public class SimplifiedInitializationImportService {
 
     private Map<String, User> importActors(Parsed parsed, Map<String, Counter> counters) {
         Map<String, User> result = new LinkedHashMap<>();
+        Map<String, User> importedByEmail = new LinkedHashMap<>();
         for (Map.Entry<String, UserRole> entry : ACTOR_ROLES.entrySet()) {
             for (RowData row : parsed.rows(entry.getKey())) {
                 String email = lower(row.value("email"));
-                User user = users.findByEmailIgnoreCase(email)
-                        .or(() -> users.findByUniversityId(row.value("actorId"))).orElse(null);
+                User user = importedByEmail.get(email);
+                if (user == null) {
+                    user = users.findByEmailIgnoreCase(email)
+                            .or(() -> users.findByUniversityId(row.value("actorId"))).orElse(null);
+                }
                 boolean created = user == null;
                 if (created) user = new User();
                 boolean emailChanged = !created && user.getEmail() != null
                         && !user.getEmail().equalsIgnoreCase(email);
-                UserStatus status = UserStatus.valueOf(upper(row.value("status")));
-                boolean changed = created || different(user.getUniversityId(), row.value("actorId"))
-                        || different(user.getFullName(), row.value("actorName"))
-                        || different(user.getEmail(), email) || user.getRole() != entry.getValue()
+                UserRole importedRole = entry.getValue();
+                UserRole primaryRole = preferredRole(user.getRole(), importedRole);
+                boolean importedRoleIsPrimary = user.getRole() == null || primaryRole == importedRole;
+                UserStatus importedStatus = UserStatus.valueOf(upper(row.value("status")));
+                UserStatus status = importedRoleIsPrimary || user.getStatus() == null ? importedStatus : user.getStatus();
+                String universityId = importedRoleIsPrimary || user.getUniversityId() == null
+                        ? row.value("actorId") : user.getUniversityId();
+                String fullName = importedRoleIsPrimary || user.getFullName() == null
+                        ? row.value("actorName") : user.getFullName();
+                String phone = importedRoleIsPrimary || user.getPhone() == null
+                        ? blankToNull(row.value("phone")) : user.getPhone();
+                boolean changed = created || different(user.getUniversityId(), universityId)
+                        || different(user.getFullName(), fullName)
+                        || different(user.getEmail(), email) || user.getRole() != primaryRole
                         || user.getStatus() != status
-                        || different(user.getAccessExpiresAt(), entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
+                        || different(user.getAccessExpiresAt(), primaryRole == UserRole.INDUSTRY_REPRESENTATIVE
                                 ? parseAccessExpiresAt(row.value("accessExpiresAt"))
                                 : null);
-                user.setUniversityId(row.value("actorId"));
-                user.setFullName(row.value("actorName"));
+                user.setUniversityId(universityId);
+                user.setFullName(fullName);
                 user.setEmail(email);
-                user.setPhone(blankToNull(row.value("phone")));
-                user.setRole(entry.getValue());
+                user.setPhone(phone);
+                user.setRole(primaryRole);
                 user.setStatus(status);
-                user.setAccessExpiresAt(entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
+                user.setAccessExpiresAt(primaryRole == UserRole.INDUSTRY_REPRESENTATIVE
                         ? parseAccessExpiresAt(row.value("accessExpiresAt"))
                         : null);
                 String initialPassword = null;
@@ -430,15 +465,16 @@ public class SimplifiedInitializationImportService {
                 } else if (created || emailChanged) {
                     String temporaryPassword = row.value("temporaryPassword");
                     initialPassword = localInternalLoginEnabled
-                            && entry.getValue() != UserRole.INDUSTRY_REPRESENTATIVE
+                            && primaryRole != UserRole.INDUSTRY_REPRESENTATIVE
                             && temporaryPassword.length() >= 8
                             ? temporaryPassword
                             : bcryptSafeGeneratedPassword(tokenHasher.generate());
                 }
                 user = users.save(user);
-                if (isEvaluator(entry.getValue())) upsertEvaluatorProfile(user, row, entry.getValue());
+                importedByEmail.put(email, user);
+                if (isEvaluator(importedRole)) upsertEvaluatorProfile(user, row, importedRole);
                 if (created || emailChanged) {
-                    if (entry.getValue() == UserRole.INDUSTRY_REPRESENTATIVE
+                    if (primaryRole == UserRole.INDUSTRY_REPRESENTATIVE
                             && (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION)) {
                         industryInvitations.invite(user);
                     } else if (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION) {
@@ -452,6 +488,22 @@ public class SimplifiedInitializationImportService {
             }
         }
         return result;
+    }
+
+    private UserRole preferredRole(UserRole current, UserRole candidate) {
+        if (current == null) return candidate;
+        return rolePriority(candidate) < rolePriority(current) ? candidate : current;
+    }
+
+    private int rolePriority(UserRole role) {
+        return switch (role) {
+            case ADMIN -> 0;
+            case COORDINATOR -> 1;
+            case SUPERVISOR -> 2;
+            case REPORT_EVALUATOR -> 3;
+            case FACULTY_EVALUATOR -> 4;
+            case INDUSTRY_REPRESENTATIVE -> 5;
+        };
     }
 
     static String bcryptSafeGeneratedPassword(String generatedToken) {
@@ -509,7 +561,7 @@ public class SimplifiedInitializationImportService {
             project.setAbstractText(blankToNull(first.value("projectAbstract")));
             project.setAcademicYear(first.value("cohort"));
             project.setStatus("ACTIVE");
-            project.setTrack(tracks.findByCode(upper(first.value("trackCode"))).orElseThrow());
+            project.setTrack(tracks.findByCode(normalizeTrackCode(first.value("trackCode"))).orElseThrow());
             project = projects.save(project);
 
             Team team = teams.findByProjectId(project.getId()).orElseGet(Team::new);
@@ -795,6 +847,17 @@ public class SimplifiedInitializationImportService {
 
     private String upper(String value) {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeTrackCode(String value) {
+        String normalized = upper(value).replaceAll("[^A-Z0-9]", "");
+        return switch (normalized) {
+            case "PSE", "POWERSYSTEMSANDENERGY" -> "PSE";
+            case "EIC", "ELECTRONICINSTRUMENTATIONANDCONTROL" -> "EIC";
+            case "CSN", "EMBEDDEDCOMPUTINGANDNETWORKS", "COMPUTERSYSTEMSANDNETWORKS" -> "CSN";
+            case "CSP", "COMMUNICATIONSANDSIGNALPROCESSING", "TELECOMMUNICATIONSANDWIRELESSSYSTEMS" -> "CSP";
+            default -> upper(value);
+        };
     }
 
     private String safeFilename(MultipartFile file) {
