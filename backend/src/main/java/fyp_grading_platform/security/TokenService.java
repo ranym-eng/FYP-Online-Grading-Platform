@@ -49,12 +49,19 @@ public class TokenService {
     }
 
     public String generate(User user) {
+        return generate(user, user.getDefaultRole());
+    }
+
+    public String generate(User user, UserRole activeRole) {
+        if (!user.hasRole(activeRole)) {
+            throw new BusinessException("ROLE_NOT_ASSIGNED", "The selected role is not assigned to this account");
+        }
         try {
             String header = encodeJson(Map.of("alg", "HS256", "typ", "JWT"));
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("sub", user.getId().toString());
             payload.put("email", user.getEmail());
-            payload.put("role", user.getRole().name());
+            payload.put("role", activeRole.name());
             payload.put("iat", Instant.now().getEpochSecond());
             payload.put("exp", Instant.now().plusSeconds(lifetimeSeconds).getEpochSecond());
             String encodedPayload = encodeJson(payload);

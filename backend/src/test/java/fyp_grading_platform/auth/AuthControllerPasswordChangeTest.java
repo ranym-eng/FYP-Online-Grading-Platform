@@ -62,7 +62,7 @@ class AuthControllerPasswordChangeTest {
         when(users.findByEmailIgnoreCase(user.getEmail())).thenReturn(Optional.of(user));
         when(encoder.matches("Temporary@42", "temporary-hash")).thenReturn(true);
         when(encoder.encode("Personal@2027")).thenReturn("personal-hash");
-        when(tokens.generate(user)).thenReturn("session-token");
+        when(tokens.generate(user, UserRole.FACULTY_EVALUATOR)).thenReturn("session-token");
 
         ApiResponse<LoginResponse> result = controller.completeTemporaryPassword(
                 new CompleteTemporaryPasswordRequest(user.getEmail(), "Temporary@42", "Personal@2027")

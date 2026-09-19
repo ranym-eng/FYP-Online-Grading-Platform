@@ -52,6 +52,8 @@ The Sign up page works only for e-mail addresses already provisioned by an admin
 ### Authentication and Account Provisioning
 
 - Role-based authentication and automatic redirection to the correct dashboard.
+- Multi-role accounts with an explicit workspace chooser after sign-in and secure workspace switching from the profile panel.
+- Every session token carries one active role; the backend rejects any role that is not assigned to the account.
 - Separate session, navigation, project scope, and permissions for every actor.
 - Controlled Sign up for pre-registered accounts: the user chooses a password and confirms a six-digit e-mail code.
 - Unknown e-mail addresses cannot create accounts, roles, or permissions.
@@ -91,6 +93,9 @@ Import behavior:
 - validate references between students, actors, tracks, projects, and phases;
 - initialize accepted data in one transaction;
 - support idempotent updates using stable student IDs, actor identifiers/e-mails, and project numbers;
+- keep the existing role-sheet structure while allowing the same e-mail in different actor sheets; this creates one account with all listed roles;
+- reject a repeated e-mail inside the same role sheet as a duplicate row;
+- preserve activated accounts and avoid duplicate invitations when the workbook is imported again;
 - keep one to five students per project;
 - keep one or two supervisors per project;
 - accept multiple assigned evaluators separated by commas or semicolons;

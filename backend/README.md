@@ -21,5 +21,11 @@ Account access supports two controlled local-password workflows:
 Passwords are never accepted from the initialization workbook or returned by
 the user-management API. SQU SSO can replace local passwords for internal users.
 
+The initialization workbook keeps one sheet per actor type. When one e-mail
+appears in several different role sheets, the importer creates one account with
+multiple assigned roles. After authentication, the user selects the active
+workspace; a signed token and backend authorization enforce that selected role.
+Repeating an e-mail within the same role sheet remains a validation error.
+
 See the [main README](../README.md) for Docker startup, local development,
 Swagger, and test commands.

@@ -79,7 +79,7 @@ public class PasswordResetService {
 
     private boolean canResetPassword(User user) {
         if (user.getStatus() != UserStatus.ACTIVE) return false;
-        if (user.getRole() != UserRole.INDUSTRY_REPRESENTATIVE) return localInternalLoginEnabled;
+        if (!user.isIndustryOnly()) return localInternalLoginEnabled;
         return user.getAccessExpiresAt() != null && user.getAccessExpiresAt().isAfter(LocalDateTime.now());
     }
 

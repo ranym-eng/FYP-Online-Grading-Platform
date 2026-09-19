@@ -448,6 +448,7 @@ public class PlatformInitializationImportService {
             user.setFullName(row.value("fullName"));
             user.setEmail(email);
             user.setPhone(row.value("phone"));
+            user.setRoles(Set.of(role));
             user.setRole(role);
             user.setStatus(status);
             user.setAccessExpiresAt(accessExpiresAt);

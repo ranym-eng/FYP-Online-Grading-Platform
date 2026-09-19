@@ -115,15 +115,15 @@ public class SignupService {
                 && user.getStatus() != UserStatus.PENDING_INVITATION) {
             return false;
         }
-        if (user.getRole() != UserRole.INDUSTRY_REPRESENTATIVE && !localInternalLoginEnabled) {
+        if (!user.isIndustryOnly() && !localInternalLoginEnabled) {
             return false;
         }
-        return user.getRole() != UserRole.INDUSTRY_REPRESENTATIVE
+        return !user.isIndustryOnly()
                 || user.getAccessExpiresAt() != null && user.getAccessExpiresAt().isAfter(LocalDateTime.now());
     }
 
     private void ensureGuestAccessIsCurrent(User user, LocalDateTime now) {
-        if (user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
+        if (user.isIndustryOnly()
                 && (user.getAccessExpiresAt() == null || !user.getAccessExpiresAt().isAfter(now))) {
             user.setStatus(UserStatus.INACTIVE);
             users.save(user);

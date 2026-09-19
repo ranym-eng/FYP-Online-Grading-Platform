@@ -45,7 +45,7 @@ public class IndustryInvitationService {
 
     @Transactional
     public void invite(User user) {
-        if (user.getRole() != UserRole.INDUSTRY_REPRESENTATIVE) {
+        if (!user.isIndustryOnly()) {
             throw new BusinessException("INDUSTRY_ACCOUNT_REQUIRED", "Only Industry Guests receive external invitations");
         }
         if (user.getAccessExpiresAt() == null) {

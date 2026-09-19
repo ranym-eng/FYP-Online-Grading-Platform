@@ -3,6 +3,7 @@ package fyp_grading_platform.importing;
 import fyp_grading_platform.audit.AuditService;
 import fyp_grading_platform.auth.IndustryInvitationService;
 import fyp_grading_platform.auth.OneTimeTokenHasher;
+import fyp_grading_platform.common.UserStatus;
 import fyp_grading_platform.project.ProjectEvaluatorAssignmentRepository;
 import fyp_grading_platform.project.ProjectRepository;
 import fyp_grading_platform.project.ProjectSupervisorAssignmentRepository;
@@ -106,6 +107,23 @@ class SimplifiedInitializationImportServiceTest {
 
         assertEquals(64, password.length());
         assertDoesNotThrow(() -> new BCryptPasswordEncoder().encode(password));
+    }
+
+    @Test
+    void repeatImportDoesNotReturnAnActivatedAccountToPendingStatus() {
+        assertEquals(UserStatus.ACTIVE, SimplifiedInitializationImportService.resolvedImportStatus(
+                UserStatus.ACTIVE, false, true, UserStatus.PENDING_ACTIVATION
+        ));
+        assertEquals(UserStatus.ACTIVE, SimplifiedInitializationImportService.resolvedImportStatus(
+                UserStatus.ACTIVE, false, true, UserStatus.PENDING_INVITATION
+        ));
+    }
+
+    @Test
+    void repeatImportStillAppliesAnExplicitInactiveStatus() {
+        assertEquals(UserStatus.INACTIVE, SimplifiedInitializationImportService.resolvedImportStatus(
+                UserStatus.ACTIVE, false, true, UserStatus.INACTIVE
+        ));
     }
 
     private SimplifiedInitializationImportService service() {

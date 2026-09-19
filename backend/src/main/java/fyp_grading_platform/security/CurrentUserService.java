@@ -30,17 +30,19 @@ public class CurrentUserService {
     public User requireUser(String authorization) {
         String token = bearerToken(authorization);
         if (allowEmailToken && !token.contains(".")) {
-            return requireActive(users.findByEmailIgnoreCase(token)
-                    .orElseThrow(() -> authenticationRequired()));
+            User user = users.findByEmailIgnoreCase(token).orElseThrow(() -> authenticationRequired());
+            user.setActiveRole(user.getDefaultRole());
+            return requireActive(user, user.getRole());
         }
 
         TokenService.TokenClaims claims = tokens.parse(token);
         User user = users.findById(claims.subject())
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "Authenticated user was not found"));
-        requireActive(user);
-        if (!user.getEmail().equalsIgnoreCase(claims.email()) || user.getRole() != claims.role()) {
+        if (!user.getEmail().equalsIgnoreCase(claims.email()) || !user.hasRole(claims.role())) {
             throw new BusinessException("STALE_TOKEN", "Account permissions changed; sign in again");
         }
+        user.setActiveRole(claims.role());
+        requireActive(user, claims.role());
         return user;
     }
 
@@ -56,7 +58,14 @@ public class CurrentUserService {
         return user;
     }
 
-    private User requireActive(User user) {
+    public void requireRoleAvailable(User user, UserRole role) {
+        if (!user.hasRole(role)) {
+            throw new BusinessException("ROLE_NOT_ASSIGNED", "The selected role is not assigned to this account");
+        }
+        requireActive(user, role);
+    }
+
+    private User requireActive(User user, UserRole activeRole) {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BusinessException("ACCOUNT_INACTIVE", "Account is inactive");
         }
@@ -66,7 +75,7 @@ public class CurrentUserService {
                     "Your account permissions changed; sign in again and choose a new password"
             );
         }
-        if (user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
+        if (activeRole == UserRole.INDUSTRY_REPRESENTATIVE
                 && (user.getAccessExpiresAt() == null || user.getAccessExpiresAt().isBefore(LocalDateTime.now()))) {
             throw new BusinessException("ACCESS_EXPIRED", "Industry Guest access has expired");
         }

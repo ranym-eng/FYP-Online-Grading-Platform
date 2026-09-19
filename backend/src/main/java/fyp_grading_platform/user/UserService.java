@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -80,11 +82,12 @@ public class UserService {
         users.findByUniversityId(request.universityId())
                 .filter(other -> !other.getId().equals(id))
                 .ifPresent(other -> { throw new BusinessException("DUPLICATE_UNIVERSITY_ID", "University ID already exists"); });
-        UserRole previousRole = user.getRole();
+        UserRole previousRole = user.getDefaultRole();
+        Set<UserRole> previousRoles = new LinkedHashSet<>(user.getRoles());
         apply(user, request);
         user = users.save(user);
-        if (previousRole != user.getRole()) {
-            user = requireNewPasswordAfterRoleChange(user, previousRole);
+        if (previousRole != user.getDefaultRole() || !previousRoles.equals(user.getRoles())) {
+            user = requireNewPasswordAfterRoleChange(user, previousRoles);
         }
         return user;
     }
@@ -140,7 +143,7 @@ public class UserService {
     public User deactivate(UUID id) {
         User user = users.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "User not found"));
-        if (user.getRole() == UserRole.ADMIN) {
+        if (user.hasRole(UserRole.ADMIN)) {
             long activeAdministrators = users.findByRole(UserRole.ADMIN).stream()
                     .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
                     .count();
@@ -160,11 +163,16 @@ public class UserService {
         user.setFullName(request.fullName().trim());
         user.setEmail(request.email().trim().toLowerCase());
         user.setPhone(request.phone());
+        Set<UserRole> roles = request.effectiveRoles();
+        if (roles.isEmpty()) {
+            throw new BusinessException("ROLE_REQUIRED", "At least one role is required");
+        }
+        user.setRoles(roles);
         user.setRole(request.role());
-        user.setAccessExpiresAt(request.role() == UserRole.INDUSTRY_REPRESENTATIVE
+        user.setAccessExpiresAt(roles.contains(UserRole.INDUSTRY_REPRESENTATIVE)
                 ? request.accessExpiresAt()
                 : null);
-        if (request.role() == UserRole.INDUSTRY_REPRESENTATIVE && request.accessExpiresAt() == null) {
+        if (roles.contains(UserRole.INDUSTRY_REPRESENTATIVE) && request.accessExpiresAt() == null) {
             throw new BusinessException("ACCESS_EXPIRY_REQUIRED", "Industry Guest access requires an expiration date");
         }
     }
@@ -204,7 +212,7 @@ public class UserService {
         );
     }
 
-    private User requireNewPasswordAfterRoleChange(User user, UserRole previousRole) {
+    public User requireNewPasswordAfterRoleChange(User user, Set<UserRole> previousRoles) {
         if (user.getStatus() != UserStatus.ACTIVE) {
             if (user.getStatus() == UserStatus.PENDING_ACTIVATION) {
                 sendSignupInstructions(user);
@@ -218,7 +226,7 @@ public class UserService {
             emails.send(
                     user.getEmail(),
                     "Your FYP platform role has changed",
-                    "Your platform role changed from " + previousRole + " to " + user.getRole()
+                    "Your platform roles changed from " + previousRoles + " to " + user.getRoles()
                             + ".\n\nYour previous session is no longer valid. Sign in again using your SQU account.",
                     null
             );
@@ -236,7 +244,7 @@ public class UserService {
         emails.send(
                 user.getEmail(),
                 "Your FYP platform role has changed",
-                "Your platform role changed from " + previousRole + " to " + user.getRole()
+                "Your platform roles changed from " + previousRoles + " to " + user.getRoles()
                         + ".\n\nYour previous session is no longer valid. Sign in within "
                         + temporaryPasswordHours
                         + " hours using your current password, then choose a new password before entering your workspace.",
@@ -257,11 +265,11 @@ public class UserService {
     }
 
     private boolean usesLocalPassword(User user) {
-        return localInternalLoginEnabled || user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE;
+        return localInternalLoginEnabled || user.isIndustryOnly();
     }
 
     private void ensureIndustryAccessIsCurrent(User user) {
-        if (user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
+        if (user.hasRole(UserRole.INDUSTRY_REPRESENTATIVE)
                 && (user.getAccessExpiresAt() == null || !user.getAccessExpiresAt().isAfter(LocalDateTime.now()))) {
             throw new BusinessException("ACCESS_EXPIRED", "Industry Guest access has expired");
         }

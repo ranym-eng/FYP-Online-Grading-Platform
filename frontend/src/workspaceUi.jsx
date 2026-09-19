@@ -178,10 +178,12 @@ export function ProfileDrawer({
   theme,
   setTheme,
   onLogout,
+  onSwitchRole,
   roleLabel,
 }) {
   const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordBusy, setPasswordBusy] = useState(false)
+  const [roleBusy, setRoleBusy] = useState('')
   if (!open) return null
   const initials = String(session.fullName || session.email || 'SQU')
     .split(/\s+/)
@@ -211,6 +213,19 @@ export function ProfileDrawer({
     }
   }
 
+  async function switchRole(role) {
+    if (!onSwitchRole || role === session.role) return
+    setRoleBusy(role)
+    try {
+      await onSwitchRole(role)
+      onClose()
+    } catch (error) {
+      notify(error.message, 'danger')
+    } finally {
+      setRoleBusy('')
+    }
+  }
+
   return <div className="drawer-layer" role="presentation">
     <button className="drawer-backdrop" type="button" onClick={onClose} aria-label="Close profile" />
     <aside className="profile-drawer" role="dialog" aria-modal="true" aria-label="Profile and preferences">
@@ -223,11 +238,15 @@ export function ProfileDrawer({
         <div><UserRound size={18} /><span>Identifier</span><strong>{session.universityId || session.userId || '—'}</strong></div>
         <div><ShieldCheck size={18} /><span>Active role</span><strong>{roleLabel}</strong></div>
       </section>
+      {(session.roles || []).length > 1 && <section className="workspace-switcher">
+        <div className="preference-heading"><UsersRound size={18} /><div><strong>Switch workspace</strong><span>Your permissions follow the selected role.</span></div></div>
+        <div>{session.roles.map((role) => <button key={role} type="button" className={role === session.role ? 'active' : ''} disabled={Boolean(roleBusy)} onClick={() => switchRole(role)}><span>{role.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (character) => character.toUpperCase())}</span>{role === session.role && <small>Active</small>}{roleBusy === role && <i />}</button>)}</div>
+      </section>}
       <section className="preference-section">
         <div className="preference-heading"><Settings2 size={18} /><div><strong>Appearance</strong><span>These preferences remain on this device.</span></div></div>
         <ThemeToggle theme={theme} setTheme={setTheme} />
       </section>
-      {session.role === 'INDUSTRY_REPRESENTATIVE' ? <form className="profile-password" onSubmit={changePassword}>
+      {session.role === 'INDUSTRY_REPRESENTATIVE' && (session.roles || []).length === 1 ? <form className="profile-password" onSubmit={changePassword}>
         <div className="preference-heading"><ShieldCheck size={18} /><div><strong>Change password</strong><span>At least eight characters.</span></div></div>
         <input required type="password" autoComplete="current-password" placeholder="Current password" value={passwords.currentPassword} onChange={(event) => setPasswords({ ...passwords, currentPassword: event.target.value })} />
         <input required minLength="8" type="password" autoComplete="new-password" placeholder="New password" value={passwords.newPassword} onChange={(event) => setPasswords({ ...passwords, newPassword: event.target.value })} />

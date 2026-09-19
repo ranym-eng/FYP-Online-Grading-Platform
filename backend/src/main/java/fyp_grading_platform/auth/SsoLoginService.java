@@ -87,7 +87,7 @@ public class SsoLoginService {
                         "SSO_ACCOUNT_NOT_PROVISIONED",
                         "This SQU account must be imported by an administrator before first access"
                 ));
-        if (user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE) {
+        if (user.isIndustryOnly()) {
             throw new BusinessException("SSO_INTERNAL_ONLY", "Industry Guests must use their invitation");
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -116,7 +116,7 @@ public class SsoLoginService {
             throw new BusinessException("SSO_CODE_EXPIRED", "The SSO login code has expired");
         }
         User user = code.getUser();
-        if (user.getStatus() != UserStatus.ACTIVE || user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE) {
+        if (user.getStatus() != UserStatus.ACTIVE || user.isIndustryOnly()) {
             throw new BusinessException("ACCOUNT_INACTIVE", "This account cannot use SQU SSO");
         }
         code.setUsedAt(LocalDateTime.now());

@@ -57,18 +57,18 @@ export const views = [
 export const resourceConfigs = {
   users: {
     title: 'Accounts and access', endpoint: '/api/users', subtitle: 'Pre-register an account or activate it immediately with a temporary password sent by email.',
-    columns: ['universityId', 'fullName', 'email', 'role', 'status', 'passwordChangeRequired', 'accessExpiresAt'],
+    columns: ['universityId', 'fullName', 'email', 'roles', 'status', 'passwordChangeRequired', 'accessExpiresAt'],
     fields: [
       { name: 'universityId', label: 'University ID', required: true },
       { name: 'fullName', label: 'Full name', required: true },
       { name: 'email', label: 'Email', type: 'email', required: true },
       { name: 'phone', label: 'Phone' },
-      { name: 'role', label: 'Role', type: 'select', options: ROLES, required: true },
+      { name: 'roles', label: 'Assigned roles', type: 'multiSelect', options: ROLES, required: true },
       {
         name: 'accessExpiresAt',
         label: 'Industry Guest expiration',
         type: 'datetime-local',
-        visibleWhen: { field: 'role', equals: 'INDUSTRY_REPRESENTATIVE' },
+        visibleWhen: { field: 'roles', includes: 'INDUSTRY_REPRESENTATIVE' },
       },
       {
         name: 'activateImmediately',

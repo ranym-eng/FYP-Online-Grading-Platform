@@ -21,6 +21,7 @@ const homeViewByRole = {
   COORDINATOR: 'dashboard',
 }
 const primarySidebarViews = new Set(['dashboard', 'calendar', 'notifications'])
+const rolePriority = ['ADMIN', 'COORDINATOR', 'SUPERVISOR', 'REPORT_EVALUATOR', 'FACULTY_EVALUATOR', 'INDUSTRY_REPRESENTATIVE']
 
 function normalizeRole(role) {
   return ROLES.includes(role) ? role : null
@@ -28,6 +29,17 @@ function normalizeRole(role) {
 
 function homeViewForRole(role) {
   return homeViewByRole[normalizeRole(role)] || 'dashboard'
+}
+
+function defaultRoleFor(roles, currentRole = null) {
+  const assignedRoles = Array.isArray(roles) ? roles.filter((role) => ROLES.includes(role)) : []
+  if (currentRole && assignedRoles.includes(currentRole)) return currentRole
+  return rolePriority.find((role) => assignedRoles.includes(role)) || assignedRoles[0] || ''
+}
+
+function accountInitials(name, email) {
+  const source = String(name || email || 'User').trim()
+  return source.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
 }
 
 function phaseTypeForEvaluation(evaluationType) {
@@ -59,7 +71,9 @@ function normalizeSession(raw, fallbackRole = null) {
   const session = raw?.data || raw || {}
   const role = normalizeRole(session.role || fallbackRole)
   if (!role) throw new Error('This account role is not allowed to access the platform')
-  return { ...session, role }
+  const roles = Array.from(new Set((Array.isArray(session.roles) ? session.roles : [role]).map(normalizeRole).filter(Boolean)))
+  if (!roles.includes(role)) throw new Error('The active role is not assigned to this account')
+  return { ...session, role, roles }
 }
 
 function readStoredSession() {
@@ -72,7 +86,7 @@ function readStoredSession() {
 }
 
 function initialForm(fields = []) {
-  return fields.reduce((acc, field) => ({ ...acc, [field.name]: field.defaultValue ?? (field.type === 'checkbox' ? false : '') }), {})
+  return fields.reduce((acc, field) => ({ ...acc, [field.name]: field.defaultValue ?? (field.type === 'checkbox' ? false : ['multiData', 'multiSelect'].includes(field.type) ? [] : '') }), {})
 }
 
 function serialize(form, fields = []) {
@@ -82,6 +96,7 @@ function serialize(form, fields = []) {
     if (field.type === 'number') value = value === '' ? 0 : Number(value)
     if (field.type === 'checkbox') value = Boolean(value)
     if (field.type === 'multiData') value = Array.isArray(value) ? value : String(value || '').split(',').map((x) => x.trim()).filter(Boolean)
+    if (field.type === 'multiSelect') value = Array.isArray(value) ? value : []
     if (field.type === 'datetime-local' && value) value = new Date(value).toISOString().slice(0, 19)
     data[field.name] = value
   })
@@ -90,11 +105,13 @@ function serialize(form, fields = []) {
 
 function fieldIsVisible(field, form) {
   if (!field.visibleWhen) return true
+  if (field.visibleWhen.includes) return Array.isArray(form[field.visibleWhen.field]) && form[field.visibleWhen.field].includes(field.visibleWhen.includes)
   return form[field.visibleWhen.field] === field.visibleWhen.equals
 }
 
 function App() {
   const [session, setSession] = useState(readStoredSession)
+  const [roleSelection, setRoleSelection] = useState(null)
   const [activeView, setActiveView] = useState(() => homeViewForRole(session?.role))
   const [theme, setTheme] = useState(initialTheme)
   const [toast, setToast] = useState(null)
@@ -129,13 +146,69 @@ function App() {
 
   function openWorkspace(rawSession, fallbackRole) {
     const next = normalizeSession(rawSession, fallbackRole)
+    if (next.roleSelectionRequired && next.roles.length > 1) {
+      setRoleSelection(next)
+      return
+    }
+    setRoleSelection(null)
     setSession(next)
     setActiveView(homeViewForRole(next.role))
     notify('Welcome to your ' + pretty(next.role) + ' workspace')
   }
 
+  async function selectWorkspace(role) {
+    if (!roleSelection?.token) return
+    const response = await apiRequest('/api/auth/switch-role', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    }, roleSelection.token)
+    openWorkspace(response.data)
+  }
+
+  if (roleSelection) return <RoleSelectionScreen session={roleSelection} onSelect={selectWorkspace} onCancel={() => setRoleSelection(null)} notify={notify} toast={toast} />
   if (!session) return <AuthScreen onSession={openWorkspace} notify={notify} toast={toast} />
-  return <Shell session={session} activeView={activeView} setActiveView={setActiveView} onLogout={() => setSession(null)} notify={notify} toast={toast} theme={theme} setTheme={setTheme} />
+  return <Shell session={session} activeView={activeView} setActiveView={setActiveView} onSessionChange={openWorkspace} onLogout={() => setSession(null)} notify={notify} toast={toast} theme={theme} setTheme={setTheme} />
+}
+
+function RoleSelectionScreen({ session, onSelect, onCancel, notify, toast }) {
+  const [busyRole, setBusyRole] = useState('')
+
+  async function choose(role) {
+    setBusyRole(role)
+    try {
+      await onSelect(role)
+    } catch (error) {
+      notify(error.message, 'danger')
+      setBusyRole('')
+    }
+  }
+
+  return <main className="auth-screen role-selection-screen">
+    <section className="auth-visual">
+      <div className="auth-brand-line"><LogoLockup /></div>
+      <div className="auth-copy page-enter"><div className="auth-kicker"><span>College of Engineering</span><i /></div><h1>Your work.<br /><em>Your workspace.</em></h1><p>Continue with the responsibility you need right now.</p></div>
+      <div className="auth-campus-art" aria-hidden="true"><img src={campusLineArt} alt="" /></div>
+    </section>
+    <div className="auth-panel-shell">
+      <section className="auth-panel role-selection-panel page-enter">
+        <div className="brand-badge"><img src={squMark} alt="SQU" /><div><strong>Sultan Qaboos University</strong><small>Final Year Grading Platform</small></div></div>
+        <div className="role-selection-user"><span>{accountInitials(session.fullName, session.email)}</span><div><small>Signed in as</small><strong>{session.fullName || session.email}</strong><p>{session.email}</p></div><b>{session.roles.length} workspace{session.roles.length === 1 ? '' : 's'}</b></div>
+        <div className="role-selection-heading"><span>Continue to platform</span><h2>Choose your workspace</h2><p>Your permissions and dashboard will match the workspace you select.</p></div>
+        <div className="role-selection-list">{session.roles.map((role, index) => <button key={role} type="button" disabled={Boolean(busyRole)} onClick={() => choose(role)}><span className="role-selection-icon"><RoleAccessIcon role={role} /></span><div className="role-selection-copy"><small>Workspace {String(index + 1).padStart(2, '0')}</small><strong>{actorTemplates[role]?.title || pretty(role)}</strong><p>{(actorTemplates[role]?.actions || []).slice(0, 2).join(' · ')}</p></div><span className="role-selection-arrow"><ArrowRight size={18} /></span>{busyRole === role && <i className="button-spinner" />}</button>)}</div>
+        <button className="role-selection-cancel" type="button" onClick={onCancel}><LogOut size={15} />Use another account</button>
+        {toast && <div className="auth-inline-toast"><Toast {...toast} /></div>}
+      </section>
+    </div>
+  </main>
+}
+
+function RoleAccessIcon({ role }) {
+  if (role === 'SUPERVISOR') return <UsersRound size={20} />
+  if (role === 'REPORT_EVALUATOR') return <FileSpreadsheet size={20} />
+  if (role === 'FACULTY_EVALUATOR') return <CheckCircle2 size={20} />
+  if (role === 'INDUSTRY_REPRESENTATIVE') return <UserPlus size={20} />
+  if (role === 'COORDINATOR') return <CheckCheck size={20} />
+  return <ShieldCheck size={20} />
 }
 
 function AuthScreen({ onSession, notify, toast }) {
@@ -429,7 +502,7 @@ function AuthField({ icon: Icon, label, value, onChange, action, ...inputProps }
   return <label className="field auth-field"><span>{label}</span><div className="input-with-icon"><Icon size={18} aria-hidden="true" /><input {...inputProps} value={value} onChange={(event) => onChange(event.target.value)} />{action}</div></label>
 }
 
-function Shell({ session, activeView, setActiveView, onLogout, notify, toast, theme, setTheme }) {
+function Shell({ session, activeView, setActiveView, onSessionChange, onLogout, notify, toast, theme, setTheme }) {
   const [datasets, setDatasets] = useState({})
   const [personalNotifications, setPersonalNotifications] = useState([])
   const [loading, setLoading] = useState(true)
@@ -446,6 +519,13 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, th
   const activeViewLabel = allowedViews.find((view) => view.id === activeView)?.label || 'Espace FYP'
   const unreadCount = personalNotifications.filter((item) => !item.readAt).length
   const request = useCallback((path, options = {}) => apiRequest(path, options, session.token), [session.token])
+
+  const switchWorkspace = useCallback(async (role) => {
+    const response = await request('/api/auth/switch-role', { method: 'POST', body: JSON.stringify({ role }) })
+    onSessionChange(response.data)
+    setActiveView(homeViewForRole(role))
+    notify('Workspace changed to ' + pretty(role))
+  }, [notify, onSessionChange, request, setActiveView])
 
   const loadPersonalNotifications = useCallback(async () => {
     try {
@@ -636,7 +716,7 @@ function Shell({ session, activeView, setActiveView, onLogout, notify, toast, th
         {initialLoading ? <AppSkeleton /> : error ? <ErrorState message={error} onRetry={loadCore} /> : activeContent}
       </section>
     </main>
-    <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} session={session} request={request} notify={notify} theme={theme} setTheme={setTheme} onLogout={onLogout} roleLabel={actorTemplates[activeRole]?.title || pretty(activeRole)} />
+    <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} session={session} request={request} notify={notify} theme={theme} setTheme={setTheme} onLogout={onLogout} onSwitchRole={switchWorkspace} roleLabel={actorTemplates[activeRole]?.title || pretty(activeRole)} />
     {toast && <Toast {...toast} />}
   </div>
 }
@@ -904,17 +984,24 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
   function updateField(field, value) {
     const next = { ...form, [field.name]: value }
     ;(config.fields || []).forEach((candidate) => {
-      if (!fieldIsVisible(candidate, next)) next[candidate.name] = candidate.type === 'checkbox' ? false : ''
+      if (!fieldIsVisible(candidate, next)) next[candidate.name] = candidate.type === 'checkbox' ? false : ['multiData', 'multiSelect'].includes(candidate.type) ? [] : ''
     })
     setForm(next)
   }
 
   async function submit(event) {
-    event.preventDefault(); if (config.readOnly) return; setBusy(true)
+    event.preventDefault(); if (config.readOnly) return
+    if (resourceKey === 'users' && (!Array.isArray(form.roles) || form.roles.length === 0)) {
+      notify('Assign at least one role before saving the account.', 'danger')
+      return
+    }
+    setBusy(true)
     try {
       const visibleFields = (config.fields || []).filter((field) => fieldIsVisible(field, form) && (!editing || !field.createOnly))
       const payload = serialize(form, visibleFields)
-      const roleChanged = resourceKey === 'users' && editing && payload.role !== editing.role
+      if (resourceKey === 'users') payload.role = defaultRoleFor(payload.roles, editing?.role)
+      const roleChanged = resourceKey === 'users' && editing && (payload.role !== editing.role
+        || JSON.stringify([...(payload.roles || [])].sort()) !== JSON.stringify([...(editing.roles || [editing.role])].sort()))
       await request(editing ? config.endpoint + '/' + editing.id : (config.customCreateEndpoint || config.endpoint), { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
       const creationMessage = resourceKey === 'users'
         ? payload.activateImmediately ? 'Active account created. The temporary password was sent by email.' : 'Account pre-registered. The user can now sign up.'
@@ -954,11 +1041,34 @@ function ResourceManager({ resourceKey, config, datasets, request, reload, notif
       : null
     : null
 
+  const visibleFormFields = (config.fields || []).filter((field) => fieldIsVisible(field, form) && (!editing || !field.createOnly))
+  const accountIdentityFields = visibleFormFields.filter((field) => ['universityId', 'fullName', 'email', 'phone'].includes(field.name))
+  const accountAccessFields = visibleFormFields.filter((field) => !['universityId', 'fullName', 'email', 'phone', 'activateImmediately'].includes(field.name))
+  const activationField = visibleFormFields.find((field) => field.name === 'activateImmediately')
+
+  const formFields = resourceKey === 'users' ? <>
+    <div className="account-dialog-summary">
+      <span className="account-dialog-avatar">{accountInitials(form.fullName, form.email)}</span>
+      <div><small>{editing ? 'Editing account' : 'New account'}</small><strong>{form.fullName || 'Account details'}</strong><span>{form.email || 'Add the university identity and access roles'}</span></div>
+      {editing?.status && <StatusPill value={editing.status} />}
+    </div>
+    <section className="account-form-section">
+      <div className="account-form-heading"><span><UserPlus size={16} /></span><div><strong>Identity</strong><small>University directory information</small></div></div>
+      <div className="account-form-grid">{accountIdentityFields.map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => updateField(field, value)} />)}</div>
+    </section>
+    <section className="account-form-section access-section">
+      <div className="account-form-heading"><span><ShieldCheck size={16} /></span><div><strong>Platform access</strong><small>Select every workspace this person may use</small></div></div>
+      <div className="account-access-fields">{accountAccessFields.map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => updateField(field, value)} />)}</div>
+      {editing && <div className="role-change-notice"><KeyRound size={16} /><span>Changing assigned roles requires the user to sign in again and set a new password.</span></div>}
+    </section>
+    {activationField && <div className="account-activation-option"><DynamicField field={activationField} value={form[activationField.name]} datasets={datasets} onChange={(value) => updateField(activationField, value)} /><small>A temporary password will be emailed securely.</small></div>}
+  </> : visibleFormFields.map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => updateField(field, value)} />)
+
   return <div className="resource-manager">
     <div className="resource-manager-toolbar"><button className="icon-button" title="Reload" aria-label="Reload" onClick={async () => setRows(unwrapList(await request(config.endpoint)))}><RefreshCw size={17} /></button>{!config.readOnly && <button type="button" className="primary-action" onClick={createNew}><Plus size={17} />Add {entityLabel}</button>}</div>
     <Panel title={config.title} wide><DataTable rows={rows} columns={config.columns} onEdit={!config.readOnly ? edit : null} onDelete={!config.readOnly ? setDeleteTarget : null} canDelete={resourceKey === 'users' ? (row) => row.status !== 'INACTIVE' : null} deleteKind={resourceKey === 'users' ? 'deactivate' : 'delete'} extraAction={extraAction} initialQuery={initialQuery} /></Panel>
-    <DialogShell open={formOpen} title={`${editing ? 'Edit' : 'Add'} ${entityLabel}`} onClose={() => { if (!busy) setFormOpen(false) }}>
-      <form className="stack-form compact dialog-form" onSubmit={submit}>{(config.fields || []).filter((field) => fieldIsVisible(field, form) && (!editing || !field.createOnly)).map((field) => <DynamicField key={field.name} field={field} value={form[field.name]} datasets={datasets} onChange={(value) => updateField(field, value)} />)}<div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setFormOpen(false)} disabled={busy}>Cancel</button><button className="primary-action" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : `Add ${entityLabel}`}</button></div></form>
+    <DialogShell open={formOpen} title={`${editing ? 'Edit' : 'Add'} ${entityLabel}`} className={resourceKey === 'users' ? 'account-dialog' : ''} onClose={() => { if (!busy) setFormOpen(false) }}>
+      <form className={`stack-form compact dialog-form${resourceKey === 'users' ? ' account-dialog-form' : ''}`} onSubmit={submit}>{formFields}<div className="dialog-actions"><button type="button" className="ghost-button" onClick={() => setFormOpen(false)} disabled={busy}>Cancel</button><button className="primary-action" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : `Add ${entityLabel}`}</button></div></form>
     </DialogShell>
     <ConfirmDialog open={Boolean(deleteTarget)} title={resourceKey === 'users' ? 'Deactivate this account?' : 'Delete this record?'} message={deleteTarget ? resourceKey === 'users' ? `${itemName(deleteTarget)} will lose access. Evaluations and audit history will be preserved.` : itemName(deleteTarget) : ''} confirmLabel={busy ? resourceKey === 'users' ? 'Deactivating…' : 'Deleting…' : resourceKey === 'users' ? 'Deactivate' : 'Delete'} danger busy={busy} onCancel={() => setDeleteTarget(null)} onConfirm={() => remove(deleteTarget)} />
   </div>
@@ -1860,11 +1970,12 @@ function DynamicField({ field, value, onChange, datasets }) {
   if (field.type === 'select') return <label className="field"><span>{field.label}</span><select value={value ?? ''} onChange={(e) => onChange(e.target.value)}><option value="">Select</option>{field.options.map((o) => <option key={o} value={o}>{pretty(o)}</option>)}</select></label>
   if (field.type === 'selectData') {
     let data = datasets[field.source] || []
-    if (field.filterRole) data = data.filter((item) => item.role === field.filterRole || item.user?.role === field.filterRole)
-    if (field.filterRoles) data = data.filter((item) => field.filterRoles.includes(item.role || item.user?.role))
+    if (field.filterRole) data = data.filter((item) => (item.roles || item.user?.roles || [item.role || item.user?.role]).includes(field.filterRole))
+    if (field.filterRoles) data = data.filter((item) => (item.roles || item.user?.roles || [item.role || item.user?.role]).some((role) => field.filterRoles.includes(role)))
     return <SelectData label={field.label} value={value} data={data} onChange={onChange} />
   }
   if (field.type === 'multiData') return <label className="field"><span>{field.label}</span><select multiple value={Array.isArray(value) ? value : []} onChange={(e) => onChange(Array.from(e.target.selectedOptions).map((o) => o.value))}>{(datasets[field.source] || []).map((item) => <option key={item.id} value={item.id}>{itemName(item.user || item)}</option>)}</select></label>
+  if (field.type === 'multiSelect') return <fieldset className={`field multi-select-field${field.name === 'roles' ? ' role-access-picker' : ''}`}><legend>{field.label}</legend><div>{field.options.map((option) => { const checked = Array.isArray(value) && value.includes(option); return <label key={option} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} onChange={() => onChange(checked ? value.filter((item) => item !== option) : [...(Array.isArray(value) ? value : []), option])} />{field.name === 'roles' && <span className="role-access-icon"><ShieldCheck size={17} /></span>}<span>{pretty(option)}</span>{field.name === 'roles' && <CheckCircle2 className="role-access-check" size={17} />}</label> })}</div></fieldset>
   if (field.type === 'checkbox') return <label className="check-field"><input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} /><span>{field.label}</span></label>
   return <Field label={field.label} type={field.type || 'text'} textarea={field.type === 'textarea'} value={value ?? ''} onChange={onChange} placeholder={field.placeholder} />
 }
@@ -1881,7 +1992,7 @@ function Panel({ title, subtitle, children, accent = 'blue', wide = false, class
   return <section className={'panel accent-' + accent + (wide ? ' wide' : '') + (className ? ' ' + className : '')}><div className="panel-heading"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></div>{children}</section>
 }
 
-function DialogShell({ open, title, onClose, children, wide = false }) {
+function DialogShell({ open, title, onClose, children, wide = false, className = '' }) {
   useEffect(() => {
     if (!open) return undefined
     const previousOverflow = document.body.style.overflow
@@ -1894,7 +2005,7 @@ function DialogShell({ open, title, onClose, children, wide = false }) {
     }
   }, [onClose, open])
   if (!open) return null
-  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className={'app-dialog ' + (wide ? 'wide' : '')} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button type="button" className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button></header><div className="app-dialog-body">{children}</div></section></div>, document.body)
+  return createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className={`app-dialog${wide ? ' wide' : ''}${className ? ` ${className}` : ''}`} role="dialog" aria-modal="true" aria-label={title}><header><h2>{title}</h2><button type="button" className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button></header><div className="app-dialog-body">{children}</div></section></div>, document.body)
 }
 
 function DataDialog({ open, title, rows, columns, onClose }) {
@@ -1939,18 +2050,26 @@ function normalizeTableSearch(value) {
 }
 
 function cellTitle(value) {
-  if (Array.isArray(value)) return value.map((item) => itemName(item?.user || item)).join(', ')
+  if (Array.isArray(value)) return value.map(tableItemLabel).join(', ')
   if (value && typeof value === 'object') return itemName(value.user || value)
   return value === null || value === undefined ? '' : String(value)
 }
 
 function renderCell(value, column) {
   if (column.toLowerCase().includes('status') || column === 'role' || column === 'phaseType' || column === 'evaluationType') return <StatusPill value={value} />
-  if (Array.isArray(value)) return value.length ? value.map((item) => itemName(item.user || item)).join(', ') : '-'
+  if (column === 'roles' && Array.isArray(value)) return value.length
+    ? <div className="role-chip-list">{value.map((role) => <StatusPill key={role} value={role} />)}</div>
+    : '-'
+  if (Array.isArray(value)) return value.length ? value.map(tableItemLabel).join(', ') : '-'
   if (typeof value === 'boolean') return <StatusPill value={value ? 'YES' : 'NO'} />
   if (value && typeof value === 'object') return itemName(value.user || value)
   if ((String(column).toLowerCase().includes('at') || String(column).toLowerCase().includes('deadline') || String(column).toLowerCase().includes('date')) && value) return formatDateTime(value)
   return value ?? '-'
+}
+
+function tableItemLabel(item) {
+  if (item && typeof item === 'object') return itemName(item.user || item)
+  return pretty(item)
 }
 
 function LogoLockup({ compact = false }) {

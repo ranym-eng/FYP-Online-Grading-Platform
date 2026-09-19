@@ -11,6 +11,7 @@ import fyp_grading_platform.user.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpHeaders;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,7 +24,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -70,13 +75,13 @@ public class AuthController {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw invalidCredentials();
         }
-        if (user.getRole() == UserRole.INDUSTRY_REPRESENTATIVE
+        if (user.isIndustryOnly()
                 && (user.getAccessExpiresAt() == null || user.getAccessExpiresAt().isBefore(LocalDateTime.now()))) {
             user.setStatus(UserStatus.INACTIVE);
             users.save(user);
             throw new BusinessException("ACCESS_EXPIRED", "Industry Guest access has expired");
         }
-        if (user.getRole() != UserRole.INDUSTRY_REPRESENTATIVE && !localInternalLoginEnabled) {
+        if (!user.isIndustryOnly() && !localInternalLoginEnabled) {
             throw new BusinessException("USE_SQU_SSO", "Use the SQU institutional sign-in button");
         }
         if (user.getPasswordHash() == null || !encoder.matches(request.password(), user.getPasswordHash())) {
@@ -88,10 +93,11 @@ public class AuthController {
                 throw new BusinessException("TEMPORARY_PASSWORD_EXPIRED", "Ask an administrator for a new temporary password");
             }
             return ApiResponse.ok("A new password is required", new LoginResponse(
-                    null, user.getId(), user.getEmail(), user.getRole(), user.getFullName(), true
+                    null, user.getId(), user.getEmail(), user.getDefaultRole(), roles(user),
+                    user.getFullName(), true, false
             ));
         }
-        return ApiResponse.ok("Login successful", response(user, tokens.generate(user)));
+        return ApiResponse.ok("Login successful", response(user, user.getDefaultRole(), true));
     }
 
     @PostMapping("/signup/request-code")
@@ -125,7 +131,7 @@ public class AuthController {
         user.setPasswordChangeRequired(false);
         user.setTemporaryPasswordExpiresAt(null);
         users.save(user);
-        return ApiResponse.ok("Password changed", response(user, tokens.generate(user)));
+        return ApiResponse.ok("Password changed", response(user, user.getDefaultRole(), true));
     }
 
     @GetMapping("/sso/config")
@@ -136,13 +142,13 @@ public class AuthController {
     @PostMapping("/sso/exchange")
     ApiResponse<LoginResponse> exchangeSsoCode(@Valid @RequestBody SsoExchangeRequest request) {
         User user = sso.exchange(request.code());
-        return ApiResponse.ok("SQU login successful", response(user, tokens.generate(user)));
+        return ApiResponse.ok("SQU login successful", response(user, user.getDefaultRole(), true));
     }
 
     @PostMapping("/industry/activate")
     ApiResponse<LoginResponse> activateIndustryGuest(@Valid @RequestBody IndustryActivationRequest request) {
         User user = industryInvitations.activate(request.token(), request.newPassword());
-        return ApiResponse.ok("Industry Guest account activated", response(user, tokens.generate(user)));
+        return ApiResponse.ok("Industry Guest account activated", response(user, user.getDefaultRole(), true));
     }
 
     @PostMapping("/logout")
@@ -154,14 +160,24 @@ public class AuthController {
     @PostMapping("/refresh-token")
     ApiResponse<LoginResponse> refresh(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
         User user = currentUsers.requireUser(authorization);
-        return ApiResponse.ok("Token refreshed", response(user, tokens.generate(user)));
+        return ApiResponse.ok("Token refreshed", response(user, user.getRole(), false));
+    }
+
+    @PostMapping("/switch-role")
+    ApiResponse<LoginResponse> switchRole(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @Valid @RequestBody SwitchRoleRequest request
+    ) {
+        User user = currentUsers.requireUser(authorization);
+        currentUsers.requireRoleAvailable(user, request.role());
+        return ApiResponse.ok("Workspace changed", response(user, request.role(), false));
     }
 
     @GetMapping("/me")
     ApiResponse<AuthUserResponse> me(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
         User user = currentUsers.requireUser(authorization);
         return ApiResponse.ok("Current user", new AuthUserResponse(
-                user.getId(), user.getUniversityId(), user.getFullName(), user.getEmail(), user.getPhone(), user.getRole(),
+                user.getId(), user.getUniversityId(), user.getFullName(), user.getEmail(), user.getPhone(), user.getRole(), roles(user),
                 user.getAccessExpiresAt()
         ));
     }
@@ -170,7 +186,9 @@ public class AuthController {
     ApiResponse<TokenValidationResponse> validateToken(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
         User user = currentUsers.requireUser(authorization);
         TokenService.TokenClaims claims = tokens.parse(bearer(authorization));
-        return ApiResponse.ok("Token is valid", new TokenValidationResponse(true, user.getId(), user.getRole(), claims.expiresAt()));
+        return ApiResponse.ok("Token is valid", new TokenValidationResponse(
+                true, user.getId(), user.getRole(), roles(user), claims.expiresAt()
+        ));
     }
 
     @PostMapping("/change-password")
@@ -179,7 +197,7 @@ public class AuthController {
             @Valid @RequestBody ChangePasswordRequest request
     ) {
         User user = currentUsers.requireUser(authorization);
-        if (user.getRole() != UserRole.INDUSTRY_REPRESENTATIVE && !localInternalLoginEnabled) {
+        if (!user.isIndustryOnly() && !localInternalLoginEnabled) {
             throw new BusinessException("PASSWORD_MANAGED_BY_SSO", "The password for this account is managed by SQU SSO");
         }
         if (!encoder.matches(request.currentPassword(), user.getPasswordHash())) {
@@ -207,8 +225,19 @@ public class AuthController {
         return ApiResponse.ok("Password reset successful", null);
     }
 
-    private LoginResponse response(User user, String token) {
-        return new LoginResponse(token, user.getId(), user.getEmail(), user.getRole(), user.getFullName(), false);
+    private LoginResponse response(User user, UserRole activeRole, boolean requireSelection) {
+        currentUsers.requireRoleAvailable(user, activeRole);
+        Set<UserRole> availableRoles = roles(user);
+        return new LoginResponse(
+                tokens.generate(user, activeRole), user.getId(), user.getEmail(), activeRole, availableRoles,
+                user.getFullName(), false, requireSelection && availableRoles.size() > 1
+        );
+    }
+
+    private Set<UserRole> roles(User user) {
+        return Arrays.stream(UserRole.values())
+                .filter(user::hasRole)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private BusinessException invalidCredentials() {
@@ -228,9 +257,10 @@ record AuthUserResponse(
         String email,
         String phone,
         UserRole role,
+        Set<UserRole> roles,
         LocalDateTime accessExpiresAt
 ) {}
-record TokenValidationResponse(boolean valid, UUID userId, UserRole role, long expiresAt) {}
+record TokenValidationResponse(boolean valid, UUID userId, UserRole role, Set<UserRole> roles, long expiresAt) {}
 record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank @Size(min = 8, max = 128) String newPassword) {}
 record ForgotPasswordRequest(@NotBlank @Email String email) {}
 record ResetPasswordRequest(@NotBlank String token, @NotBlank @Size(min = 8, max = 128) String newPassword) {}
@@ -250,3 +280,4 @@ record IndustryActivationRequest(
         @NotBlank String token,
         @NotBlank @Size(min = 8, max = 128) String newPassword
 ) {}
+record SwitchRoleRequest(@NotNull UserRole role) {}

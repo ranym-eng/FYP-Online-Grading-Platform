@@ -230,6 +230,7 @@ public class SimplifiedInitializationImportService {
             Map<String, Set<UserRole>> actorRolesByEmail,
             List<InitializationImportError> errors
     ) {
+        Set<String> emailsInSheet = new LinkedHashSet<>();
         for (RowData row : rows) {
             for (String field : List.of("actorId", "actorName", "email", "status")) required(row, field, errors);
             String id = lower(row.value("actorId"));
@@ -238,6 +239,9 @@ public class SimplifiedInitializationImportService {
                 duplicate(row, "actorId", id, actorsById, "Actor ID is duplicated across role sheets", errors);
             }
             if (!email.isBlank()) {
+                if (!emailsInSheet.add(email)) {
+                    error(row, "email", "Actor email is duplicated in the same role sheet", errors);
+                }
                 actorsByEmail.putIfAbsent(email, row);
                 actorRolesByEmail.computeIfAbsent(email, ignored -> new LinkedHashSet<>()).add(role);
             }
@@ -418,6 +422,13 @@ public class SimplifiedInitializationImportService {
     private Map<String, User> importActors(Parsed parsed, Map<String, Counter> counters) {
         Map<String, User> result = new LinkedHashMap<>();
         Map<String, User> importedByEmail = new LinkedHashMap<>();
+        Map<String, Set<UserRole>> workbookRolesByEmail = new LinkedHashMap<>();
+        for (Map.Entry<String, UserRole> entry : ACTOR_ROLES.entrySet()) {
+            for (RowData row : parsed.rows(entry.getKey())) {
+                workbookRolesByEmail.computeIfAbsent(lower(row.value("email")), ignored -> new LinkedHashSet<>())
+                        .add(entry.getValue());
+            }
+        }
         for (Map.Entry<String, UserRole> entry : ACTOR_ROLES.entrySet()) {
             for (RowData row : parsed.rows(entry.getKey())) {
                 String email = lower(row.value("email"));
@@ -431,32 +442,39 @@ public class SimplifiedInitializationImportService {
                 boolean emailChanged = !created && user.getEmail() != null
                         && !user.getEmail().equalsIgnoreCase(email);
                 UserRole importedRole = entry.getValue();
-                UserRole primaryRole = preferredRole(user.getRole(), importedRole);
-                boolean importedRoleIsPrimary = user.getRole() == null || primaryRole == importedRole;
+                Set<UserRole> previousRoles = new LinkedHashSet<>(user.getRoles());
+                Set<UserRole> assignedRoles = new LinkedHashSet<>(workbookRolesByEmail.get(email));
+                boolean rolesChanged = !assignedRoles.equals(previousRoles);
+                UserRole primaryRole = assignedRoles.stream()
+                        .min(java.util.Comparator.comparingInt(this::rolePriority))
+                        .orElseThrow();
+                boolean importedRoleIsPrimary = primaryRole == importedRole;
                 UserStatus importedStatus = UserStatus.valueOf(upper(row.value("status")));
-                UserStatus status = importedRoleIsPrimary || user.getStatus() == null ? importedStatus : user.getStatus();
+                UserStatus status = resolvedImportStatus(
+                        user.getStatus(), created, importedRoleIsPrimary, importedStatus
+                );
                 String universityId = importedRoleIsPrimary || user.getUniversityId() == null
                         ? row.value("actorId") : user.getUniversityId();
                 String fullName = importedRoleIsPrimary || user.getFullName() == null
                         ? row.value("actorName") : user.getFullName();
                 String phone = importedRoleIsPrimary || user.getPhone() == null
                         ? blankToNull(row.value("phone")) : user.getPhone();
+                LocalDateTime accessExpiresAt = importedRole == UserRole.INDUSTRY_REPRESENTATIVE
+                        ? parseAccessExpiresAt(row.value("accessExpiresAt"))
+                        : user.getAccessExpiresAt();
                 boolean changed = created || different(user.getUniversityId(), universityId)
                         || different(user.getFullName(), fullName)
-                        || different(user.getEmail(), email) || user.getRole() != primaryRole
+                        || different(user.getEmail(), email) || user.getDefaultRole() != primaryRole || rolesChanged
                         || user.getStatus() != status
-                        || different(user.getAccessExpiresAt(), primaryRole == UserRole.INDUSTRY_REPRESENTATIVE
-                                ? parseAccessExpiresAt(row.value("accessExpiresAt"))
-                                : null);
+                        || different(user.getAccessExpiresAt(), accessExpiresAt);
                 user.setUniversityId(universityId);
                 user.setFullName(fullName);
                 user.setEmail(email);
                 user.setPhone(phone);
+                user.setRoles(assignedRoles);
                 user.setRole(primaryRole);
                 user.setStatus(status);
-                user.setAccessExpiresAt(primaryRole == UserRole.INDUSTRY_REPRESENTATIVE
-                        ? parseAccessExpiresAt(row.value("accessExpiresAt"))
-                        : null);
+                user.setAccessExpiresAt(accessExpiresAt);
                 String initialPassword = null;
                 if (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION) {
                     user.setPasswordHash(null);
@@ -473,6 +491,10 @@ public class SimplifiedInitializationImportService {
                 user = users.save(user);
                 importedByEmail.put(email, user);
                 if (isEvaluator(importedRole)) upsertEvaluatorProfile(user, row, importedRole);
+                if (!created && rolesChanged) {
+                    user = userService.requireNewPasswordAfterRoleChange(user, previousRoles);
+                    importedByEmail.put(email, user);
+                }
                 if (created || emailChanged) {
                     if (primaryRole == UserRole.INDUSTRY_REPRESENTATIVE
                             && (status == UserStatus.PENDING_ACTIVATION || status == UserStatus.PENDING_INVITATION)) {
@@ -490,9 +512,18 @@ public class SimplifiedInitializationImportService {
         return result;
     }
 
-    private UserRole preferredRole(UserRole current, UserRole candidate) {
-        if (current == null) return candidate;
-        return rolePriority(candidate) < rolePriority(current) ? candidate : current;
+    static UserStatus resolvedImportStatus(
+            UserStatus currentStatus,
+            boolean created,
+            boolean importedRoleIsPrimary,
+            UserStatus importedStatus
+    ) {
+        if (!created && currentStatus == UserStatus.ACTIVE
+                && (importedStatus == UserStatus.PENDING_ACTIVATION
+                || importedStatus == UserStatus.PENDING_INVITATION)) {
+            return UserStatus.ACTIVE;
+        }
+        return importedRoleIsPrimary || currentStatus == null ? importedStatus : currentStatus;
     }
 
     private int rolePriority(UserRole role) {

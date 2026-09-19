@@ -165,7 +165,7 @@ public class ProjectController {
                 .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found"));
         var supervisor = evaluatorProfiles.findById(supervisorId)
                 .orElseThrow(() -> new BusinessException("SUPERVISOR_NOT_FOUND", "Supervisor profile not found"));
-        if (supervisor.getUser().getRole() != UserRole.SUPERVISOR) {
+        if (!supervisor.getUser().hasRole(UserRole.SUPERVISOR)) {
             throw new BusinessException("INVALID_SUPERVISOR_ROLE", "Only a supervisor account can supervise a project");
         }
         var existingAssignment = supervisors.findByProjectIdAndSupervisorId(projectId, supervisorId);
@@ -213,7 +213,7 @@ public class ProjectController {
                 .orElseThrow(() -> new BusinessException("PROJECT_NOT_FOUND", "Project not found"));
         var evaluator = evaluatorProfiles.findById(request.evaluatorId())
                 .orElseThrow(() -> new BusinessException("EVALUATOR_NOT_FOUND", "Evaluator not found"));
-        assertEvaluationRole(evaluator.getUser().getRole(), request.evaluationType());
+        assertEvaluationRole(evaluator.getUser(), request.evaluationType());
         ProjectEvaluatorAssignment assignment = evaluators
                 .findByProjectIdAndEvaluatorIdAndEvaluationType(projectId, request.evaluatorId(), request.evaluationType())
                 .orElse(new ProjectEvaluatorAssignment());
@@ -273,16 +273,12 @@ public class ProjectController {
         return ApiResponse.ok("Evaluator removed", null);
     }
 
-    private void assertEvaluationRole(UserRole role, EvaluationType type) {
-        boolean valid = switch (role) {
-            case INDUSTRY_REPRESENTATIVE -> type == EvaluationType.DEMO_DAY_INDUSTRY;
-            case REPORT_EVALUATOR -> type == EvaluationType.REPORT_PHASE_I
-                    || type == EvaluationType.REPORT_PHASE_II;
-            case FACULTY_EVALUATOR -> type == EvaluationType.ORAL_PHASE_I
-                    || type == EvaluationType.ORAL_PHASE_II;
-            case SUPERVISOR -> type == EvaluationType.SUPERVISOR_PHASE_I
-                    || type == EvaluationType.SUPERVISOR_PHASE_II;
-            default -> false;
+    private void assertEvaluationRole(fyp_grading_platform.user.User user, EvaluationType type) {
+        boolean valid = switch (type) {
+            case DEMO_DAY_INDUSTRY -> user.hasRole(UserRole.INDUSTRY_REPRESENTATIVE);
+            case REPORT_PHASE_I, REPORT_PHASE_II -> user.hasRole(UserRole.REPORT_EVALUATOR);
+            case ORAL_PHASE_I, ORAL_PHASE_II -> user.hasRole(UserRole.FACULTY_EVALUATOR);
+            case SUPERVISOR_PHASE_I, SUPERVISOR_PHASE_II -> user.hasRole(UserRole.SUPERVISOR);
         };
         if (!valid) {
             throw new BusinessException("EVALUATOR_ROLE_MISMATCH", "The selected account role cannot complete this evaluation form");

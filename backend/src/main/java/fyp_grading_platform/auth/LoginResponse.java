@@ -1,6 +1,7 @@
 package fyp_grading_platform.auth;
 
 import fyp_grading_platform.common.UserRole;
+import java.util.Set;
 import java.util.UUID;
 
 public record LoginResponse(
@@ -8,6 +9,8 @@ public record LoginResponse(
         UUID userId,
         String email,
         UserRole role,
+        Set<UserRole> roles,
         String fullName,
-        boolean passwordChangeRequired
+        boolean passwordChangeRequired,
+        boolean roleSelectionRequired
 ) {}
